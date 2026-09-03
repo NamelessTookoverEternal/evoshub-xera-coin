@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services — operating EVOS Business Hub, the ecosystem behind EVOS Data Services, EVOS GPT, and more.">
+  <meta property="og:title" content="EVOS Business Hub — EVOXERA Technology">
+  <meta property="og:description" content="One ecosystem. Many possibilities. EVOS Data, EVOS GPT and more — all under EVOS Business Hub.">
+  <meta property="og:image" content="/assets/images/evoshub.jpeg">
+  <meta property="og:url" content="https://evoshub.xyz">
+  <title>EVOS Business Hub — EVOXERA Technology</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/jpeg" href="/assets/images/evoshub.jpeg">
+  <link rel="apple-touch-icon" href="/assets/images/evoshub.jpeg">
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/evoshub-theme.css">
+  <link rel="stylesheet" href="../css/motion-3d.css">
+
+  <style>
+    /* Color tokens now live in global.css (single source of truth for
+       every page). This block only holds page-specific layout/component
+       CSS that doesn't belong in the shared stylesheets. */
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: clamp(96px, 20vh, 120px) var(--gutter) clamp(56px, 10vh, 80px);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-glow {
+      position: absolute;
+      width: min(700px, 130vw); height: min(700px, 130vw);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(47,111,237,.12) 0%, transparent 55%),
+        radial-gradient(circle at 70% 65%, rgba(22,163,74,.09) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(245,158,11,.06) 0%, transparent 60%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
+      pointer-events: none;
+    }
+    .hero h1 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(44px, 8vw, 86px);
+      line-height: 1.03;
+      letter-spacing: -2.5px;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .hero-sub {
+      font-size: clamp(15px, 2vw, 19px);
+      color: var(--text2);
+      margin-bottom: 16px;
+      position: relative;
+      max-width: 500px;
+    }
+    .hero-sub2 {
+      font-size: 13px;
+      color: var(--text3);
+      margin-bottom: 44px;
+      position: relative;
+    }
+    .hero-btns {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* ── NAV LOGO with image ── */
+    .nav-logo__img {
+      width: 30px;
+      height: 30px;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+    .nav-logo__fallback {
+      width: 34px; height: 34px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 800; font-size: 14px; color: #fff;
+      flex-shrink: 0;
+    }
+
+    /* ── TRUST BAR ── */
+    .trust-bar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-top: 52px;
+      position: relative;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      font-family: var(--font-mono);
+      color: var(--text3);
+    }
+    .trust-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .trust-divider { width: 1px; height: 18px; background: var(--border2); }
+
+    /* ── EVOXERA BADGE (footer) ── */
+    .evoxera-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 8px 14px;
+      margin-top: 16px;
+      font-size: 12.5px;
+      color: var(--text2);
+    }
+    .evoxera-badge img {
+      width: 20px; height: 20px;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    .evoxera-badge__fallback {
+      width: 20px; height: 20px;
+      background: var(--blue);
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: #fff;
+    }
+
+    /* ── LIVE SERVICE CARD ── */
+    .live-card {
+      border-color: rgba(22,163,74,.28);
+      background: linear-gradient(135deg, var(--surface) 0%, rgba(22,163,74,.05) 100%);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 40px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 640px) {
+      .live-card { grid-template-columns: 1fr; }
+      .live-card .btn { align-self: flex-start; }
+    }
+
+    /* ── WHATSAPP BTN ── */
+    .btn--whatsapp {
+      background: #25D366;
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn--whatsapp:hover { opacity: .88; }
+
+    /* ── CTA STRIP ── */
+    .cta-strip {
+      background: linear-gradient(135deg, #38BDF8 0%, #2F6FED 45%, #1E3A8A 100%);
+      border-radius: var(--radius-xl);
+      padding: clamp(32px, 6vw, 60px) clamp(24px, 6vw, 56px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-strip::before {
+      content: '';
+      position: absolute;
+      right: -80px; top: -80px;
+      width: 280px; height: 280px;
+      background: rgba(255,255,255,.06);
+      border-radius: 50%;
+    }
+    .cta-strip h2 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(20px, 3vw, 34px);
+      color: #fff;
+      letter-spacing: -.8px;
+      margin-bottom: 8px;
+    }
+    .cta-strip p { font-size: 15px; color: rgba(255,255,255,.72); }
+    .btn--white       { background: #fff; color: var(--blue); font-weight: 600; }
+    .btn--white:hover { opacity: .9; transform: translateY(-1px); }
+    .btn--white-ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.4); }
+    .btn--white-ghost:hover { background: rgba(255,255,255,.1); }
+
+    /* ── CONTACT ── */
+    .form-input {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 9px;
+      padding: 11px 14px;
+      font-family: var(--font-body);
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-input:focus { border-color: var(--blue); }
+    .form-input::placeholder { color: var(--text3); }
+
+    .contact-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .contact-row:first-child { border-top: 1px solid var(--border); }
+    .contact-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 18px;
+    }
+    .contact-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+    .contact-value { font-size: 14.5px; font-weight: 500; }
+    .contact-value:hover { color: var(--blue); }
+
+    /* ── WHY ICON ── */
+    .why-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+
+    @media (max-width: 768px) {
+      .cta-strip { flex-direction: column; align-items:flex-start; }
+      .cta-btns  { width: 100%; }
+      .cta-btns .btn { flex:1 1 auto; }
+    }
+
+    /* Small phones — trim the pieces most likely to feel cramped
+       rather than relying on one global breakpoint for everything. */
+    @media (max-width: 400px) {
+      .badge { font-size: 10px; padding: 4px 8px; }
+      .hero h1 { letter-spacing: -1.5px; }
+      .hero-btns .btn { flex: 1 1 auto; font-size: 14px; padding: 12px 16px; }
+      .trust-bar { gap: 14px; }
+      .trust-divider { display: none; }
+      .live-card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a class="nav-logo" href="#">
+    <!-- Drop evoshub.png into /public/assets/images/ and this auto-shows -->
+    <img class="nav-logo__img"
+         src="/assets/images/evoshub.jpeg"
+         alt="EVOSHUB"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="nav-logo__fallback" style="display:none;">EH</div>
+    <span class="nav-logo__text">EVOSHUB</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#">Home</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="/business-tools.html">Business</a></li>
+    <li><a href="/website-creation.html">Website Creation</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li>
+      <a href="#services" class="btn btn--primary" style="padding:8px 20px;font-size:14px;">
+        Get Started
+      </a>
+    </li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <button class="theme-toggle" aria-label="Toggle theme" type="button">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <div class="hamburger"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<canvas id="bg3d-canvas" aria-hidden="true"></canvas>
+<div class="hero">
+  <div class="hero-grid-bg" style="position:absolute;inset:0;"></div>
+  <div class="hero-glow"></div>
+
+  <span class="prompt-chip" data-flow-in data-depth="4" style="margin-bottom:22px;position:relative;">whoami --ecosystem<span class="blink-cursor"></span></span>
+
+  <h1 data-flow-in data-depth="12">EVOS<br><span class="gradient-text">Business Hub</span></h1>
+
+  <p class="hero-sub" data-flow-in data-depth="9">Building Digital Solutions for Africa and Beyond.</p>
+  <p class="hero-sub2" data-flow-in data-depth="7">Data services, AI tools, business software — all under one roof.</p>
+
+  <div class="hero-btns" data-flow-in data-depth="5">
+    <a href="#services" class="btn btn--primary">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Get Started
+    </a>
+    <a href="https://evosdata.xyz" class="btn btn--secondary" target="_blank" rel="noopener">
+      📶 EVOS Data Services
+    </a>
+    <a href="https://evosgpt.xyz" class="btn btn--secondary" target="_blank" rel="noopener">
+      🤖 EVOS GPT
+    </a>
+    <a href="#contact" class="btn btn--ghost">Contact Us</a>
+  </div>
+
+  <!-- Trust bar -->
+  <div class="trust-bar">
+    <div class="trust-item"><span class="trust-dot"></span>EVOS Data — Live Now</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item"><span class="trust-dot"></span>EVOS GPT — Live Now</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item">🔒 Secure Payments</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item">🇬🇭 Made in Ghana</div>
+  </div>
+</div>
+
+<!-- ══ ABOUT ══ -->
+<section id="about" class="section" style="border-top:1px solid var(--border);">
+  <div class="grid-2">
+    <div class="fade-up">
+      <span class="section-label">About EVOXERA TECHNOLOGY</span>
+      <h2 class="section-title">One ecosystem.<br>Many possibilities.</h2>
+      <p class="section-desc" style="margin-bottom:20px;">
+        EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services. It operates <strong style="color:var(--text);">EVOS Data Services</strong>, a platform for convenient data bundle purchases, while developing software, web platforms, AI tools, and innovative technology solutions.
+      </p>
+      <p style="font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:16px;">
+        <strong style="color:var(--text);">EVOS Business Hub</strong> is the platform that brings it all together — the central ecosystem where every EVOXERA product lives. Under EVOS Business Hub today you'll find <strong style="color:var(--text);">EVOS Data</strong>, our data bundle and airtime service, and <strong style="color:var(--text);">EVOS GPT</strong>, our AI assistant — with more products joining the ecosystem as we build out business tools and a digital marketplace.
+      </p>
+      <p style="font-size:14px;color:var(--text2);line-height:1.75;">
+        We started with what Ghanaians need most — fast, reliable data bundles and airtime — and we're building outward from there into AI, business automation, and a full digital marketplace.
+      </p>
+      <div style="display:flex;gap:10px;margin-top:28px;flex-wrap:wrap;">
+        <a href="#services" class="btn btn--primary" style="font-size:14px;padding:10px 20px;">See Our Services</a>
+        <a href="#contact" class="btn btn--ghost" style="font-size:14px;padding:10px 20px;">Talk to Us</a>
+      </div>
+    </div>
+    <div class="fade-up">
+      <!-- Ecosystem visual -->
+      <div class="card" style="padding:32px;">
+        <p style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:2px;margin-bottom:20px;">EVOSHUB Ecosystem</p>
+
+        <!-- Hub centre -->
+        <div style="background:var(--blue);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <img src="/assets/images/evoshub.png" alt="EVOSHUB"
+               style="width:32px;height:32px;object-fit:contain;border-radius:6px;"
+               onerror="this.style.display='none'">
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px;color:#fff;">EVOS Business Hub</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.65);">evoshub.xyz · Central Platform</div>
+          </div>
+        </div>
+
+        <!-- Products -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:var(--surface2);border:1px solid rgba(22,163,74,.28);border-radius:10px;padding:12px 14px;">
+            <div style="font-size:18px;margin-bottom:6px;">📶</div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);">EVOS Data</div>
+            <div style="font-size:11px;color:var(--green);margin-top:2px;">● Live now</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid rgba(22,163,74,.28);border-radius:10px;padding:12px 14px;">
+            <div style="font-size:18px;margin-bottom:6px;">🤖</div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);">EVOS GPT</div>
+            <div style="font-size:11px;color:var(--green);margin-top:2px;">● Live now</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;opacity:.7;">
+            <div style="font-size:18px;margin-bottom:6px;">💼</div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);">Biz Tools</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">Coming soon</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;opacity:.7;">
+            <div style="font-size:18px;margin-bottom:6px;">🌐</div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);">Marketplace</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px;">Coming soon</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SERVICES ══ -->
+<section id="services" class="section" style="border-top:1px solid var(--border);">
+  <div class="fade-up" style="margin-bottom:40px;">
+    <span class="section-label">Our Services</span>
+    <h2 class="section-title">What's available<br>in the ecosystem</h2>
+    <p class="section-desc">Two products live today under EVOS Business Hub. More launching soon — join early and grow with us.</p>
+  </div>
+
+  <!-- ★ LIVE CARD — EVOS DATA -->
+  <div class="card live-card fade-up">
+    <div>
+      <span class="badge badge--live" style="margin-bottom:14px;"><span class="badge-pulse"></span>&nbsp;Available Now</span>
+      <div class="card-icon card-icon--green" style="font-size:26px;width:58px;height:58px;">📶</div>
+      <h3 style="font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:8px;">EVOS Data Services</h3>
+      <p style="color:var(--text2);font-size:15px;line-height:1.7;margin-bottom:18px;max-width:420px;">
+        Ghana's go-to platform for fast, affordable data bundles, airtime top-ups, and digital services. Built for everyday Ghanaians.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">📡 Data Bundles</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">📱 Airtime</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">💳 Digital Services</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">MTN · Telecel · AirtelTigo</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
+      <a href="https://evosdata.xyz" class="btn btn--secondary" target="_blank" rel="noopener" style="white-space:nowrap;">
+        Open EVOS Data
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+      <a href="https://wa.me/233537314125" class="btn btn--whatsapp" target="_blank" rel="noopener" style="white-space:nowrap;font-size:14px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Order via WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <!-- ★ LIVE CARD — EVOS GPT -->
+  <div class="card live-card fade-up">
+    <div>
+      <span class="badge badge--live" style="margin-bottom:14px;"><span class="badge-pulse"></span>&nbsp;Available Now</span>
+      <div class="card-icon" style="font-size:26px;width:58px;height:58px;">🤖</div>
+      <h3 style="font-family:var(--font-display);font-size:24px;font-weight:700;margin-bottom:8px;">EVOS GPT</h3>
+      <p style="color:var(--text2);font-size:15px;line-height:1.7;margin-bottom:18px;max-width:420px;">
+        Your AI assistant for CVs, business plans, school work, coding, and ideas — part of the EVOS Business Hub family. Your EVOS Data account already unlocks it.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">📝 Writing & Docs</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">💻 Coding Help</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">🎓 School & Study</span>
+        <span style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text2);">💡 Business Ideas</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
+      <a href="https://evosgpt.xyz" class="btn btn--secondary" target="_blank" rel="noopener" style="white-space:nowrap;">
+        Open EVOS GPT
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- COMING SOON GRID -->
+  <div class="grid-4" data-stagger-cards style="gap:16px;">
+    <a href="/business-tools.html" class="card fade-up" style="text-decoration:none;">
+      <span class="badge badge--live" style="margin-bottom:14px;"><span class="badge-pulse"></span>&nbsp;1 Tool Active</span>
+      <div class="card-icon" style="font-size:20px;width:44px;height:44px;">💼</div>
+      <h3 style="font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:6px;">Business Tools</h3>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;">Website Creation is live. Freelancing tools, invoicing & more unlocking soon.</p>
+    </a>
+    <div class="card fade-up">
+      <span class="badge badge--soon" style="margin-bottom:14px;">Coming Soon</span>
+      <div class="card-icon card-icon--amber" style="font-size:20px;width:44px;height:44px;">🪙</div>
+      <h3 style="font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:6px;">XERA Utility</h3>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;">Token and reward system powering the EVOSHUB ecosystem.</p>
+    </div>
+    <div class="card fade-up">
+      <span class="badge badge--soon" style="margin-bottom:14px;">Coming Soon</span>
+      <div class="card-icon card-icon--green" style="font-size:20px;width:44px;height:44px;">🌐</div>
+      <h3 style="font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:6px;">Marketplace</h3>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;">Buy & sell digital products from verified vendors across Africa.</p>
+    </div>
+    <div class="card fade-up">
+      <span class="badge badge--soon" style="margin-bottom:14px;">Coming Soon</span>
+      <div class="card-icon card-icon--muted" style="font-size:20px;width:44px;height:44px;">🧩</div>
+      <h3 style="font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:6px;">More Products</h3>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6;">New EVOXERA-built tools joining the ecosystem regularly.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WHY US ══ -->
+<section class="section" style="border-top:1px solid var(--border);">
+  <div class="fade-up" style="text-align:center;max-width:500px;margin:0 auto 48px;">
+    <span class="section-label">Why EVOSHUB</span>
+    <h2 class="section-title">Built to be trusted</h2>
+    <p style="font-size:15px;color:var(--text2);">Everything we build is centred around speed, security, and your experience.</p>
+  </div>
+  <div class="grid-4" data-stagger-cards>
+    <div class="card fade-up" style="text-align:center;">
+      <div class="why-icon" style="background:var(--blue-dim);margin:0 auto 14px;">⚡</div>
+      <h4 style="font-family:var(--font-display);font-weight:600;margin-bottom:8px;">Fast Services</h4>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.65;">Instant data delivery and real-time processing — no waiting.</p>
+    </div>
+    <div class="card fade-up" style="text-align:center;">
+      <div class="why-icon" style="background:var(--green-dim);margin:0 auto 14px;">🔒</div>
+      <h4 style="font-family:var(--font-display);font-weight:600;margin-bottom:8px;">Secure Payments</h4>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.65;">Encrypted transactions through trusted payment gateways.</p>
+    </div>
+    <div class="card fade-up" style="text-align:center;">
+      <div class="why-icon" style="background:rgba(37,211,102,.1);margin:0 auto 14px;">💬</div>
+      <h4 style="font-family:var(--font-display);font-weight:600;margin-bottom:8px;">24/7 Support</h4>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.65;">WhatsApp & email support ready whenever you need help.</p>
+    </div>
+    <div class="card fade-up" style="text-align:center;">
+      <div class="why-icon" style="background:var(--blue-dim);margin:0 auto 14px;">🚀</div>
+      <h4 style="font-family:var(--font-display);font-weight:600;margin-bottom:8px;">Growing Fast</h4>
+      <p style="font-size:13.5px;color:var(--text2);line-height:1.65;">New products launching regularly — join early and benefit first.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTA STRIP ══ -->
+<div style="padding:0 5% 96px;max-width:1200px;margin:0 auto;">
+  <div class="cta-strip fade-up">
+    <div style="position:relative;">
+      <h2>Join the EVOS ecosystem today.</h2>
+      <p>One platform. All the digital services you need to move faster.</p>
+    </div>
+    <div class="cta-btns" style="display:flex;gap:12px;flex-wrap:wrap;flex-shrink:0;position:relative;">
+      <a href="#services" class="btn btn--white">Get Started</a>
+      <a href="#contact"  class="btn btn--white-ghost">Contact Us</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONTACT ══ -->
+<section id="contact" class="section" style="border-top:1px solid var(--border);">
+  <div class="fade-up" style="margin-bottom:48px;">
+    <span class="section-label">Contact Us</span>
+    <h2 class="section-title">We're here to help</h2>
+    <p class="section-desc">Reach out via WhatsApp for the fastest response, or send us a message below.</p>
+  </div>
+
+  <div class="grid-2" style="align-items:start;gap:48px;">
+    <!-- Contact info -->
+    <div class="fade-up">
+      <div class="contact-row">
+        <div class="contact-icon" style="background:rgba(37,211,102,.1);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </div>
+        <div>
+          <div class="contact-label">WhatsApp (Fastest)</div>
+          <a href="https://wa.me/233537314125" class="contact-value" style="color:var(--text);display:block;">+233 537 314 125</a>
+        </div>
+      </div>
+      <div class="contact-row">
+        <div class="contact-icon" style="background:var(--blue-dim);">📧</div>
+        <div>
+          <div class="contact-label">Email</div>
+          <a href="mailto:support@evoshub.xyz" class="contact-value" style="color:var(--text);display:block;">support@evoshub.xyz</a>
+        </div>
+      </div>
+      <div class="contact-row">
+        <div class="contact-icon" style="background:var(--surface2);">🌐</div>
+        <div>
+          <div class="contact-label">Website</div>
+          <a href="https://evoshub.xyz" class="contact-value" style="color:var(--text);display:block;">evoshub.xyz</a>
+        </div>
+      </div>
+      <div class="contact-row">
+        <div class="contact-icon" style="background:var(--surface2);">📍</div>
+        <div>
+          <div class="contact-label">Location</div>
+          <span class="contact-value" style="color:var(--text);">Ghana, West Africa</span>
+        </div>
+      </div>
+
+      <a href="https://wa.me/233537314125" class="btn btn--whatsapp" target="_blank" rel="noopener" style="margin-top:24px;width:100%;justify-content:center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Chat with us on WhatsApp
+      </a>
+    </div>
+
+    <!-- Contact form -->
+    <div class="card fade-up">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:6px;">Send us a message</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:24px;">We'll get back to you within 24 hours.</p>
+      <form class="contact-form" onsubmit="return false;">
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:6px;">Your name</label>
+          <input name="name" type="text" class="form-input" placeholder="e.g. Kwame Asante">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:6px;">Email address</label>
+          <input name="email" type="email" class="form-input" placeholder="you@example.com">
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:6px;">What do you need help with?</label>
+          <select name="subject" class="form-input">
+            <option value="" disabled selected>Select a topic…</option>
+            <option>EVOS Data Services</option>
+            <option>EVOS GPT</option>
+            <option>Partnership / Business</option>
+            <option>Technical Support</option>
+            <option>General Enquiry</option>
+          </select>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:6px;">Message</label>
+          <textarea name="message" rows="4" class="form-input" placeholder="Tell us how we can help…" style="resize:vertical;"></textarea>
+        </div>
+        <button class="form-submit btn btn--primary" style="width:100%;justify-content:center;">
+          Send Message
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+
+      <!-- Brand -->
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <img src="/assets/images/evoshub.png" alt="EVOSHUB"
+               style="width:30px;height:30px;object-fit:contain;border-radius:6px;"
+               onerror="this.style.display='none'">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);">EVOSHUB</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--text3);line-height:1.75;max-width:280px;margin-bottom:16px;">
+          EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services. EVOS Business Hub is our ecosystem platform — home to EVOS Data, EVOS GPT, and more.
+        </p>
+
+        <!-- EVOXERA credit -->
+        <div class="evoxera-badge">
+          <img src="/assets/images/evoxera.png" alt="EVOXERA"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="evoxera-badge__fallback" style="display:none;">EX</div>
+          <span>Powered by <strong style="color:var(--text);">EVOXERA TECHNOLOGY</strong></span>
+        </div>
+      </div>
+
+      <!-- Platform links -->
+      <div>
+        <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Platform</h5>
+        <ul class="site-footer__links">
+          <li><a href="#">Home</a></li>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Products links -->
+      <div>
+        <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Products</h5>
+        <ul class="site-footer__links">
+          <li><a href="https://evosdata.xyz" style="color:var(--green);" target="_blank" rel="noopener">📶 EVOS Data ↗</a></li>
+          <li><a href="https://evosgpt.xyz" style="color:var(--green);" target="_blank" rel="noopener">🤖 EVOS GPT ↗</a></li>
+          <li><a href="/business-tools.html" style="color:var(--blue);">💼 Business Tools ↗</a></li>
+          <li><span style="opacity:.5;">🪙 XERA Utility (Soon)</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="site-footer__bottom">
+      <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+      <div style="display:flex;gap:20px;">
+        <a href="#" style="font-size:12px;color:var(--text3);">Privacy Policy</a>
+        <a href="#" style="font-size:12px;color:var(--text3);">Terms of Use</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="../js/main.js" type="module"></script>
+</body>
+</html>

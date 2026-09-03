@@ -1,0 +1,17 @@
+{
+  "name": "evoshub-frontend",
+  "version": "1.0.0",
+  "description": "EVOS Business Hub — Frontend",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

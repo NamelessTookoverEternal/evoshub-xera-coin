@@ -1,0 +1,8 @@
+/* EVOSHUB — Animations */
+@keyframes pulse {
+  0%,100% { opacity:1; transform:scale(1); }
+  50%      { opacity:.5; transform:scale(.85); }
+}
+.badge-pulse { width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 2s ease-in-out infinite; display:inline-block; }
+.fade-up { opacity:0; transform:translateY(30px); transition:opacity .6s ease, transform .6s ease; }
+.fade-up.visible { opacity:1; transform:translateY(0); }

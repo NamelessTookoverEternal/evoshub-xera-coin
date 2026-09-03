@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EVOS Business Tools — website creation, freelancing tools, invoicing and more, all under one console. Some tools are live, others are unlocking soon.">
+  <meta property="og:title" content="Business Tools — EVOS Business Hub">
+  <meta property="og:description" content="One console for every EVOS business tool. Website Creation is live — more unlocking soon.">
+  <meta property="og:image" content="/assets/images/evoshub.jpeg">
+  <meta property="og:url" content="https://evoshub.xyz/business-tools.html">
+  <title>Business Tools — EVOS Business Hub</title>
+
+  <link rel="icon" type="image/jpeg" href="/assets/images/evoshub.jpeg">
+  <link rel="apple-touch-icon" href="/assets/images/evoshub.jpeg">
+  <link rel="manifest" href="/manifest.json">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/evoshub-theme.css">
+  <link rel="stylesheet" href="../css/motion-3d.css">
+
+  <style>
+    .biz-hero {
+      padding: clamp(120px, 18vh, 148px) var(--gutter) 40px;
+      max-width: 1200px; margin: 0 auto;
+      position: relative;
+    }
+    .tool-card {
+      display: flex; flex-direction: column; gap: 14px;
+      min-height: 210px;
+    }
+    .tool-card__icon {
+      width: 48px; height: 48px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 21px; background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--text2);
+    }
+    .tool-card--active .tool-card__icon {
+      background: linear-gradient(135deg, var(--green) 0%, var(--blue-light) 130%);
+      border: none; color: #fff;
+      box-shadow: 0 6px 18px -6px rgba(44,230,166, calc(0.6 * var(--glow-strength)));
+    }
+    .tool-card__status { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .lock-icon { width: 13px; height: 13px; color: var(--text3); }
+
+    /* Active card gets a slow-rotating gradient ring around its border
+       instead of a flat highlight — makes it read as "the live one"
+       at a glance without needing extra copy. */
+    .tool-card--active {
+      position: relative;
+      border-color: transparent;
+      background:
+        linear-gradient(var(--surface), var(--surface)) padding-box,
+        conic-gradient(from var(--ring-angle, 0deg), var(--blue), var(--green), var(--blue-light), var(--blue)) border-box;
+      border: 1px solid transparent;
+      animation: ring-rotate 6s linear infinite;
+    }
+    @property --ring-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes ring-rotate { to { --ring-angle: 360deg; } }
+    .tool-card--active::after {
+      content: '✨';
+      position: absolute; top: 14px; right: 16px;
+      font-size: 14px;
+      animation: sparkle-pop 2.4s ease-in-out infinite;
+    }
+    @keyframes sparkle-pop {
+      0%, 100% { opacity: .35; transform: scale(.85) rotate(0deg); }
+      50%      { opacity: 1;   transform: scale(1.1) rotate(12deg); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="starfield" aria-hidden="true"></div>
+<canvas id="bg3d-canvas" aria-hidden="true"></canvas>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <a class="nav-logo" href="/">
+    <img class="nav-logo__img" src="/assets/images/evoshub.jpeg" alt="EVOSHUB" style="width:30px;height:30px;object-fit:contain;border-radius:6px;"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="nav-logo__icon" style="display:none;">EH</div>
+    <span class="nav-logo__text">EVOSHUB</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="/">Home</a></li>
+    <li><a href="/services.html">Services</a></li>
+    <li><a href="/business-tools.html" class="active">Business</a></li>
+    <li><a href="/website-creation.html">Website Creation</a></li>
+    <li><a href="/about.html">About</a></li>
+    <li><a href="/contact.html">Contact</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <button class="theme-toggle" aria-label="Toggle theme" type="button">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <div class="hamburger" aria-label="Toggle menu"><span></span><span></span><span></span></div>
+  </div>
+</nav>
+
+<!-- ══ HERO ══ -->
+<div class="biz-hero">
+  <div class="hero-grid-bg" style="position:absolute;inset:0;top:0;height:420px;"></div>
+  <div class="fade-up" style="position:relative;">
+    <span class="prompt-chip" data-flow-in data-depth="4" style="margin-bottom:20px;">evos --run business-tools<span class="blink-cursor"></span></span>
+    <h1 data-flow-in data-depth="12" style="font-family:var(--font-display);font-weight:800;font-size:clamp(34px,6vw,58px);letter-spacing:-1.8px;line-height:1.05;margin-top:18px;margin-bottom:14px;">
+      One console.<br><span class="gradient-text">Every business tool.</span>
+    </h1>
+    <p data-flow-in data-depth="7" style="font-size:15.5px;color:var(--text2);max-width:560px;line-height:1.7;">
+      This is the EVOS toolkit for founders and freelancers. <strong style="color:var(--text);">Website Creation is live</strong> — the rest are unlocking in stages as we build them out.
+    </p>
+  </div>
+</div>
+
+<!-- ══ TOOLS GRID ══ -->
+<section class="section" style="padding-top:8px;">
+  <div class="auto-grid" data-stagger-cards style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
+
+    <!-- ★ ACTIVE — Website Creation -->
+    <a href="/website-creation.html" class="card tool-card tool-card--active fade-up" style="text-decoration:none;">
+      <div class="tool-card__icon">🌐</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Website Creation</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Request a custom-built website for your business — designed and shipped by EVOXERA.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--live"><span class="badge-pulse"></span>&nbsp;ACTIVE</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--green);"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </div>
+    </a>
+
+    <!-- Locked — Freelancing Tools -->
+    <div class="card tool-card card--locked fade-up">
+      <div class="tool-card__icon">🧰</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Freelancing Tools</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Proposals, contracts, and client management for African freelancers.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--locked">LOCKED</span>
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+    </div>
+
+    <!-- Locked — Invoicing & Payments -->
+    <div class="card tool-card card--locked fade-up">
+      <div class="tool-card__icon">🧾</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Invoicing &amp; Payments</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Create invoices, track payments, and get paid via Mobile Money or card.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--locked">LOCKED</span>
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+    </div>
+
+    <!-- Locked — Client CRM -->
+    <div class="card tool-card card--locked fade-up">
+      <div class="tool-card__icon">📇</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Client CRM</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Track leads, conversations, and deals for your business in one place.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--locked">LOCKED</span>
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+    </div>
+
+    <!-- Locked — Portfolio Builder -->
+    <div class="card tool-card card--locked fade-up">
+      <div class="tool-card__icon">🎨</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Portfolio Builder</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Spin up a shareable portfolio page in minutes — built for freelancers.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--locked">LOCKED</span>
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+    </div>
+
+    <!-- Locked — Team & Automations -->
+    <div class="card tool-card card--locked fade-up">
+      <div class="tool-card__icon">⚙️</div>
+      <div>
+        <h3 style="font-family:var(--font-display);font-size:17px;font-weight:700;margin-bottom:6px;">Team &amp; Automations</h3>
+        <p style="font-size:13.5px;color:var(--text2);line-height:1.6;">Delegate work, set up automations, and run your business on autopilot.</p>
+      </div>
+      <div class="tool-card__status">
+        <span class="badge badge--locked">LOCKED</span>
+        <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card fade-up" style="margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;background:linear-gradient(135deg, var(--surface) 0%, rgba(62,139,255,.06) 100%);border-color:rgba(62,139,255,.22);">
+    <div>
+      <p style="font-family:var(--font-mono);font-size:12px;color:var(--blue);letter-spacing:1px;margin-bottom:6px;">WANT EARLY ACCESS?</p>
+      <p style="font-size:14.5px;color:var(--text2);">Tell us which locked tool you need most — it helps us decide what unlocks next.</p>
+    </div>
+    <a href="https://wa.me/233537314125" target="_blank" rel="noopener" class="btn btn--whatsapp" style="background:#25D366;color:#fff;white-space:nowrap;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Tell us on WhatsApp
+    </a>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <img src="/assets/images/evoshub.jpeg" alt="EVOSHUB" style="width:30px;height:30px;object-fit:contain;border-radius:6px;" onerror="this.style.display='none'">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);">EVOSHUB</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--text3);line-height:1.75;max-width:280px;margin-bottom:16px;">
+          EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services.
+        </p>
+        <div class="evoxera-badge">
+          <img src="/assets/images/evoxera.png" alt="EVOXERA" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="evoxera-badge__fallback" style="display:none;">EX</div>
+          <span>Powered by <strong style="color:var(--text);">EVOXERA TECHNOLOGY</strong></span>
+        </div>
+      </div>
+      <div>
+        <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Platform</h5>
+        <ul class="site-footer__links">
+          <li><a href="/">Home</a></li>
+          <li><a href="/services.html">Services</a></li>
+          <li><a href="/about.html">About</a></li>
+          <li><a href="/contact.html">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Products</h5>
+        <ul class="site-footer__links">
+          <li><a href="https://evosdata.xyz" style="color:var(--green);" target="_blank" rel="noopener">📶 EVOS Data ↗</a></li>
+          <li><a href="https://evosgpt.xyz" style="color:var(--green);" target="_blank" rel="noopener">🤖 EVOS GPT ↗</a></li>
+          <li><a href="/business-tools.html" style="color:var(--blue);">🧩 Business Tools</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="site-footer__bottom">
+      <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+      <div style="display:flex;gap:20px;">
+        <a href="#" style="font-size:12px;color:var(--text3);">Privacy Policy</a>
+        <a href="#" style="font-size:12px;color:var(--text3);">Terms of Use</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="../js/nav.js"></script>
+<script type="module" src="../js/scroll.js"></script>
+<script type="module" src="../js/starfield.js"></script>
+<script type="module" src="../js/motion3d.js"></script>
+<script type="module" src="../js/hero-flow.js"></script>
+<script type="module" src="../js/feature-cards-3d.js"></script>
+<script type="module" src="../js/bg-particles.js"></script>
+</body>
+</html>

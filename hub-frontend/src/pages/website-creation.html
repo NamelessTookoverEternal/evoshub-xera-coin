@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="description" content="Get a professional website built by EVOXERA TECHNOLOGY — tell us what you need and chat live with our team.">
+  <title>Website Creation — EVOS Business Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <style>
+    .form-input, .form-select, .form-textarea {
+      width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:9px;
+      padding:11px 14px; font-family:var(--font-body); font-size:14px; color:var(--text);
+      outline:none; transition:border-color .2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--blue); }
+    .form-input::placeholder, .form-textarea::placeholder { color:var(--text3); }
+    .field { margin-bottom:16px; }
+    .field label { display:block; font-size:12px; color:var(--text2); margin-bottom:7px; }
+    .pkg-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:28px 0 40px; }
+    .pkg-card { cursor:pointer; position:relative; }
+    .pkg-card.selected { border-color:var(--blue); box-shadow:0 0 0 2px var(--blue-dim); }
+    .pkg-price { font-family:var(--font-display); font-size:26px; font-weight:800; margin:8px 0 4px; }
+    .pkg-price span { font-size:13px; font-weight:500; color:var(--text3); }
+    /* Honeypot: off-screen, not display:none — trips up bots that skip hidden fields */
+    .hp-field { position:absolute; left:-9999px; top:-9999px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li><li><a href="/services.html">Services</a></li>
+      <li><a href="/business-tools.html">Business</a></li>
+      <li><a href="/website-creation.html" class="active">Website Creation</a></li>
+      <li><a href="/about.html">About</a></li><li><a href="/contact.html">Contact</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <button class="theme-toggle" aria-label="Toggle theme" type="button">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <div class="hamburger"><span></span><span></span><span></span></div>
+    </div>
+  </nav>
+
+  <main class="section" style="padding-top:140px;">
+    <span class="section-label">Website Creation</span>
+    <h1 class="section-title">Let's build your website</h1>
+    <p class="section-desc" style="margin-bottom:8px;">Pick a package, tell us about your project, and chat live with our team to lock in the details.</p>
+
+    <div class="pkg-grid">
+      <div class="card pkg-card" data-package="starter">
+        <span class="badge badge--soon">Starter</span>
+        <div class="pkg-price">GH₵800 <span>one-time</span></div>
+        <p style="font-size:13px;color:var(--text2);">Single-page site — perfect for a small business or personal brand.</p>
+      </div>
+      <div class="card pkg-card" data-package="business">
+        <span class="badge badge--live"><span class="badge-pulse"></span>Popular</span>
+        <div class="pkg-price">GH₵2,200 <span>one-time</span></div>
+        <p style="font-size:13px;color:var(--text2);">Multi-page site with contact form, gallery, and basic SEO setup.</p>
+      </div>
+      <div class="card pkg-card" data-package="premium">
+        <span class="badge badge--soon">Premium</span>
+        <div class="pkg-price">GH₵5,000 <span>one-time</span></div>
+        <p style="font-size:13px;color:var(--text2);">Full custom design, e-commerce ready, admin dashboard, priority support.</p>
+      </div>
+      <div class="card pkg-card" data-package="custom">
+        <span class="badge badge--soon">Custom</span>
+        <div class="pkg-price">Let's talk</div>
+        <p style="font-size:13px;color:var(--text2);">Something bigger — web app, booking system, integrations. Get a custom quote.</p>
+      </div>
+    </div>
+
+    <div class="card" style="max-width:560px;">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:6px;">Tell us about your project</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:22px;">We'll open a live chat with our team right after you submit.</p>
+
+      <form id="website-request-form" novalidate>
+        <div class="field">
+          <label for="wr-package">Package</label>
+          <select id="wr-package" name="package" class="form-select" required>
+            <option value="" disabled selected>Choose a package…</option>
+            <option value="starter">Starter — GH₵800</option>
+            <option value="business">Business — GH₵2,200</option>
+            <option value="premium">Premium — GH₵5,000</option>
+            <option value="custom">Custom — let's talk</option>
+          </select>
+        </div>
+        <div class="field"><label for="wr-name">Full name</label><input id="wr-name" name="full_name" type="text" class="form-input" placeholder="Your name" required maxlength="120"></div>
+        <div class="field"><label for="wr-email">Email</label><input id="wr-email" name="email" type="email" class="form-input" placeholder="you@example.com" required maxlength="254"></div>
+        <div class="field"><label for="wr-phone">Phone (optional)</label><input id="wr-phone" name="phone" type="tel" class="form-input" placeholder="+233…" maxlength="30"></div>
+        <div class="field"><label for="wr-business">Business name (optional)</label><input id="wr-business" name="business_name" type="text" class="form-input" placeholder="e.g. Kwame's Kitchen" maxlength="160"></div>
+        <div class="field"><label for="wr-budget">Budget range (optional)</label><input id="wr-budget" name="budget_range" type="text" class="form-input" placeholder="e.g. GH₵1,000 – 2,000" maxlength="60"></div>
+        <div class="field"><label for="wr-timeline">Timeline (optional)</label><input id="wr-timeline" name="timeline" type="text" class="form-input" placeholder="e.g. within 2 weeks" maxlength="60"></div>
+        <div class="field">
+          <label for="wr-brief">Project brief</label>
+          <textarea id="wr-brief" name="project_brief" rows="4" class="form-textarea" placeholder="What's the website for? Any pages, features, or examples you like?" required maxlength="4000"></textarea>
+        </div>
+
+        <!-- Honeypot: real visitors never fill this in -->
+        <div class="hp-field" aria-hidden="true">
+          <label for="wr-website">Leave this field empty</label>
+          <input id="wr-website" name="website" type="text" tabindex="-1" autocomplete="off">
+        </div>
+
+        <p id="wr-error" style="display:none;color:#c0392b;font-size:13px;margin-bottom:12px;"></p>
+        <button type="submit" class="btn btn--primary" style="width:100%;" id="wr-submit">Submit &amp; start chat</button>
+        <p style="font-size:11.5px;color:var(--text3);text-align:center;margin-top:12px;">
+          💳 Pay online with Paystack — <span style="opacity:.8;">coming soon</span>. For now we confirm payment over WhatsApp after your chat.
+        </p>
+      </form>
+    </div>
+    <!-- Live chat panel — hidden until a request has been submitted -->
+    <div class="card" id="wr-chat-panel" style="max-width:560px; display:none;">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:4px;">Live chat with our team</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">We've received your request — an agent will join shortly. Feel free to add more details below.</p>
+      <div id="wr-chat-log" style="height:320px;overflow-y:auto;border:1px solid var(--border2);border-radius:9px;padding:14px;background:var(--bg2);margin-bottom:14px;display:flex;flex-direction:column;gap:10px;"></div>
+      <form id="wr-chat-form" style="display:flex;gap:8px;" novalidate>
+        <input id="wr-chat-input" type="text" class="form-input" placeholder="Type a message…" maxlength="2000" required autocomplete="off">
+        <button type="submit" class="btn btn--primary" id="wr-chat-send">Send</button>
+      </form>
+      <p id="wr-chat-error" style="display:none;color:#c0392b;font-size:13px;margin-top:10px;"></p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <img src="/assets/images/evoshub.jpeg" alt="EVOSHUB" style="width:30px;height:30px;object-fit:contain;border-radius:6px;" onerror="this.style.display='none'">
+            <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);">EVOSHUB</span>
+          </div>
+          <p style="font-size:13.5px;color:var(--text3);line-height:1.75;max-width:280px;margin-bottom:16px;">
+            EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services. EVOS Business Hub is our ecosystem platform — home to EVOS Data, EVOS GPT, and more.
+          </p>
+          <div class="evoxera-badge">
+            <img src="/assets/images/evoxera.png" alt="EVOXERA" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="evoxera-badge__fallback" style="display:none;">EX</div>
+            <span>Powered by <strong style="color:var(--text);">EVOXERA TECHNOLOGY</strong></span>
+          </div>
+        </div>
+        <div>
+          <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Platform</h5>
+          <ul class="site-footer__links">
+            <li><a href="/">Home</a></li>
+            <li><a href="/services.html">Services</a></li>
+            <li><a href="/about.html">About</a></li>
+            <li><a href="/contact.html">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5 style="font-family:var(--font-display);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:var(--text);margin-bottom:16px;">Products</h5>
+          <ul class="site-footer__links">
+            <li><a href="https://evosdata.xyz" style="color:var(--green);" target="_blank" rel="noopener">📶 EVOS Data ↗</a></li>
+            <li><a href="https://evosgpt.xyz" style="color:var(--green);" target="_blank" rel="noopener">🤖 EVOS GPT ↗</a></li>
+            <li><span style="opacity:.5;">💼 Biz Tools (Soon)</span></li>
+            <li><span style="opacity:.5;">🪙 XERA Utility (Soon)</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="site-footer__bottom">
+        <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+        <div style="display:flex;gap:20px;">
+          <a href="#" style="font-size:12px;color:var(--text3);">Privacy Policy</a>
+          <a href="#" style="font-size:12px;color:var(--text3);">Terms of Use</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="../js/website-request-form.js"></script>
+  <script type="module" src="../js/nav.js"></script>
+</body>
+</html>

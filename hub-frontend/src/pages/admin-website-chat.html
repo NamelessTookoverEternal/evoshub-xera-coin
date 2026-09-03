@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Agent Inbox — EVOS Business Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <style>
+    .form-input, .form-select { width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:9px; padding:9px 12px; font-family:var(--font-body); font-size:13.5px; color:var(--text); outline:none; }
+    .inbox-shell { display:grid; grid-template-columns:320px 1fr; gap:20px; height:calc(100vh - 180px); min-height:480px; }
+    .thread-list { overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); }
+    .thread-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; }
+    .thread-item:hover { background:var(--bg2); }
+    .thread-item.active { background:var(--blue-dim); border-left:3px solid var(--blue); }
+    .thread-item h4 { font-size:14px; margin-bottom:3px; }
+    .thread-item p { font-size:12px; color:var(--text2); }
+    .chat-shell { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
+    .chat-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .chat-log { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px; background:var(--bg2); }
+    .chat-input-row { display:flex; gap:8px; padding:14px; border-top:1px solid var(--border); }
+    .empty-state { display:flex; align-items:center; justify-content:center; height:100%; color:var(--text3); font-size:14px; }
+
+    @media (max-width: 900px) {
+      .inbox-shell { grid-template-columns: 1fr; height:auto; }
+      .thread-list { max-height:260px; }
+      .chat-shell { height:70vh; min-height:420px; }
+    }
+    @media (max-width: 480px) {
+      .chat-input-row { flex-wrap:wrap; }
+      .chat-input-row #status-select { max-width:none !important; flex:1 1 100%; order:1; }
+      .chat-input-row #admin-chat-input { flex:1 1 auto; order:2; }
+      .chat-input-row #admin-chat-send { order:3; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <span id="admin-whoami" style="font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
+    <button class="btn btn--ghost" id="admin-signout" style="padding:8px 14px;font-size:13px;flex-shrink:0;">Sign out</button>
+  </nav>
+
+  <main class="section" style="padding-top:120px; max-width:1200px;">
+    <span class="section-label">Agent Inbox</span>
+    <h1 class="section-title" style="font-size:28px;margin-bottom:20px;">Website Creation requests</h1>
+
+    <div class="inbox-shell">
+      <div class="thread-list" id="thread-list">
+        <div class="empty-state">Loading…</div>
+      </div>
+
+      <div class="chat-shell">
+        <div class="chat-header" id="chat-header">
+          <span style="color:var(--text3);font-size:13px;">Select a request to open the chat</span>
+        </div>
+        <div class="chat-log" id="admin-chat-log"></div>
+        <div class="chat-input-row">
+          <select id="status-select" class="form-select" style="max-width:150px;" disabled>
+            <option value="new">New</option>
+            <option value="in_review">In review</option>
+            <option value="in_chat">In chat</option>
+            <option value="quoted">Quoted</option>
+            <option value="closed">Closed</option>
+          </select>
+          <input id="admin-chat-input" type="text" class="form-input" placeholder="Type a reply…" maxlength="2000" disabled>
+          <button class="btn btn--primary" id="admin-chat-send" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="../js/admin-website-chat.js"></script>
+</body>
+</html>

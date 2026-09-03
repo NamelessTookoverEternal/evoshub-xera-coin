@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1.0" name="viewport"/>
+  <meta content="XERA Token (Coin) — wallet and 24-hour mining by EVOXERA TECHNOLOGY" name="description"/>
+  <title>
+   XERA Token (Coin) | EVOXERA TECHNOLOGY
+  </title>
+  <link href="../../css/xera.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <main class="shell">
+   <section class="auth-card" id="loginView">
+    <p class="eyebrow">
+     EVOXERA TECHNOLOGY
+    </p>
+    <h1>
+     XERA Token
+     <span>
+      (Coin)
+     </span>
+    </h1>
+    <p class="muted">
+     Sign in to your XERA wallet and 24-hour mining account.
+    </p>
+    <form id="loginForm">
+     <label>
+      Username or Email
+      <input autocomplete="username" id="identifier" required=""/>
+     </label>
+     <label>
+      Password
+      <input autocomplete="current-password" id="password" required="" type="password"/>
+     </label>
+     <button>
+      Sign in to XERA
+     </button>
+     <p class="error" id="loginError" role="alert">
+     </p>
+    </form>
+    <p class="notice">
+     XERA mining is the active V1 feature. Purchase, withdrawal and transfer are not active.
+    </p>
+   </section>
+   <section hidden="" id="walletView">
+    <header class="top">
+     <div>
+      <p class="eyebrow">
+       EVOXERA TECHNOLOGY
+      </p>
+      <h1>
+       XERA Token
+       <span>
+        (Coin)
+       </span>
+      </h1>
+     </div>
+     <button class="secondary" id="logout">
+      Sign out
+     </button>
+    </header>
+    <div class="error" id="error">
+    </div>
+    <section class="balance card">
+     <p>
+      XERA WALLET
+     </p>
+     <h2>
+      <span id="balance">
+       0
+      </span>
+      <small>
+       XERA
+      </small>
+     </h2>
+     <span class="badge" id="walletStatus">
+      ACTIVE
+     </span>
+    </section>
+    <section class="mining card">
+     <p id="miningLabel">
+      MINING READY
+     </p>
+     <h2 id="countdown">
+      Start your 24-hour session
+     </h2>
+     <p class="muted" id="rewardText">
+     </p>
+     <button id="miningAction">
+      START MINING
+     </button>
+    </section>
+    <section class="features">
+     <article class="disabled">
+      <h3>
+       BUY XERA
+      </h3>
+      <p>
+       Fiat purchase
+      </p>
+      <b>
+       COMING SOON
+      </b>
+     </article>
+     <article class="disabled">
+      <h3>
+       WITHDRAW
+      </h3>
+      <p>
+       Future feature
+      </p>
+      <b>
+       COMING SOON
+      </b>
+     </article>
+     <article class="disabled">
+      <h3>
+       TRANSFER
+      </h3>
+      <p>
+       Future feature
+      </p>
+      <b>
+       COMING SOON
+      </b>
+     </article>
+    </section>
+    <section class="card info">
+     <h3>
+      XERA TOKEN (COIN)
+     </h3>
+     <div>
+      <p>
+       Initial target
+      </p>
+      <strong>
+       500,000,000 XERA
+      </strong>
+     </div>
+     <div>
+      <p>
+       Current phase
+      </p>
+      <strong>
+       MINING
+      </strong>
+     </div>
+     <div>
+      <p>
+       Mining period
+      </p>
+      <strong>
+       Months 1–3
+      </strong>
+     </div>
+    </section>
+    <section class="card">
+     <h3>
+      TRANSACTION HISTORY
+     </h3>
+     <div class="transactions" id="transactions">
+      <p class="muted">
+       No transactions yet.
+      </p>
+     </div>
+    </section>
+   </section>
+  </main>
+  <script src="../../js/xera.js" type="module">
+  </script>
+ </body>
+</html>
+
