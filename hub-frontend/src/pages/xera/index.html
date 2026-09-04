@@ -1,174 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
- <head>
-  <meta charset="utf-8"/>
-  <meta content="width=device-width,initial-scale=1.0" name="viewport"/>
-  <meta content="XERA Token (Coin) — wallet and 24-hour mining by EVOXERA TECHNOLOGY" name="description"/>
-  <title>
-   XERA Token (Coin) | EVOXERA TECHNOLOGY
-  </title>
-  <link href="../../css/xera.css" rel="stylesheet"/>
- </head>
- <body>
-  <main class="shell">
-   <section class="auth-card" id="loginView">
-    <p class="eyebrow">
-     EVOXERA TECHNOLOGY
-    </p>
-    <h1>
-     XERA Token
-     <span>
-      (Coin)
-     </span>
-    </h1>
-    <p class="muted">
-     Sign in to your XERA wallet and 24-hour mining account.
-    </p>
-    <form id="loginForm">
-     <label>
-      Username or Email
-      <input autocomplete="username" id="identifier" required=""/>
-     </label>
-     <label>
-      Password
-      <input autocomplete="current-password" id="password" required="" type="password"/>
-     </label>
-     <button>
-      Sign in to XERA
-     </button>
-     <p class="error" id="loginError" role="alert">
-     </p>
-    </form>
-    <p class="notice">
-     XERA mining is the active V1 feature. Purchase, withdrawal and transfer are not active.
-    </p>
-   </section>
-   <section hidden="" id="walletView">
-    <header class="top">
-     <div>
-      <p class="eyebrow">
-       EVOXERA TECHNOLOGY
-      </p>
-      <h1>
-       XERA Token
-       <span>
-        (Coin)
-       </span>
-      </h1>
-     </div>
-     <button class="secondary" id="logout">
-      Sign out
-     </button>
-    </header>
-    <div class="error" id="error">
-    </div>
-    <section class="balance card">
-     <p>
-      XERA WALLET
-     </p>
-     <h2>
-      <span id="balance">
-       0
-      </span>
-      <small>
-       XERA
-      </small>
-     </h2>
-     <span class="badge" id="walletStatus">
-      ACTIVE
-     </span>
-    </section>
-    <section class="mining card">
-     <p id="miningLabel">
-      MINING READY
-     </p>
-     <h2 id="countdown">
-      Start your 24-hour session
-     </h2>
-     <p class="muted" id="rewardText">
-     </p>
-     <button id="miningAction">
-      START MINING
-     </button>
-    </section>
-    <section class="features">
-     <article class="disabled">
-      <h3>
-       BUY XERA
-      </h3>
-      <p>
-       Fiat purchase
-      </p>
-      <b>
-       COMING SOON
-      </b>
-     </article>
-     <article class="disabled">
-      <h3>
-       WITHDRAW
-      </h3>
-      <p>
-       Future feature
-      </p>
-      <b>
-       COMING SOON
-      </b>
-     </article>
-     <article class="disabled">
-      <h3>
-       TRANSFER
-      </h3>
-      <p>
-       Future feature
-      </p>
-      <b>
-       COMING SOON
-      </b>
-     </article>
-    </section>
-    <section class="card info">
-     <h3>
-      XERA TOKEN (COIN)
-     </h3>
-     <div>
-      <p>
-       Initial target
-      </p>
-      <strong>
-       500,000,000 XERA
-      </strong>
-     </div>
-     <div>
-      <p>
-       Current phase
-      </p>
-      <strong>
-       MINING
-      </strong>
-     </div>
-     <div>
-      <p>
-       Mining period
-      </p>
-      <strong>
-       Months 1–3
-      </strong>
-     </div>
-    </section>
-    <section class="card">
-     <h3>
-      TRANSACTION HISTORY
-     </h3>
-     <div class="transactions" id="transactions">
-      <p class="muted">
-       No transactions yet.
-      </p>
-     </div>
-    </section>
-   </section>
-  </main>
-  <script src="../../js/xera.js" type="module">
-  </script>
- </body>
-</html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#060810"/>
+<meta name="description" content="XERA Token (Coin) — wallet and 24-hour mining by EVOXERA TECHNOLOGY"/>
+<title>XERA Token (Coin) | EVOXERA TECHNOLOGY</title>
+<link href="../../css/xera.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="app">
 
+  <!-- ===== AUTH (login + register) ===== -->
+  <section class="auth" id="authView">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="white" stroke-width="2.6" stroke-linecap="round"/></svg>
+    </div>
+
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" id="tabLogin" type="button" role="tab" aria-selected="true">Sign in</button>
+      <button class="auth-tab" id="tabRegister" type="button" role="tab" aria-selected="false">Create account</button>
+    </div>
+
+    <!-- Sign in -->
+    <form id="loginForm" class="auth-form">
+      <h1>Sign in to XERA</h1>
+      <p class="sub">Access your wallet and 24-hour mining session.</p>
+      <div class="field">
+        <label for="identifier">Username or email</label>
+        <input id="identifier" autocomplete="username" required/>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required/>
+      </div>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="auth-error" id="loginError" role="alert"></p>
+      <p class="auth-foot">New to EVOS? <button type="button" class="linklike" id="goRegister">Create an account</button></p>
+    </form>
+
+    <!-- Create account -->
+    <form id="registerForm" class="auth-form" hidden>
+      <h1>Create your EVOS account</h1>
+      <p class="sub">Not on any EVOS system yet? Set up an account here to get a XERA wallet.</p>
+      <div class="field">
+        <label for="regFullName">Full name</label>
+        <input id="regFullName" autocomplete="name" required/>
+      </div>
+      <div class="field">
+        <label for="regUsername">Username</label>
+        <input id="regUsername" autocomplete="username" pattern="[a-zA-Z0-9_]{3,32}" title="3-32 characters: letters, numbers, underscores only" required/>
+      </div>
+      <div class="field">
+        <label for="regEmail">Email</label>
+        <input id="regEmail" type="email" autocomplete="email" required/>
+      </div>
+      <div class="field">
+        <label for="regPassword">Password</label>
+        <input id="regPassword" type="password" autocomplete="new-password" minlength="8" required/>
+        <span class="field-hint">At least 8 characters.</span>
+      </div>
+      <div class="field">
+        <label for="regPassword2">Confirm password</label>
+        <input id="regPassword2" type="password" autocomplete="new-password" minlength="8" required/>
+      </div>
+      <button class="btn" type="submit">Create account</button>
+      <p class="auth-error" id="registerError" role="alert"></p>
+      <p class="auth-foot">Already have an EVOS account? <button type="button" class="linklike" id="goLogin">Sign in</button></p>
+    </form>
+
+    <p class="auth-foot legal">Mining is live. Buying, withdrawing and transferring XERA are coming soon.</p>
+  </section>
+
+  <!-- ===== WALLET ===== -->
+  <div id="walletView" hidden class="wallet-shell">
+    <header class="topbar">
+      <div class="wordmark"><span class="dot"></span>XERA</div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="openStats" aria-label="XERA statistics" title="XERA statistics">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-btn" id="logout" aria-label="Sign out">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9M12 4H6a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="scroll">
+
+      <div class="balance-block">
+        <div class="label">TOTAL BALANCE</div>
+        <div class="amount"><span id="balance">0</span><small>XERA</small></div>
+        <span class="status-pill" id="walletStatus"><span class="dot"></span>ACTIVE</span>
+      </div>
+
+      <div class="ring-card">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="54"/>
+            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
+          </svg>
+          <div class="ring-center">
+            <div class="time" id="countdown">--:--:--</div>
+            <div class="caption" id="ringCaption">Start your 24-hour session</div>
+          </div>
+        </div>
+        <p class="reward-line" id="rewardText"></p>
+
+        <div class="mining-meta" id="miningMeta" hidden>
+          <div class="meta-row">
+            <span>Mining rate</span>
+            <b id="miningRate">—</b>
+          </div>
+          <div class="meta-row">
+            <span>Next claim available</span>
+            <b id="nextClaim">—</b>
+          </div>
+        </div>
+
+        <button type="button" class="info-link" id="openMiningInfo">
+          <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          How XERA mining works
+        </button>
+      </div>
+
+      <div class="section-title">Coming soon</div>
+      <div class="chip-row">
+        <div class="chip">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <span>Buy</span>
+          <span class="soon">SOON</span>
+        </div>
+        <div class="chip">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Withdraw</span>
+          <span class="soon">SOON</span>
+        </div>
+        <div class="chip">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7 10l-4 4 4 4M3 14h13M17 4l4 4-4 4M21 8H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>Transfer</span>
+          <span class="soon">SOON</span>
+        </div>
+      </div>
+
+      <div class="section-title">Activity</div>
+      <div id="transactions"></div>
+
+    </div>
+
+    <div class="bottombar">
+      <p class="banner-error" id="error"></p>
+      <button class="btn" id="miningAction">Start mining</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: how mining works ===== -->
+  <div class="modal-overlay" id="miningInfoModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="miningInfoTitle">
+      <div class="modal-head">
+        <h2 id="miningInfoTitle">How XERA mining works</h2>
+        <button class="icon-btn" id="closeMiningInfo" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <ul class="info-list">
+        <li>A mining session lasts <b>24 hours</b> from the moment you start it.</li>
+        <li>You need to come back to <b>claim</b> your reward and start another session — it doesn't renew on its own.</li>
+        <li>Every session and every reward is <b>validated by the server</b>, not the app on your phone.</li>
+        <li>XERA <b>cannot be withdrawn or transferred</b> in V1 — that's coming in a later phase.</li>
+        <li>The displayed reward is an estimate and is subject to the platform's mining rules, which can adjust the rate as the network grows.</li>
+      </ul>
+      <button class="btn" id="closeMiningInfoBtn" type="button">Got it</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: XERA statistics ===== -->
+  <div class="modal-overlay" id="statsModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+      <div class="modal-head">
+        <h2 id="statsTitle">XERA statistics</h2>
+        <button class="icon-btn" id="closeStats" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-item"><span>Total supply</span><b id="statTotalSupply">—</b></div>
+        <div class="stat-item"><span>Mined supply</span><b id="statMinedSupply">—</b></div>
+        <div class="stat-item"><span>Remaining supply</span><b id="statRemainingSupply">—</b></div>
+        <div class="stat-item"><span>Total miners</span><b id="statTotalMiners">—</b></div>
+        <div class="stat-item highlight"><span>Your total mined</span><b id="statYourMined">—</b></div>
+        <div class="stat-item highlight"><span>Your current balance</span><b id="statYourBalance">—</b></div>
+      </div>
+      <p class="stats-note" id="statsError"></p>
+    </div>
+  </div>
+
+</div>
+<script src="../../js/xera.js" type="module"></script>
+</body>
+</html>

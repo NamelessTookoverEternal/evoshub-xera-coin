@@ -11,7 +11,7 @@
  * /api/admin/me call — it carries no authority by itself.
  */
 
-const API_BASE = "https://evoxera.onrender.com";
+const API_BASE = "https://evoshub-xera-coin.onrender.com";
 const DASHBOARD_URL = "admin-website-chat.html";
 const TOKEN_STORAGE_KEY = "evoshub_admin_token";
 

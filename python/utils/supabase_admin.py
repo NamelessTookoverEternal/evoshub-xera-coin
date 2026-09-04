@@ -106,6 +106,62 @@ async def get_public_user_by_identifier(identifier: str) -> dict | None:
         return data[0] if data else None
 
 
+class PublicUserConflict(Exception):
+    """Raised when a username or email is already taken in public.users."""
+
+
+async def create_public_user(
+    username: str,
+    email: str,
+    full_name: str,
+    password_hash: str,
+) -> dict:
+    """
+    Creates a new row in the shared public.users table using the
+    service_role key. This is the same table every EVOS product
+    (EVOSGPT, EVOSDATA, EVOSHUB admin, XERA) authenticates against, so an
+    account created here immediately works everywhere else in the
+    ecosystem too — this is intentional, not XERA-only.
+
+    Callers must already have verified the username/email aren't taken
+    (see get_public_user_by_identifier) so we can return a friendly
+    PublicUserConflict instead of a raw Postgres error. We still handle
+    the DB unique-constraint response defensively in case of a race
+    between two concurrent signups for the same identifier.
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.")
+
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    row = {
+        "username": username,
+        "email": email,
+        "full_name": full_name,
+        "password": password_hash,
+    }
+
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/users",
+            headers=headers,
+            json=row,
+        )
+
+    if resp.status_code == 409 or (resp.status_code == 400 and "duplicate key" in resp.text.lower()):
+        raise PublicUserConflict("Username or email is already taken.")
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Supabase user insert failed: {resp.status_code} {resp.text}")
+
+    data = resp.json()
+    return data[0] if isinstance(data, list) else data
+
+
 async def get_public_user_by_id(user_id: int) -> dict | None:
     """
     Looks up the matching row in public.users by (bigint) id, using the

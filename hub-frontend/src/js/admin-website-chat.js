@@ -14,7 +14,7 @@
 // Supabase Auth session, which doesn't apply to admins for the same
 // reason above.
 
-const API_BASE = "https://evoxera.onrender.com"
+const API_BASE = "https://evoshub-xera-coin.onrender.com"
 const TOKEN_STORAGE_KEY = "evoshub_admin_token"
 const POLL_INTERVAL_MS = 4000
 

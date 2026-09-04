@@ -97,6 +97,7 @@ app.include_router(xera_auth_router, prefix="/api/xera/auth", tags=["xera-auth"]
 app.include_router(xera_router, prefix="/api/xera", tags=["xera"])
 app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admin"])
 @app.get("/")
+@app.head("/")
 def root():
     return {
         "status": "ok",
@@ -104,3 +105,4 @@ def root():
         "powered_by": "EVOXERA TECHNOLOGY",
         "docs": None if _IS_PROD else "/docs",
     }
+
