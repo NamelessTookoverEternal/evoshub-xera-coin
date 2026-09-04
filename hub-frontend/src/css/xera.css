@@ -36,11 +36,9 @@ button,input{font-family:inherit}
 input{font-size:16px} /* prevents iOS Safari auto-zoom on focus */
 button{-webkit-tap-highlight-color:transparent}
 
-/* ---- app shell: fluid on small screens, phone-width column everywhere else ---- */
+/* ---- app shell ---- */
 .app{
     width:100%;
-    max-width:440px;
-    margin:0 auto;
     min-height:100vh;
     min-height:100dvh;
     display:flex;
@@ -54,6 +52,7 @@ button{-webkit-tap-highlight-color:transparent}
     flex-direction:column;
     min-height:100vh;
     min-height:100dvh;
+    width:100%;
 }
 
 /* ================= AUTH ================= */
@@ -62,8 +61,13 @@ button{-webkit-tap-highlight-color:transparent}
     display:flex;
     flex-direction:column;
     justify-content:center;
+    align-items:center;
     padding:28px 24px calc(28px + env(safe-area-inset-bottom));
     width:100%;
+}
+.auth-tabs,.auth-form,.brand-mark,.auth-foot.legal{
+    width:100%;
+    max-width:400px;
 }
 .auth-tabs{
     display:flex;
@@ -186,11 +190,16 @@ button{-webkit-tap-highlight-color:transparent}
 /* ================= WALLET (app) ================= */
 .topbar{
     position:sticky;top:0;z-index:5;
-    display:flex;align-items:center;justify-content:space-between;
     padding:calc(14px + env(safe-area-inset-top)) 20px 14px;
     background:rgba(6,8,16,.72);
     backdrop-filter:blur(14px);
     border-bottom:1px solid var(--border);
+    width:100%;
+}
+.topbar-inner{
+    max-width:1100px;
+    margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
 }
 .topbar .wordmark{
     display:flex;align-items:center;gap:8px;
@@ -212,7 +221,15 @@ button{-webkit-tap-highlight-color:transparent}
     flex:1;
     overflow-y:auto;
     padding:8px 20px 140px;
+    width:100%;
 }
+.dashboard-grid{
+    max-width:1100px;
+    margin:0 auto;
+    display:flex;
+    flex-direction:column;
+}
+.panel{width:100%}
 
 .balance-block{
     text-align:center;
@@ -396,6 +413,48 @@ button{-webkit-tap-highlight-color:transparent}
     padding:2px 6px;border-radius:99px;
 }
 
+/* ================= DAILY CLAIM ================= */
+.daily-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius-md);
+    padding:16px 18px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+}
+.daily-info{display:flex;flex-direction:column;gap:4px}
+.daily-amount{font-family:var(--font-display);font-weight:600;font-size:1.3rem}
+.daily-amount small{font-size:.62rem;color:var(--text-dim);font-weight:500;margin-left:4px}
+.daily-streak{font-size:.76rem;color:var(--text-dim)}
+.daily-btn{
+    flex-shrink:0;width:auto;padding:10px 20px;font-size:.86rem;
+    background:var(--accent);box-shadow:0 8px 22px rgba(76,126,255,.3);
+}
+.daily-btn.ready{background:var(--success);box-shadow:0 8px 22px rgba(51,214,166,.3)}
+.daily-btn:disabled{opacity:.45}
+.daily-note{font-size:.76rem;color:var(--text-dim);margin:8px 2px 0}
+
+/* ================= ECOSYSTEM ================= */
+.ecosystem-sub{font-size:.84rem;color:var(--text-dim);margin:2px 0 16px}
+.ecosystem-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(88px,1fr));
+    gap:14px;
+}
+.ecosystem-item{
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    background:none;border:0;padding:0;cursor:pointer;color:var(--text);
+}
+.ecosystem-logo{
+    width:64px;height:64px;border-radius:var(--radius-md);
+    background:var(--surface);border:1px solid var(--border);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;
+    transition:transform .15s,border-color .15s;
+}
+.ecosystem-item:active .ecosystem-logo{transform:scale(.94)}
+.ecosystem-item:hover .ecosystem-logo{border-color:var(--accent-soft)}
+.ecosystem-logo img{width:100%;height:100%;object-fit:cover}
+.ecosystem-name{font-size:.74rem;text-align:center;color:var(--text-dim);line-height:1.25}
+
 .activity-row{
     display:flex;align-items:center;gap:12px;
     padding:12px 2px;
@@ -428,6 +487,11 @@ button{-webkit-tap-highlight-color:transparent}
     position:sticky;bottom:0;
     padding:14px 20px calc(14px + env(safe-area-inset-bottom));
     background:linear-gradient(180deg,rgba(6,8,16,0) 0%,rgba(6,8,16,.92) 30%);
+    width:100%;
+}
+.bottombar-inner{
+    max-width:440px;
+    margin:0 auto;
 }
 .bottombar .btn{
     box-shadow:0 10px 30px rgba(76,126,255,.35);
@@ -437,10 +501,57 @@ button{-webkit-tap-highlight-color:transparent}
     color:var(--danger);font-size:.8rem;text-align:center;margin-bottom:10px;
 }
 
-@media(min-width:441px){
+@media(min-width:760px){
+    .dashboard-grid{
+        display:grid;
+        grid-template-columns:minmax(320px,420px) 1fr;
+        grid-template-areas:
+            "mining activity"
+            "daily  activity"
+            "soon   activity";
+        align-items:start;
+        gap:20px;
+        padding-top:12px;
+    }
+    .mining-panel{grid-area:mining}
+    .daily-panel{grid-area:daily}
+    .soon-panel{grid-area:soon}
+    .activity-panel{
+        grid-area:activity;
+        background:var(--surface);
+        border:1px solid var(--border);
+        border-radius:var(--radius-lg);
+        padding:18px 20px;
+    }
+    .activity-panel .section-title{margin-top:0}
+    .balance-block{
+        text-align:left;
+        background:var(--surface);
+        border:1px solid var(--border);
+        border-radius:var(--radius-lg);
+        padding:24px 22px;
+    }
+    .status-pill{margin-top:2px}
+    .bottombar-inner{max-width:460px;margin:0 auto}
+    .bottombar{background:linear-gradient(180deg,rgba(6,8,16,0) 0%,rgba(6,8,16,.85) 40%);padding-top:24px}
+}
+
+@media(min-width:1140px){
+    .dashboard-grid{grid-template-columns:420px 1fr}
+    .balance-block .amount{font-size:3.4rem}
+}
+
+@media(min-width:760px){
     body{background-color:#020308}
-    .app{
-        margin:0 auto;
-        box-shadow:0 0 0 1px var(--border), 0 40px 80px rgba(0,0,0,.5);
+    .auth{
+        flex:0 0 auto;
+        width:100%;
+        max-width:460px;
+        margin:auto;
+        background:var(--surface);
+        border:1px solid var(--border);
+        border-radius:var(--radius-lg);
+        box-shadow:0 40px 80px rgba(0,0,0,.5);
+        padding:40px 40px calc(40px + env(safe-area-inset-bottom));
     }
 }

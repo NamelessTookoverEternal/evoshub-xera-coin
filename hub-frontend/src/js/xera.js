@@ -100,6 +100,7 @@ const TX_ICONS = {
     MINING_REWARD: '<svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
     ADMIN_CREDIT: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     ADMIN_DEBIT: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    DAILY_CLAIM: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3v4M12 17v4M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/></svg>',
     DEFAULT: '<svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
 };
 const TX_LABELS = {
@@ -107,6 +108,7 @@ const TX_LABELS = {
     XERA_PURCHASE: 'XERA purchase',
     REFERRAL_REWARD: 'Referral reward',
     BONUS: 'Bonus',
+    DAILY_CLAIM: '☀ Daily claim',
     ADMIN_CREDIT: 'Balance adjustment',
     ADMIN_DEBIT: 'Balance adjustment',
     REVERSAL: 'Reversal',
@@ -180,10 +182,102 @@ async function load() {
         renderMining();
         renderTransactions(t.transactions || []);
         if (!tickHandle) tickHandle = setInterval(() => { if (mining) renderMining(); }, 1000);
+        loadDaily();
     } catch (err) {
         showLogin('Please sign in again.');
     }
 }
+
+// ================= DAILY CLAIM =================
+
+async function loadDaily() {
+    try {
+        const d = await req('/api/xera/daily/status');
+        renderDaily(d.daily);
+    } catch (err) {
+        // Daily claim not available (disabled or a transient error) — hide
+        // the panel rather than show a broken control.
+        $('dailyPanel').hidden = true;
+    }
+}
+
+function renderDaily(daily) {
+    if (!daily || !daily.enabled) {
+        $('dailyPanel').hidden = true;
+        return;
+    }
+    $('dailyPanel').hidden = false;
+    $('dailyAmount').textContent = fmt(daily.reward_amount);
+    $('dailyStreak').textContent = daily.streak > 0
+        ? `${daily.streak}-day streak · ${daily.total_claims} total claims`
+        : 'Claim daily to start a streak';
+
+    const btn = $('dailyClaimBtn');
+    if (daily.can_claim) {
+        btn.textContent = 'Claim';
+        btn.classList.add('ready');
+        btn.disabled = false;
+        $('dailyNote').textContent = '';
+    } else {
+        btn.textContent = 'Claimed';
+        btn.classList.remove('ready');
+        btn.disabled = true;
+        $('dailyNote').textContent = 'Come back tomorrow for your next claim.';
+    }
+}
+
+$('dailyClaimBtn').onclick = async () => {
+    const btn = $('dailyClaimBtn');
+    $('dailyNote').textContent = '';
+    btn.disabled = true;
+    try {
+        await req('/api/xera/daily/claim', { method: 'POST', body: '{}' });
+        await Promise.all([
+            req('/api/xera/wallet').then((w) => { $('balance').textContent = fmt(w.balance); }),
+            req('/api/xera/transactions?limit=20&offset=0').then((t) => renderTransactions(t.transactions || [])),
+        ]);
+        await loadDaily();
+    } catch (err) {
+        $('dailyNote').textContent = err.message;
+        btn.disabled = false;
+    }
+};
+
+// ================= ECOSYSTEM =================
+
+async function loadEcosystem() {
+    $('ecosystemError').textContent = '';
+    $('ecosystemGrid').innerHTML = '<div class="empty"><p>Loading…</p></div>';
+    try {
+        const res = await fetch(API + '/api/xera/ecosystem');
+        const d = await res.json();
+        renderEcosystem(d.links || []);
+    } catch (err) {
+        $('ecosystemGrid').innerHTML = '';
+        $('ecosystemError').textContent = 'Could not load the ecosystem directory right now.';
+    }
+}
+
+function renderEcosystem(links) {
+    if (!links.length) {
+        $('ecosystemGrid').innerHTML = `<div class="empty">${EMPTY_ICON}<p>No ecosystem links yet.</p></div>`;
+        return;
+    }
+    $('ecosystemGrid').innerHTML = '';
+    links.forEach((link) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'ecosystem-item';
+        item.innerHTML = `<span class="ecosystem-logo"><img src="${link.image_url}" alt="" loading="lazy"></span><span class="ecosystem-name"></span>`;
+        item.querySelector('.ecosystem-name').textContent = link.name; // textContent only — never innerHTML with admin-entered text
+        item.addEventListener('click', () => window.open(link.url, '_blank', 'noopener'));
+        $('ecosystemGrid').appendChild(item);
+    });
+}
+
+$('openEcosystem').onclick = () => { $('ecosystemModal').hidden = false; loadEcosystem(); };
+$('closeEcosystem').onclick = () => { $('ecosystemModal').hidden = true; };
+$('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecosystemModal') $('ecosystemModal').hidden = true; });
 
 function setRing(fraction, done) {
     const fg = $('ringFg');

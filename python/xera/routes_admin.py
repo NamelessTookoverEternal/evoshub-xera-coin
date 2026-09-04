@@ -288,6 +288,172 @@ def admin_suspend_wallet(request: Request, user_id: int, data: SuspendRequest, a
 
 
 # ------------------------------------------------------------
+# DAILY CLAIM CONFIG
+# ------------------------------------------------------------
+
+@router.get("/daily-config", include_in_schema=False)
+@limiter.limit("60/minute")
+def admin_get_daily_config(request: Request, authorization: str = Header(default="")):
+    _require_admin(request, authorization)
+    res = supabase.table("xera_daily_config").select("*").eq("id", 1).limit(1).execute()
+    return {"status": "ok", "daily_config": res.data[0] if res.data else None}
+
+
+class DailyConfigUpdateRequest(BaseModel):
+    updates: dict = Field(..., description="Subset of xera_daily_config fields to change")
+    reason: str | None = None
+
+
+_ALLOWED_DAILY_FIELDS = {"enabled", "reward_amount"}
+
+
+@router.put("/daily-config", include_in_schema=False)
+@limiter.limit("20/minute")
+def admin_update_daily_config(request: Request, data: DailyConfigUpdateRequest, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+
+    disallowed = set(data.updates.keys()) - _ALLOWED_DAILY_FIELDS
+    if disallowed:
+        raise HTTPException(status_code=400, detail=f"Cannot update fields: {sorted(disallowed)}")
+
+    if "reward_amount" in data.updates:
+        try:
+            amount = float(data.updates["reward_amount"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="reward_amount must be a number.")
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="reward_amount must be greater than zero.")
+
+    old_res = supabase.table("xera_daily_config").select("*").eq("id", 1).limit(1).execute()
+    old = old_res.data[0] if old_res.data else {}
+    payload = {**data.updates, "updated_by": admin_id}
+    supabase.table("xera_daily_config").update(payload).eq("id", 1).execute()
+    new_res = supabase.table("xera_daily_config").select("*").eq("id", 1).limit(1).execute()
+    new = new_res.data[0] if new_res.data else {}
+
+    _log_admin_action(admin_id, "DAILY_CONFIG_UPDATED", old, new, data.reason)
+    return {"status": "ok", "daily_config": new}
+
+
+# ------------------------------------------------------------
+# ECOSYSTEM DIRECTORY — admin CRUD for the links shown in the XERA
+# app's "Ecosystem" section. Reads here return every row (including
+# inactive) so the admin can manage the full list; the user-facing
+# /api/xera/ecosystem route only ever returns active rows.
+# ------------------------------------------------------------
+
+_URL_RE = re.compile(r"^https?://[^\s]+$")
+
+
+class EcosystemLinkCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    url: str = Field(..., min_length=1, max_length=500)
+    image_url: str = Field(..., min_length=1, max_length=500)
+    sort_order: int = 0
+    is_active: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank.")
+        return v
+
+    @field_validator("url", "image_url")
+    @classmethod
+    def _check_url(cls, v: str) -> str:
+        v = v.strip()
+        if not _URL_RE.match(v):
+            raise ValueError("Must be a valid http(s) URL.")
+        return v
+
+
+class EcosystemLinkUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    url: str | None = Field(default=None, min_length=1, max_length=500)
+    image_url: str | None = Field(default=None, min_length=1, max_length=500)
+    sort_order: int | None = None
+    is_active: bool | None = None
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, v):
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank.")
+        return v
+
+    @field_validator("url", "image_url")
+    @classmethod
+    def _check_url(cls, v):
+        if v is None:
+            return v
+        v = v.strip()
+        if not _URL_RE.match(v):
+            raise ValueError("Must be a valid http(s) URL.")
+        return v
+
+
+@router.get("/ecosystem", include_in_schema=False)
+@limiter.limit("60/minute")
+def admin_list_ecosystem(request: Request, authorization: str = Header(default="")):
+    _require_admin(request, authorization)
+    res = supabase.table("xera_ecosystem_links").select("*").order("sort_order").execute()
+    return {"status": "ok", "links": res.data or []}
+
+
+@router.post("/ecosystem", include_in_schema=False)
+@limiter.limit("20/minute")
+def admin_create_ecosystem_link(request: Request, data: EcosystemLinkCreate, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    row = {
+        "name": data.name, "url": data.url, "image_url": data.image_url,
+        "sort_order": data.sort_order, "is_active": data.is_active, "created_by": admin_id,
+    }
+    created = supabase.table("xera_ecosystem_links").insert(row).execute()
+    new_row = created.data[0] if created.data else row
+    _log_admin_action(admin_id, "ECOSYSTEM_LINK_CREATED", {}, new_row)
+    return {"status": "ok", "link": new_row}
+
+
+@router.put("/ecosystem/{link_id}", include_in_schema=False)
+@limiter.limit("30/minute")
+def admin_update_ecosystem_link(request: Request, link_id: int, data: EcosystemLinkUpdate, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    updates = {k: v for k, v in data.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+
+    old_res = supabase.table("xera_ecosystem_links").select("*").eq("id", link_id).limit(1).execute()
+    if not old_res.data:
+        raise HTTPException(status_code=404, detail="Ecosystem link not found.")
+    old = old_res.data[0]
+
+    supabase.table("xera_ecosystem_links").update(updates).eq("id", link_id).execute()
+    new_res = supabase.table("xera_ecosystem_links").select("*").eq("id", link_id).limit(1).execute()
+    new = new_res.data[0] if new_res.data else old
+
+    _log_admin_action(admin_id, "ECOSYSTEM_LINK_UPDATED", old, new)
+    return {"status": "ok", "link": new}
+
+
+@router.delete("/ecosystem/{link_id}", include_in_schema=False)
+@limiter.limit("20/minute")
+def admin_delete_ecosystem_link(request: Request, link_id: int, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    old_res = supabase.table("xera_ecosystem_links").select("*").eq("id", link_id).limit(1).execute()
+    if not old_res.data:
+        raise HTTPException(status_code=404, detail="Ecosystem link not found.")
+    old = old_res.data[0]
+    supabase.table("xera_ecosystem_links").delete().eq("id", link_id).execute()
+    _log_admin_action(admin_id, "ECOSYSTEM_LINK_DELETED", old, {})
+    return {"status": "ok"}
+
+
+# ------------------------------------------------------------
 # AUDIT / SECURITY
 # ------------------------------------------------------------
 

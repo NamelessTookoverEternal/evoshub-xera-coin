@@ -75,82 +75,109 @@
   <!-- ===== WALLET ===== -->
   <div id="walletView" hidden class="wallet-shell">
     <header class="topbar">
-      <div class="wordmark"><span class="dot"></span>XERA</div>
-      <div class="topbar-actions">
-        <button class="icon-btn" id="openStats" aria-label="XERA statistics" title="XERA statistics">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
-        <button class="icon-btn" id="logout" aria-label="Sign out">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9M12 4H6a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+      <div class="topbar-inner">
+        <div class="wordmark"><span class="dot"></span>XERA</div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="openEcosystem" aria-label="Ecosystem" title="Ecosystem">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9s1.3-6.5 3.8-9z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" id="openStats" aria-label="XERA statistics" title="XERA statistics">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 20V10M11 20V4M18 20v-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" id="logout" aria-label="Sign out">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9M12 4H6a1 1 0 00-1 1v14a1 1 0 001 1h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
       </div>
     </header>
 
     <div class="scroll">
+      <div class="dashboard-grid">
 
-      <div class="balance-block">
-        <div class="label">TOTAL BALANCE</div>
-        <div class="amount"><span id="balance">0</span><small>XERA</small></div>
-        <span class="status-pill" id="walletStatus"><span class="dot"></span>ACTIVE</span>
-      </div>
+        <div class="panel mining-panel">
+          <div class="balance-block">
+            <div class="label">TOTAL BALANCE</div>
+            <div class="amount"><span id="balance">0</span><small>XERA</small></div>
+            <span class="status-pill" id="walletStatus"><span class="dot"></span>ACTIVE</span>
+          </div>
 
-      <div class="ring-card">
-        <div class="ring-wrap">
-          <svg viewBox="0 0 120 120">
-            <circle class="ring-bg" cx="60" cy="60" r="54"/>
-            <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
-          </svg>
-          <div class="ring-center">
-            <div class="time" id="countdown">--:--:--</div>
-            <div class="caption" id="ringCaption">Start your 24-hour session</div>
+          <div class="ring-card">
+            <div class="ring-wrap">
+              <svg viewBox="0 0 120 120">
+                <circle class="ring-bg" cx="60" cy="60" r="54"/>
+                <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
+              </svg>
+              <div class="ring-center">
+                <div class="time" id="countdown">--:--:--</div>
+                <div class="caption" id="ringCaption">Start your 24-hour session</div>
+              </div>
+            </div>
+            <p class="reward-line" id="rewardText"></p>
+
+            <div class="mining-meta" id="miningMeta" hidden>
+              <div class="meta-row">
+                <span>Mining rate</span>
+                <b id="miningRate">—</b>
+              </div>
+              <div class="meta-row">
+                <span>Next claim available</span>
+                <b id="nextClaim">—</b>
+              </div>
+            </div>
+
+            <button type="button" class="info-link" id="openMiningInfo">
+              <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              How XERA mining works
+            </button>
           </div>
         </div>
-        <p class="reward-line" id="rewardText"></p>
 
-        <div class="mining-meta" id="miningMeta" hidden>
-          <div class="meta-row">
-            <span>Mining rate</span>
-            <b id="miningRate">—</b>
+        <div class="panel daily-panel" id="dailyPanel" hidden>
+          <div class="section-title">Daily claim</div>
+          <div class="daily-card">
+            <div class="daily-info">
+              <div class="daily-amount"><span id="dailyAmount">0</span><small>XERA / day</small></div>
+              <div class="daily-streak" id="dailyStreak"></div>
+            </div>
+            <button type="button" class="btn daily-btn" id="dailyClaimBtn">Claim</button>
           </div>
-          <div class="meta-row">
-            <span>Next claim available</span>
-            <b id="nextClaim">—</b>
+          <p class="daily-note" id="dailyNote"></p>
+        </div>
+
+        <div class="panel soon-panel">
+          <div class="section-title">Coming soon</div>
+          <div class="chip-row">
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span>Buy</span>
+              <span class="soon">SOON</span>
+            </div>
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Withdraw</span>
+              <span class="soon">SOON</span>
+            </div>
+            <div class="chip">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M7 10l-4 4 4 4M3 14h13M17 4l4 4-4 4M21 8H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Transfer</span>
+              <span class="soon">SOON</span>
+            </div>
           </div>
         </div>
 
-        <button type="button" class="info-link" id="openMiningInfo">
-          <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8v.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          How XERA mining works
-        </button>
+        <div class="panel activity-panel">
+          <div class="section-title">Activity</div>
+          <div id="transactions"></div>
+        </div>
+
       </div>
-
-      <div class="section-title">Coming soon</div>
-      <div class="chip-row">
-        <div class="chip">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <span>Buy</span>
-          <span class="soon">SOON</span>
-        </div>
-        <div class="chip">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Withdraw</span>
-          <span class="soon">SOON</span>
-        </div>
-        <div class="chip">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M7 10l-4 4 4 4M3 14h13M17 4l4 4-4 4M21 8H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Transfer</span>
-          <span class="soon">SOON</span>
-        </div>
-      </div>
-
-      <div class="section-title">Activity</div>
-      <div id="transactions"></div>
-
     </div>
 
     <div class="bottombar">
-      <p class="banner-error" id="error"></p>
-      <button class="btn" id="miningAction">Start mining</button>
+      <div class="bottombar-inner">
+        <p class="banner-error" id="error"></p>
+        <button class="btn" id="miningAction">Start mining</button>
+      </div>
     </div>
   </div>
 
@@ -171,6 +198,21 @@
         <li>The displayed reward is an estimate and is subject to the platform's mining rules, which can adjust the rate as the network grows.</li>
       </ul>
       <button class="btn" id="closeMiningInfoBtn" type="button">Got it</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: Ecosystem ===== -->
+  <div class="modal-overlay" id="ecosystemModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="ecosystemTitle">
+      <div class="modal-head">
+        <h2 id="ecosystemTitle">Ecosystem</h2>
+        <button class="icon-btn" id="closeEcosystem" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="ecosystem-sub">Explore the rest of the Evoxera ecosystem.</p>
+      <div class="ecosystem-grid" id="ecosystemGrid"></div>
+      <p class="stats-note" id="ecosystemError"></p>
     </div>
   </div>
 

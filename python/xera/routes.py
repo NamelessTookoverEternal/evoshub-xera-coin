@@ -18,6 +18,7 @@ from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.config import get_config, get_allocations
 from xera.wallet import get_or_create_wallet, get_transactions
 from xera.mining import start_session, get_status, claim, current_rate, MiningError
+from xera.daily import get_daily_status, claim_daily, DailyClaimError
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -137,6 +138,56 @@ def mining_claim(request: Request, data: ClaimRequest, authorization: str = Head
     except MiningError as e:
         _raise_mining_error(e, request, user_id)
     return {"status": "ok", **result}
+
+
+# ------------------------------------------------------------
+# DAILY CLAIM
+# ------------------------------------------------------------
+
+_DAILY_ERROR_HTTP = {
+    "daily_claim_disabled": (403, "Daily claim is currently disabled."),
+    "already_claimed_today": (409, "You've already claimed today's reward."),
+    "wallet_not_active":     (403, "This wallet is suspended."),
+}
+
+
+@router.get("/daily/status")
+@limiter.limit("30/minute")
+def daily_status(request: Request, authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    return {"status": "ok", "daily": get_daily_status(user_id)}
+
+
+@router.post("/daily/claim")
+@limiter.limit("10/minute")
+def daily_claim_route(request: Request, authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    try:
+        result = claim_daily(user_id)
+    except DailyClaimError as e:
+        code = str(e)
+        status, message = _DAILY_ERROR_HTTP.get(code, (400, "Could not process daily claim."))
+        if code == "already_claimed_today":
+            _log_security_event(user_id, "DUPLICATE_CLAIM_ATTEMPT", request, {"code": code})
+        raise HTTPException(status_code=status, detail=message)
+    return {"status": "ok", **result}
+
+
+# ------------------------------------------------------------
+# ECOSYSTEM (public read — admin-curated directory of Evoxera sites)
+# ------------------------------------------------------------
+
+@router.get("/ecosystem")
+@limiter.limit("60/minute")
+def ecosystem_links(request: Request):
+    res = (
+        supabase.table("xera_ecosystem_links")
+        .select("id,name,url,image_url")
+        .eq("is_active", True)
+        .order("sort_order")
+        .execute()
+    )
+    return {"status": "ok", "links": res.data or []}
 
 
 # ------------------------------------------------------------
