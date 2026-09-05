@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="description" content="XERA supply model and allocation breakdown.">
+  <title>XERA Tokenomics | EVOXERA TECHNOLOGY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/global.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/animations.css">
+  <style>
+    .alloc-table { width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; }
+    .alloc-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:1px; color:var(--text3); padding:8px; border-bottom:1px solid var(--border); }
+    .alloc-table td { padding:12px 8px; border-bottom:1px solid var(--border); }
+    .alloc-bar-track { background:var(--bg2); border-radius:99px; height:8px; overflow:hidden; margin-top:26px; }
+    .alloc-bar-fill { height:100%; background:var(--blue); }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/xera">XERA</a></li>
+      <li><a href="/ecosystem.html">Ecosystem</a></li>
+      <li><a href="/about.html">About</a></li>
+      <li><a href="/contact.html">Contact</a></li>
+      <li><a href="/xera/dashboard" class="btn btn--primary" style="padding:8px 18px;font-size:14px;">XERA Dashboard</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <button class="theme-toggle" aria-label="Toggle theme" type="button">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <div class="hamburger" aria-label="Toggle menu"><span></span><span></span><span></span></div>
+    </div>
+  </nav>
+
+  <main class="section" style="padding-top:140px;max-width:820px;">
+    <span class="section-label">XERA</span>
+    <h1 class="section-title">Tokenomics</h1>
+    <p class="section-desc" style="margin-bottom:6px;">
+      This is read directly from the live allocation ledger — the same numbers the admin console uses — so it can't drift out of sync with reality.
+    </p>
+
+    <div class="alloc-bar-track"><div class="alloc-bar-fill" id="miningProgressBar" style="width:0%;"></div></div>
+    <p style="font-size:12px;color:var(--text3);margin-top:8px;" id="miningProgressLabel">Loading mining progress…</p>
+
+    <table class="alloc-table">
+      <thead><tr><th>Allocation</th><th>Amount (XERA)</th></tr></thead>
+      <tbody>
+        <tr><td>Total target supply</td><td id="t-total">—</td></tr>
+        <tr><td>Mining allocation</td><td id="t-mining">—</td></tr>
+        <tr><td>&nbsp;&nbsp;— distributed so far</td><td id="t-distributed">—</td></tr>
+        <tr><td>&nbsp;&nbsp;— remaining</td><td id="t-remaining">—</td></tr>
+        <tr><td>Sale allocation <span class="badge badge--soon" style="margin-left:6px;">Not active</span></td><td id="t-sale">—</td></tr>
+        <tr><td>Community allocation</td><td id="t-community">—</td></tr>
+        <tr><td>Liquidity allocation <span class="badge badge--soon" style="margin-left:6px;">Not active</span></td><td id="t-liquidity">—</td></tr>
+        <tr><td>Treasury allocation</td><td id="t-treasury">—</td></tr>
+      </tbody>
+    </table>
+
+    <p class="section-desc" style="margin-top:26px;font-size:13.5px;">
+      The total target supply is a database-enforced ceiling: every allocation above must sum to no more than the total target, and mining can never distribute more than its own allocation — both are hard constraints in the schema, not just numbers on this page.
+    </p>
+    <p id="tokenomicsError" style="font-size:12.5px;color:var(--text3);"></p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__bottom">
+        <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="../../js/nav.js"></script>
+  <script type="module">
+    import { fetchPublicJson, fmtXera } from '../../js/xera-public.js';
+
+    (async function load() {
+      try {
+        const d = await fetchPublicJson('/api/xera/public/tokenomics');
+        document.getElementById('t-total').textContent = fmtXera(d.total_target);
+        document.getElementById('t-mining').textContent = fmtXera(d.mining_allocation);
+        document.getElementById('t-distributed').textContent = fmtXera(d.mining_distributed);
+        document.getElementById('t-remaining').textContent = fmtXera(d.mining_remaining);
+        document.getElementById('t-sale').textContent = fmtXera(d.sale_allocation);
+        document.getElementById('t-community').textContent = fmtXera(d.community_allocation);
+        document.getElementById('t-liquidity').textContent = fmtXera(d.liquidity_allocation);
+        document.getElementById('t-treasury').textContent = fmtXera(d.treasury_allocation);
+
+        const pct = d.mining_allocation > 0 ? Math.min(100, (d.mining_distributed / d.mining_allocation) * 100) : 0;
+        document.getElementById('miningProgressBar').style.width = pct.toFixed(2) + '%';
+        document.getElementById('miningProgressLabel').textContent =
+          `${fmtXera(d.mining_distributed)} of ${fmtXera(d.mining_allocation)} XERA mining allocation distributed (${pct.toFixed(2)}%)`;
+      } catch (err) {
+        document.getElementById('tokenomicsError').textContent = 'Tokenomics data is temporarily unavailable. Please try again shortly.';
+      }
+    })();
+  </script>
+</body>
+</html>

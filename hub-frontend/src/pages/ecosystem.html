@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="description" content="An overview of the EVOXERA TECHNOLOGY ecosystem — EVOS Business Hub, EVOS Data, EVOS GPT, and XERA.">
+  <title>Ecosystem | EVOXERA TECHNOLOGY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <style>
+    .eco-hero { text-align:center; padding:150px 20px 20px; max-width:720px; margin:0 auto; }
+    .eco-hero h1 { font-family:var(--font-display); font-size:clamp(34px,6vw,52px); font-weight:800; margin:10px 0; }
+    .eco-hero p { font-size:15.5px; color:var(--text2); line-height:1.7; }
+    .links-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:16px; margin-top:20px; }
+    .link-tile { display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; color:var(--text); }
+    .link-tile .logo { width:60px; height:60px; border-radius:16px; background:var(--surface); border:1px solid var(--border); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .link-tile .logo img { width:100%; height:100%; object-fit:cover; }
+    .link-tile span { font-size:12.5px; color:var(--text2); }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/xera">XERA</a></li>
+      <li><a href="/ecosystem.html" class="active">Ecosystem</a></li>
+      <li><a href="/about.html">About</a></li>
+      <li><a href="/contact.html">Contact</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <button class="theme-toggle" aria-label="Toggle theme" type="button">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <div class="hamburger" aria-label="Toggle menu"><span></span><span></span><span></span></div>
+    </div>
+  </nav>
+
+  <div class="eco-hero">
+    <span class="badge badge--live"><span class="badge-pulse"></span>EVOXERA TECHNOLOGY</span>
+    <h1>Ecosystem</h1>
+    <p>Creating evolution for the future. Everything EVOXERA TECHNOLOGY builds lives under one ecosystem — here's what's live today, and what's being explored next.</p>
+  </div>
+
+  <main class="section" style="max-width:920px;">
+    <div class="auto-grid" data-stagger-cards>
+      <div class="card">
+        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
+        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS Business Hub</h3>
+        <p style="font-size:13.5px;color:var(--text2);">Digital services and business platform — the central hub every EVOXERA product lives under.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
+        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS Data</h3>
+        <p style="font-size:13.5px;color:var(--text2);">Digital data bundle and airtime services for MTN, Telecel and AirtelTigo.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
+        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS GPT</h3>
+        <p style="font-size:13.5px;color:var(--text2);">AI technology and services — an AI assistant for writing, coding, and ideas.</p>
+      </div>
+      <div class="card">
+        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
+        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">XERA</h3>
+        <p style="font-size:13.5px;color:var(--text2);">Digital ecosystem asset currently operating with V1 wallet and mining functionality. <a href="/xera">Learn more →</a></p>
+      </div>
+      <div class="card">
+        <span class="badge badge--soon">Exploring</span>
+        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">Future projects</h3>
+        <p style="font-size:13.5px;color:var(--text2);">New EVOXERA-built tools joining the ecosystem over time. Nothing here is committed to a launch date — see the <a href="/xera/roadmap">roadmap</a>.</p>
+      </div>
+    </div>
+
+    <span class="section-label" style="margin-top:50px;display:block;">Explore</span>
+    <h2 class="section-title">Jump to a product</h2>
+    <p class="section-desc" style="margin-bottom:0;">Admin-curated shortcuts to live EVOXERA products.</p>
+    <div class="links-grid" id="ecoLinksGrid"></div>
+    <p id="ecoLinksError" style="font-size:12.5px;color:var(--text3);margin-top:10px;"></p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__bottom">
+        <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="../js/nav.js"></script>
+  <script type="module">
+    import { fetchPublicJson } from '../js/xera-public.js';
+
+    (async function loadLinks() {
+      const grid = document.getElementById('ecoLinksGrid');
+      try {
+        const d = await fetchPublicJson('/api/xera/ecosystem');
+        const links = d.links || [];
+        if (!links.length) { grid.remove(); return; }
+        grid.innerHTML = links.map((l) => `
+          <a class="link-tile" href="${l.url}" target="_blank" rel="noopener">
+            <span class="logo"><img src="${l.image_url}" alt="" loading="lazy"></span>
+            <span></span>
+          </a>
+        `).join('');
+        // Names set via textContent, never innerHTML, even though the
+        // markup above is template-built — admin-entered text never gets
+        // parsed as HTML.
+        grid.querySelectorAll('.link-tile').forEach((el, i) => {
+          el.querySelector('span:last-child').textContent = links[i].name;
+        });
+      } catch (err) {
+        grid.remove();
+        document.getElementById('ecoLinksError').textContent = 'Could not load ecosystem links right now.';
+      }
+    })();
+  </script>
+</body>
+</html>

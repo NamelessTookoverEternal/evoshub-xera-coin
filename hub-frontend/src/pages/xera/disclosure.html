@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('evos-theme');if(t!=='dark'&&t!=='light'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}document.documentElement.setAttribute('data-theme',t)}catch(e){}})();</script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="description" content="Important information about XERA's current status and future plans.">
+  <title>XERA Disclosure | EVOXERA TECHNOLOGY</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/global.css">
+  <link rel="stylesheet" href="../../css/layout.css">
+  <link rel="stylesheet" href="../../css/components.css">
+  <link rel="stylesheet" href="../../css/animations.css">
+  <style>
+    .disc-list { list-style:none; padding:0; margin:20px 0; display:flex; flex-direction:column; gap:14px; }
+    .disc-list li { font-size:14.5px; color:var(--text2); line-height:1.7; padding-left:22px; position:relative; }
+    .disc-list li::before { content:'•'; position:absolute; left:0; color:var(--blue); }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/xera">XERA</a></li>
+      <li><a href="/ecosystem.html">Ecosystem</a></li>
+      <li><a href="/about.html">About</a></li>
+      <li><a href="/contact.html">Contact</a></li>
+      <li><a href="/xera/dashboard" class="btn btn--primary" style="padding:8px 18px;font-size:14px;">XERA Dashboard</a></li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+      <button class="theme-toggle" aria-label="Toggle theme" type="button">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+      <div class="hamburger" aria-label="Toggle menu"><span></span><span></span><span></span></div>
+    </div>
+  </nav>
+
+  <main class="section" style="padding-top:140px;max-width:760px;">
+    <span class="section-label">XERA</span>
+    <h1 class="section-title">Disclosure</h1>
+    <p class="section-desc" style="margin-bottom:6px;">Please read this before treating XERA as anything other than what it currently is.</p>
+
+    <ul class="disc-list">
+      <li>XERA V1 is an ecosystem project under active development, not a finished product.</li>
+      <li>Currently available functionality — account access, wallet, 24-hour mining, daily claiming, and transaction history — should be clearly distinguished from ideas discussed for the future. See the <a href="/xera/roadmap">roadmap</a> for that distinction.</li>
+      <li>We do not promise profits or guaranteed financial returns from mining, claiming, or holding XERA.</li>
+      <li>Mining XERA does not automatically give it any monetary value. XERA is not currently listed on any exchange and cannot currently be bought, sold, withdrawn, or transferred.</li>
+      <li>Any future feature — including buying, selling, withdrawals, transfers, exchange listing, or blockchain migration — depends on technical, operational, legal, regulatory, and business decisions that have not been made. Nothing on this site should be read as a commitment that any of these will happen, or happen by any particular date.</li>
+      <li>Statistics shown on this site (supply, distribution, user counts, etc.) are read directly from our live systems at the time of the request. They are not projections or estimates unless explicitly labeled as such.</li>
+    </ul>
+
+    <p style="font-size:13px;color:var(--text3);margin-top:24px;">
+      If anything on this site reads as a guarantee of profit, price increase, investment return, or exchange listing, that isn't our intent — please <a href="/contact.html">let us know</a> so we can correct it.
+    </p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__bottom">
+        <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="../../js/nav.js"></script>
+</body>
+</html>
