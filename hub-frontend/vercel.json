@@ -11,6 +11,8 @@
     { "source": "/xera/", "destination": "/xera/index.html" },
     { "source": "/xera/dashboard", "destination": "/xera/app.html" },
     { "source": "/xera/dashboard/", "destination": "/xera/app.html" },
+    { "source": "/xera/whitepaper", "destination": "/xera/whitepaper.html" },
+    { "source": "/xera/whitepaper/", "destination": "/xera/whitepaper.html" },
     { "source": "/xera/stats", "destination": "/xera/stats.html" },
     { "source": "/xera/tokenomics", "destination": "/xera/tokenomics.html" },
     { "source": "/xera/roadmap", "destination": "/xera/roadmap.html" },

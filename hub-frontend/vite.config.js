@@ -19,6 +19,7 @@ export default defineConfig({
         notFound:          'src/pages/404.html',
         xera:               'src/pages/xera/index.html',
         xeraApp:            'src/pages/xera/app.html',
+        xeraWhitepaper:     'src/pages/xera/whitepaper.html',
         xeraStats:          'src/pages/xera/stats.html',
         xeraTokenomics:     'src/pages/xera/tokenomics.html',
         xeraRoadmap:        'src/pages/xera/roadmap.html',
