@@ -1,28 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
-/* This file's tokens alias the shared theme.css tokens (loaded before this
-   file) rather than redefining fixed values — this is what lets the whole
-   existing stylesheet below follow the user's chosen accent color without
-   editing every var(--accent) usage individually. theme.css must be linked
-   before this file in <head>. */
 :root{
-    --bg:var(--background-primary);
-    --surface:var(--surface-primary);
-    --surface-2:var(--surface-secondary);
-    --border:var(--border);
-    --border-strong:var(--border-strong);
-    --text:var(--text-primary);
-    --text-dim:var(--text-secondary);
-    --accent:var(--app-accent);
-    --accent-soft:var(--app-accent-soft);
-    --success:var(--success);
-    --success-soft:var(--success-soft);
-    --danger:var(--danger);
-    --radius-lg:var(--radius-lg);
-    --radius-md:var(--radius-md);
-    --radius-sm:var(--radius-sm);
-    --font-ui:var(--font-ui);
-    --font-display:var(--font-display);
+    --bg:#060810;
+    --surface:#0e1220;
+    --surface-2:#141a2b;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.14);
+    --text:#f2f5fa;
+    --text-dim:#838da1;
+    --accent:#4c7eff;
+    --accent-soft:rgba(76,126,255,.14);
+    --success:#33d6a6;
+    --success-soft:rgba(51,214,166,.14);
+    --danger:#ff6b6b;
+    --radius-lg:22px;
+    --radius-md:14px;
+    --radius-sm:10px;
+    --font-ui:'Inter',system-ui,sans-serif;
+    --font-display:'Space Grotesk','Inter',system-ui,sans-serif;
 }
 *{box-sizing:border-box}
 html{-webkit-tap-highlight-color:transparent;height:100%}
@@ -126,10 +121,10 @@ button{-webkit-tap-highlight-color:transparent}
 }
 .brand-mark{
     width:52px;height:52px;border-radius:16px;
-    background:linear-gradient(145deg,var(--xera-brand),#8b5cf6);
+    background:linear-gradient(145deg,var(--accent),#8b5cf6);
     display:flex;align-items:center;justify-content:center;
     margin-bottom:20px;
-    box-shadow:0 8px 24px var(--xera-brand-glow);
+    box-shadow:0 8px 24px rgba(76,126,255,.35);
 }
 .brand-mark svg{width:26px;height:26px}
 .auth h1{
@@ -307,18 +302,6 @@ button{-webkit-tap-highlight-color:transparent}
     cursor:pointer;
 }
 .logout-btn{background:transparent;border:1px solid var(--border-strong);color:var(--danger);margin-top:6px}
-
-.accent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.accent-swatch{
-    display:flex;flex-direction:column;align-items:center;gap:8px;
-    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
-    padding:14px 8px;cursor:pointer;
-}
-.accent-swatch.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.swatch-dot{width:26px;height:26px;border-radius:50%;box-shadow:0 0 0 4px var(--accent-soft)}
-.accent-swatch.active .swatch-dot{box-shadow:0 0 0 4px var(--accent-soft),0 0 16px var(--accent-glow)}
-.swatch-label{font-size:.72rem;color:var(--text-dim);font-weight:600}
-.accent-swatch.active .swatch-label{color:var(--text)}
 
 .balance-block{
     text-align:center;
@@ -601,7 +584,6 @@ button{-webkit-tap-highlight-color:transparent}
         border-radius:var(--radius-lg);padding:18px 20px;align-self:start;
     }
 
-    .accent-grid{grid-template-columns:repeat(6,1fr);max-width:640px}
 }
 
 @media(min-width:1140px){

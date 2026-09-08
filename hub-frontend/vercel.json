@@ -18,10 +18,7 @@
     { "source": "/xera/roadmap", "destination": "/xera/roadmap.html" },
     { "source": "/xera/faq", "destination": "/xera/faq.html" },
     { "source": "/xera/disclosure", "destination": "/xera/disclosure.html" },
-    { "source": "/ecosystem", "destination": "/ecosystem.html" },
-    { "source": "/hub", "destination": "/hub/index.html" },
-    { "source": "/hub/", "destination": "/hub/index.html" },
-    { "source": "/hub/settings", "destination": "/hub/settings.html" }
+    { "source": "/ecosystem", "destination": "/ecosystem.html" }
   ],
   "headers": [
     {

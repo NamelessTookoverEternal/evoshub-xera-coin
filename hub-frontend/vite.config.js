@@ -26,8 +26,6 @@ export default defineConfig({
         xeraFaq:            'src/pages/xera/faq.html',
         xeraDisclosure:     'src/pages/xera/disclosure.html',
         ecosystem:          'src/pages/ecosystem.html',
-        hub:                'src/pages/hub/index.html',
-        hubSettings:        'src/pages/hub/settings.html',
       }
     }
   }

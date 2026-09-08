@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/components.css">
   <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/ecosystem-system.css">
   <style>
     .eco-hero { text-align:center; padding:150px 20px 20px; max-width:720px; margin:0 auto; }
     .eco-hero h1 { font-family:var(--font-display); font-size:clamp(34px,6vw,52px); font-weight:800; margin:10px 0; }
@@ -27,9 +28,11 @@
     <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
     <ul class="nav-links">
       <li><a href="/">Home</a></li>
-      <li><a href="/xera">XERA</a></li>
+      <li><a href="/#about">EVOXERA</a></li>
       <li><a href="/ecosystem.html" class="active">Ecosystem</a></li>
-      <li><a href="/about.html">About</a></li>
+      <li><a href="/#products">Products</a></li>
+      <li><a href="/business-tools.html">Business Hub</a></li>
+      <li><a href="/xera">XERA</a></li>
       <li><a href="/contact.html">Contact</a></li>
     </ul>
     <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
@@ -48,32 +51,89 @@
   </div>
 
   <main class="section" style="max-width:920px;">
-    <div class="auto-grid" data-stagger-cards>
-      <div class="card">
-        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
-        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS Business Hub</h3>
-        <p style="font-size:13.5px;color:var(--text2);">Digital services and business platform — the central hub every EVOXERA product lives under.</p>
+
+    <!-- Connected hierarchy trunk -->
+    <div class="eco-trunk fade-up" style="margin-bottom:20px;">
+      <span class="eco-trunk__flow"></span>
+      <div class="eco-node eco-node--primary">
+        <span class="eco-node__label">EVOXERA TECHNOLOGY</span>
+        <span class="eco-node__sub">The company</span>
       </div>
-      <div class="card">
-        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
-        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS Data</h3>
-        <p style="font-size:13.5px;color:var(--text2);">Digital data bundle and airtime services for MTN, Telecel and AirtelTigo.</p>
+      <div class="eco-node eco-node--pulse">
+        <span class="eco-node__label">EVOS</span>
+        <span class="eco-node__sub">Mother platform</span>
       </div>
-      <div class="card">
-        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
-        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">EVOS GPT</h3>
-        <p style="font-size:13.5px;color:var(--text2);">AI technology and services — an AI assistant for writing, coding, and ideas.</p>
+      <div class="eco-node">
+        <span class="eco-node__label">EVOS Business Hub</span>
+        <span class="eco-node__sub">Central application platform</span>
       </div>
-      <div class="card">
-        <span class="badge badge--live"><span class="badge-pulse"></span>Live Now</span>
-        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">XERA</h3>
-        <p style="font-size:13.5px;color:var(--text2);">Digital ecosystem asset currently operating with V1 wallet and mining functionality. <a href="/xera">Learn more →</a></p>
+      <div class="eco-node">
+        <span class="eco-node__label">EVOS Hub</span>
+        <span class="eco-node__sub">evoshub.xyz · Ecosystem gateway</span>
       </div>
-      <div class="card">
-        <span class="badge badge--soon">Exploring</span>
-        <h3 style="font-family:var(--font-display);font-size:16px;margin:12px 0 6px;">Future projects</h3>
-        <p style="font-size:13.5px;color:var(--text2);">New EVOXERA-built tools joining the ecosystem over time. Nothing here is committed to a launch date — see the <a href="/xera/roadmap.html">roadmap</a>.</p>
+    </div>
+    <svg class="eco-fork" viewBox="0 0 360 110" aria-hidden="true">
+      <path d="M180 0 C180 40, 70 40, 70 100" />
+      <path d="M180 0 C180 40, 290 40, 290 100" />
+      <path class="eco-fork__flow" d="M180 0 C180 40, 70 40, 70 100" />
+      <path class="eco-fork__flow delay" d="M180 0 C180 40, 290 40, 290 100" />
+      <circle cx="180" cy="2" r="3" /><circle cx="70" cy="100" r="3" /><circle cx="290" cy="100" r="3" />
+    </svg>
+
+    <!-- Tier 01 -->
+    <div class="tier-head" style="margin-top:8px;">
+      <span class="tier-num">TIER 01 · CORE PRODUCTS</span>
+    </div>
+    <div class="app-grid" data-stagger-cards style="margin-bottom:40px;">
+      <a href="https://evosdata.xyz" target="_blank" rel="noopener" class="card app-card">
+        <div class="app-icon app-icon--green">📶</div>
+        <div class="app-card__cat">Digital Data Services</div>
+        <div class="app-card__name">EVOS Data Services</div>
+        <p class="app-card__desc">Data bundles, airtime and digital services for MTN, Telecel and AirtelTigo.</p>
+        <div class="app-card__foot"><span class="badge badge--live"><span class="badge-pulse"></span>&nbsp;Live</span><span class="app-card__action">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div>
+      </a>
+      <a href="https://evosgpt.xyz" target="_blank" rel="noopener" class="card app-card">
+        <div class="app-icon">🤖</div>
+        <div class="app-card__cat">Artificial Intelligence</div>
+        <div class="app-card__name">EVOS GPT</div>
+        <p class="app-card__desc">Your evolving AI assistant for writing, coding, school and business ideas.</p>
+        <div class="app-card__foot"><span class="badge badge--live"><span class="badge-pulse"></span>&nbsp;Live</span><span class="app-card__action">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div>
+      </a>
+    </div>
+
+    <!-- Tier 02 -->
+    <div class="tier-head">
+      <span class="tier-num">TIER 02 · EXPANDING PRODUCTS</span>
+    </div>
+    <div class="app-grid" data-stagger-cards>
+      <a href="/business-tools.html" class="card app-card">
+        <div class="app-icon">💼</div>
+        <div class="app-card__cat">Business Tools</div>
+        <div class="app-card__name">Website Creation</div>
+        <p class="app-card__desc">Request a custom website through EVOS Business Hub.</p>
+        <div class="app-card__foot"><span class="badge badge--live"><span class="badge-pulse"></span>&nbsp;1 tool active</span><span class="app-card__action">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div>
+      </a>
+      <div class="card app-card app-card--locked">
+        <div class="app-icon app-icon--green">🌐</div>
+        <div class="app-card__cat">Digital Marketplace</div>
+        <div class="app-card__name">Marketplace</div>
+        <p class="app-card__desc">Buy and sell digital products from verified vendors across Africa.</p>
+        <div class="app-card__foot"><span class="badge badge--soon">Coming Soon</span><span class="app-card__action">Not yet available</span></div>
       </div>
+      <a href="/xera" class="card app-card">
+        <div class="app-icon app-icon--amber">🪙</div>
+        <div class="app-card__cat">Digital Mining Engine</div>
+        <div class="app-card__name">XERA</div>
+        <p class="app-card__desc">Token, wallet and mining engine currently running V1 functionality. <a href="/xera">Learn more →</a></p>
+        <div class="app-card__foot"><span class="badge badge--live"><span class="badge-pulse"></span>&nbsp;Live</span><span class="app-card__action">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div>
+      </a>
+    </div>
+
+    <div class="evo-strip" style="margin-top:44px;">
+      <span class="evo-strip__step">Tier 01</span><span class="evo-strip__arrow">→</span>
+      <span class="evo-strip__step">Tier 02</span><span class="evo-strip__arrow">→</span>
+      <span class="evo-strip__step evo-strip__step--future">Tier 03</span><span class="evo-strip__arrow">→</span>
+      <span class="evo-strip__step evo-strip__step--future">Future Systems</span>
     </div>
 
     <span class="section-label" style="margin-top:50px;display:block;">Explore</span>

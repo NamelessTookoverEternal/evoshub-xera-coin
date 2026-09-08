@@ -86,7 +86,7 @@
 /* Typography helpers */
 .section-label { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; color:var(--blue); margin-bottom:14px; }
 .section-label::before { content:'//'; color:var(--text3); }
-.section-title  { font-family:var(--font-display); font-weight:700; font-size:clamp(26px,5vw,42px); letter-spacing:-1px; color:var(--text); line-height:1.15; margin-bottom:16px; word-break:break-word; }
+.section-title  { font-family:var(--font-display); font-weight:700; font-size:clamp(24px,6.5vw,42px); letter-spacing:-1px; color:var(--text); line-height:1.15; margin-bottom:16px; overflow-wrap:normal; word-break:normal; }
 .section-desc   { font-size:clamp(14.5px,2.2vw,16px); color:var(--text2); line-height:1.75; max-width:560px; }
 
 /* Badges */

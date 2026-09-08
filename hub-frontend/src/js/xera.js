@@ -1,5 +1,3 @@
-import { THEMES, applyTheme, getTheme } from './theme.js';
-
 const API = window.XERA_API_BASE || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
 const RING_CIRCUMFERENCE = 339.29; // 2 * PI * 54
@@ -215,21 +213,6 @@ function renderProfile() {
     $('profileEmail').textContent = user.email || '—';
 }
 
-function renderAccentGrid() {
-    const current = getTheme();
-    $('accentGrid').innerHTML = THEMES.map((t) => `
-        <button type="button" class="accent-swatch ${t.id === current ? 'active' : ''}" data-accent-id="${t.id}" title="${t.label}">
-            <span class="swatch-dot" style="background:${t.swatch}"></span>
-            <span class="swatch-label">${t.label}</span>
-        </button>`).join('');
-    $('accentGrid').querySelectorAll('.accent-swatch').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            applyTheme(btn.dataset.accentId);
-            renderAccentGrid();
-        });
-    });
-}
-
 $('logoutProfile').onclick = () => { doLogout(); };
 $('profileOpenEcosystem').onclick = () => { $('ecosystemModal').hidden = false; loadEcosystem(); };
 $('profileOpenStats').onclick = openStats;
@@ -261,7 +244,6 @@ async function load() {
 
         walletTotalsLoaded = false;
         renderProfile();
-        renderAccentGrid();
         loadDaily();
     } catch (err) {
         showLogin('Please sign in again.');

@@ -1,0 +1,201 @@
+/* EVOSHUB — Ecosystem Hierarchy + Tier Product System
+   Shared across index.html and ecosystem.html. Builds the
+   EVOXERA → EVOS → EVOS Business Hub → EVOS Hub → Tiers → Future
+   architecture as a connected, glass-surfaced "digital gateway".
+   Pure CSS/SVG — no heavy libraries. Motion is capped and killed
+   entirely by the global prefers-reduced-motion rule in global.css. */
+
+/* ── Section framing ─────────────────────────────────────────── */
+.eco-section { position: relative; }
+.eco-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+
+/* ── Trunk: the vertical hierarchy chain ─────────────────────── */
+.eco-trunk {
+  position: relative;
+  max-width: 420px;
+  margin: 56px auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.eco-trunk::before {
+  content: '';
+  position: absolute;
+  top: 26px; bottom: 26px; left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom,
+    transparent 0%,
+    var(--border2) 8%,
+    var(--border2) 92%,
+    transparent 100%);
+}
+.eco-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 26px;
+  margin: 7px 0;
+  border-radius: 100px;
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border2);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+.eco-node__label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -.2px;
+  color: var(--text);
+}
+.eco-node__sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.eco-node--primary {
+  padding: 20px 40px;
+  background: linear-gradient(135deg, var(--blue-dim), var(--violet-dim));
+  border-color: rgba(148,196,255,.30);
+  box-shadow: var(--glow-blue);
+}
+.eco-node--primary .eco-node__label { font-size: 19px; }
+.eco-node--pulse::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid var(--blue);
+  opacity: 0;
+  animation: eco-pulse-ring 3.2s ease-out infinite;
+}
+@keyframes eco-pulse-ring {
+  0%   { opacity: .55; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.18); }
+}
+
+/* Flowing "signal" dot travelling down the trunk line */
+.eco-trunk__flow {
+  position: absolute;
+  left: 50%; top: 26px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--blue-light);
+  box-shadow: 0 0 8px 2px rgba(95,227,255,.7);
+  transform: translateX(-50%);
+  animation: eco-flow 4.5s linear infinite;
+}
+@keyframes eco-flow {
+  0%   { top: 26px;   opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { top: calc(100% - 26px); opacity: 0; }
+}
+
+/* ── Fork: EVOS Hub branching into Tier 1 / Tier 2 ───────────── */
+.eco-fork { display: block; margin: 0 auto; max-width: 360px; width: 100%; height: auto; }
+.eco-fork path {
+  fill: none;
+  stroke: var(--border2);
+  stroke-width: 1;
+}
+.eco-fork circle { fill: var(--blue-light); }
+.eco-fork .eco-fork__flow {
+  stroke: var(--blue-light);
+  stroke-width: 1.4;
+  stroke-dasharray: 6 220;
+  animation: eco-fork-flow 5s linear infinite;
+  opacity: .9;
+}
+.eco-fork .eco-fork__flow.delay { animation-delay: 2.4s; }
+@keyframes eco-fork-flow { to { stroke-dashoffset: -226; } }
+
+/* ── Tier headers ─────────────────────────────────────────────── */
+.tier-head { text-align: center; max-width: 480px; margin: 0 auto 32px; }
+.tier-num {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; color: var(--blue); margin-bottom: 10px;
+}
+.tier-num::before { content: ''; width: 16px; height: 1px; background: var(--blue); }
+
+/* ── App-launcher product cards ──────────────────────────────── */
+.app-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; }
+.app-card {
+  position: relative;
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 26px;
+  overflow: hidden;
+  transition: border-color .25s, box-shadow .25s, transform .2s;
+  text-decoration: none;
+  display: block;
+}
+.app-card::before {
+  /* glossy light sweep on hover */
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.06) 45%, transparent 60%);
+  transform: translateX(-120%);
+  transition: transform .6s ease;
+  pointer-events: none;
+}
+.app-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--border2);
+  box-shadow: var(--shadow-md), 0 0 32px -14px rgba(62,139,255, calc(0.6 * var(--glow-strength)));
+}
+.app-card:hover::before { transform: translateX(120%); }
+.app-icon {
+  width: 50px; height: 50px;
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, var(--blue), var(--violet));
+  color: #fff;
+  box-shadow: 0 6px 18px -6px rgba(62,139,255, calc(0.6 * var(--glow-strength)));
+}
+.app-icon--green { background: linear-gradient(135deg, var(--green), var(--blue-light)); box-shadow: 0 6px 18px -6px rgba(44,230,166, calc(0.6 * var(--glow-strength))); }
+.app-icon--amber { background: linear-gradient(135deg, var(--amber), var(--violet)); box-shadow: 0 6px 18px -6px rgba(245,185,66, calc(0.6 * var(--glow-strength))); }
+.app-card__cat { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }
+.app-card__name { font-family: var(--font-display); font-weight: 700; font-size: 18px; margin-bottom: 8px; color: var(--text); }
+.app-card__desc { font-size: 13.5px; color: var(--text2); line-height: 1.6; margin-bottom: 18px; }
+.app-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.app-card__action { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--blue); }
+.app-card__action svg { width: 12px; height: 12px; transition: transform .2s; }
+.app-card:hover .app-card__action svg { transform: translateX(3px); }
+.app-card--locked { opacity: .68; }
+.app-card--locked .app-card__action { color: var(--text3); }
+.app-card--locked:hover { transform: none; box-shadow: var(--shadow-sm); }
+
+/* ── Future evolution strip ──────────────────────────────────── */
+.evo-strip { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 40px 0; font-family: var(--font-mono); font-size: 12px; }
+.evo-strip__step { padding: 7px 16px; border-radius: 100px; border: 1px solid var(--border2); color: var(--text2); background: var(--surface2); }
+.evo-strip__step--future { border-style: dashed; color: var(--text3); }
+.evo-strip__arrow { color: var(--text3); }
+
+@media (max-width: 640px) {
+  .eco-trunk { margin-top: 40px; }
+  .eco-node { padding: 12px 20px; }
+  .eco-node--primary { padding: 16px 28px; }
+}
