@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#060810"/>
+<meta name="description" content="EVOS HUB settings — appearance and account."/>
+<title>Settings | EVOS HUB</title>
+<script>(function(){try{var t=localStorage.getItem('evos_accent_theme');if(t&&t!=='default')document.documentElement.setAttribute('data-accent',t);}catch(e){}})();</script>
+<link href="../../css/theme.css" rel="stylesheet"/>
+<link href="../../css/hub.css" rel="stylesheet"/>
+</head>
+<body class="hub-body">
+
+<div class="hub-shell">
+
+  <aside class="hub-sidebar" id="hubSidebar" aria-label="EVOS Hub navigation"></aside>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header class="hub-topbar" id="hubTopbar"></header>
+
+    <main class="hub-main">
+      <div class="hub-welcome">
+        <h1>Settings</h1>
+        <p>Personalize your dashboard and manage your account.</p>
+      </div>
+
+      <h2 class="hub-section-title">Appearance</h2>
+      <section class="hub-panel hub-settings-card" aria-label="Dashboard accent color">
+        <p style="margin:0;font-size:13.5px;color:var(--text-dim)">
+          Choose an accent color for buttons, active navigation, and progress
+          indicators across EVOS Hub and XERA. Product branding stays the same.
+        </p>
+        <div class="hub-accent-grid" id="accentGrid" role="radiogroup" aria-label="Accent color"></div>
+      </section>
+
+      <h2 class="hub-section-title" style="margin-top:28px">Account</h2>
+      <section class="hub-panel hub-settings-card" aria-label="Account details" id="profilePanel">
+        <div class="hub-skel" style="width:100%;height:80px"></div>
+      </section>
+    </main>
+  </div>
+
+  <nav class="hub-bottom-nav" id="hubBottomNav" aria-label="EVOS Hub"></nav>
+</div>
+
+<script type="module" src="../../js/hub-settings.js"></script>
+</body>
+</html>

@@ -1,8 +1,11 @@
+import { THEMES, applyTheme, getTheme } from './theme.js';
+
 const API = window.XERA_API_BASE || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
 const RING_CIRCUMFERENCE = 339.29; // 2 * PI * 54
 
 let mining = null;
+let dailyData = null;
 let tickHandle = null;
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
@@ -34,6 +37,7 @@ function showAuthTab(tab) {
 
 function showLogin(message) {
     localStorage.removeItem('xera_evos_token');
+    localStorage.removeItem('xera_evos_user');
     $('walletView').hidden = true;
     $('walletView').style.display = 'none';
     $('authView').hidden = false;
@@ -94,6 +98,19 @@ async function register(e) {
     }
 }
 
+// ================= TABS =================
+
+function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === name));
+    document.querySelectorAll('.tab-nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.bottom-tab-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+    $('walletView').querySelector('.scroll').scrollTop = 0;
+    if (name === 'wallet') loadWalletTotals();
+}
+
+document.querySelectorAll('[data-tab]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+document.querySelectorAll('[data-goto]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.goto)));
+
 // ================= ACTIVITY =================
 
 const TX_ICONS = {
@@ -116,12 +133,14 @@ const TX_LABELS = {
 };
 const EMPTY_ICON = '<svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l3 8 4-16 3 8h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
-function renderTransactions(list) {
+function renderTransactions(list, targetId = 'transactions') {
+    const el = $(targetId);
+    if (!el) return;
     if (!list.length) {
-        $('transactions').innerHTML = `<div class="empty">${EMPTY_ICON}<p>No activity yet — start mining to see it here.</p></div>`;
+        el.innerHTML = `<div class="empty">${EMPTY_ICON}<p>No activity yet — start mining to see it here.</p></div>`;
         return;
     }
-    $('transactions').innerHTML = list.map((x) => {
+    el.innerHTML = list.map((x) => {
         const isCredit = x.direction === 'CREDIT';
         const label = TX_LABELS[x.type] || x.type.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
         const icon = TX_ICONS[x.type] || TX_ICONS.DEFAULT;
@@ -164,6 +183,57 @@ async function openStats() {
     }
 }
 
+// ================= WALLET TAB =================
+
+let walletTotalsLoaded = false;
+async function loadWalletTotals() {
+    if (walletTotalsLoaded) return;
+    try {
+        const [pub, txs] = await Promise.all([
+            fetch(API + '/api/xera/public/stats').then((r) => r.json()),
+            req('/api/xera/transactions?limit=100&offset=0'),
+        ]);
+        const earned = (txs.transactions || [])
+            .filter((t) => t.direction === 'CREDIT')
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+        $('totalEarned').textContent = `${fmt(earned)} XERA`;
+        $('walletRemainingSupply').textContent = `${fmt(pub.mining_allocation_remaining)} XERA`;
+        walletTotalsLoaded = true;
+    } catch (err) {
+        $('totalEarned').textContent = '—';
+        $('walletRemainingSupply').textContent = '—';
+    }
+}
+
+// ================= PROFILE / APPEARANCE =================
+
+function renderProfile() {
+    let user = {};
+    try { user = JSON.parse(localStorage.getItem('xera_evos_user') || '{}'); } catch (e) { /* ignore */ }
+    $('profileName').textContent = user.full_name || '—';
+    $('profileUsername').textContent = user.username || '—';
+    $('profileEmail').textContent = user.email || '—';
+}
+
+function renderAccentGrid() {
+    const current = getTheme();
+    $('accentGrid').innerHTML = THEMES.map((t) => `
+        <button type="button" class="accent-swatch ${t.id === current ? 'active' : ''}" data-accent-id="${t.id}" title="${t.label}">
+            <span class="swatch-dot" style="background:${t.swatch}"></span>
+            <span class="swatch-label">${t.label}</span>
+        </button>`).join('');
+    $('accentGrid').querySelectorAll('.accent-swatch').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            applyTheme(btn.dataset.accentId);
+            renderAccentGrid();
+        });
+    });
+}
+
+$('logoutProfile').onclick = () => { doLogout(); };
+$('profileOpenEcosystem').onclick = () => { $('ecosystemModal').hidden = false; loadEcosystem(); };
+$('profileOpenStats').onclick = openStats;
+
 // ================= WALLET / MINING =================
 
 async function load() {
@@ -176,12 +246,22 @@ async function load() {
         $('authView').hidden = true;
         $('walletView').hidden = false;
         $('walletView').style.display = 'flex';
+
         $('balance').textContent = fmt(w.balance);
+        $('balanceWallet').textContent = fmt(w.balance);
         $('walletStatus').innerHTML = `<span class="dot"></span>${w.wallet_status || 'ACTIVE'}`;
+        $('walletStatusWallet').innerHTML = `<span class="dot"></span>${w.wallet_status || 'ACTIVE'}`;
+
         mining = m.mining;
         renderMining();
-        renderTransactions(t.transactions || []);
+        const list = t.transactions || [];
+        renderTransactions(list, 'transactions');
+        renderTransactions(list.slice(0, 3), 'transactionsRecent');
         if (!tickHandle) tickHandle = setInterval(() => { if (mining) renderMining(); }, 1000);
+
+        walletTotalsLoaded = false;
+        renderProfile();
+        renderAccentGrid();
         loadDaily();
     } catch (err) {
         showLogin('Please sign in again.');
@@ -193,55 +273,79 @@ async function load() {
 async function loadDaily() {
     try {
         const d = await req('/api/xera/daily/status');
-        renderDaily(d.daily);
+        dailyData = d.daily;
+        renderDaily(dailyData);
     } catch (err) {
-        // Daily claim not available (disabled or a transient error) — hide
-        // the panel rather than show a broken control.
+        dailyData = null;
         $('dailyPanel').hidden = true;
+        $('rewardsMiniDash').hidden = true;
     }
 }
 
 function renderDaily(daily) {
     if (!daily || !daily.enabled) {
         $('dailyPanel').hidden = true;
+        $('rewardsMiniDash').hidden = true;
         return;
     }
+
+    // Mine tab card
     $('dailyPanel').hidden = false;
     $('dailyAmount').textContent = fmt(daily.reward_amount);
     $('dailyStreak').textContent = daily.streak > 0
         ? `${daily.streak}-day streak · ${daily.total_claims} total claims`
         : 'Claim daily to start a streak';
 
-    const btn = $('dailyClaimBtn');
-    if (daily.can_claim) {
-        btn.textContent = 'Claim';
-        btn.classList.add('ready');
-        btn.disabled = false;
-        $('dailyNote').textContent = '';
-    } else {
-        btn.textContent = 'Claimed';
-        btn.classList.remove('ready');
-        btn.disabled = true;
-        $('dailyNote').textContent = 'Come back tomorrow for your next claim.';
-    }
+    // Dashboard mini card (same data, compact)
+    $('rewardsMiniDash').hidden = false;
+    $('dailyAmountDash').textContent = fmt(daily.reward_amount);
+    $('dailyStreakDash').textContent = daily.streak > 0 ? `${daily.streak}-day streak` : 'Start a streak';
+
+    // Rewards tab
+    $('rewardsStreak').textContent = daily.streak || 0;
+    $('rewardsTotalClaims').textContent = `${daily.total_claims || 0} total claims`;
+    $('rewardsNextClaim').textContent = daily.can_claim
+        ? 'Ready to claim now'
+        : `Resets ${new Date(daily.next_reset_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+
+    [$('dailyClaimBtn'), $('dailyClaimBtnDash')].forEach((btn) => {
+        if (daily.can_claim) {
+            btn.textContent = 'Claim';
+            btn.classList.add('ready');
+            btn.disabled = false;
+        } else {
+            btn.textContent = 'Claimed';
+            btn.classList.remove('ready');
+            btn.disabled = true;
+        }
+    });
+    $('dailyNote').textContent = daily.can_claim ? '' : 'Come back tomorrow for your next claim.';
 }
 
-$('dailyClaimBtn').onclick = async () => {
-    const btn = $('dailyClaimBtn');
-    $('dailyNote').textContent = '';
+async function claimDaily(btn) {
     btn.disabled = true;
+    $('dailyNote').textContent = '';
     try {
         await req('/api/xera/daily/claim', { method: 'POST', body: '{}' });
-        await Promise.all([
-            req('/api/xera/wallet').then((w) => { $('balance').textContent = fmt(w.balance); }),
-            req('/api/xera/transactions?limit=20&offset=0').then((t) => renderTransactions(t.transactions || [])),
+        const [w, t] = await Promise.all([
+            req('/api/xera/wallet'),
+            req('/api/xera/transactions?limit=20&offset=0'),
         ]);
+        $('balance').textContent = fmt(w.balance);
+        $('balanceWallet').textContent = fmt(w.balance);
+        const list = t.transactions || [];
+        renderTransactions(list, 'transactions');
+        renderTransactions(list.slice(0, 3), 'transactionsRecent');
+        walletTotalsLoaded = false;
         await loadDaily();
     } catch (err) {
         $('dailyNote').textContent = err.message;
         btn.disabled = false;
     }
-};
+}
+
+$('dailyClaimBtn').onclick = () => claimDaily($('dailyClaimBtn'));
+$('dailyClaimBtnDash').onclick = () => claimDaily($('dailyClaimBtnDash'));
 
 // ================= ECOSYSTEM =================
 
@@ -275,9 +379,7 @@ function renderEcosystem(links) {
     });
 }
 
-$('openEcosystem').onclick = () => { $('ecosystemModal').hidden = false; loadEcosystem(); };
-$('closeEcosystem').onclick = () => { $('ecosystemModal').hidden = true; };
-$('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecosystemModal') $('ecosystemModal').hidden = true; });
+// ================= MINING =================
 
 function setRing(fraction, done) {
     const fg = $('ringFg');
@@ -292,15 +394,19 @@ function fmtDateTime(d) {
 
 function renderMining() {
     const btn = $('miningAction');
+    const btnDash = $('miningActionDash');
+
     if (!mining) {
         setRing(0, false);
         $('countdown').textContent = '24:00:00';
+        $('countdownDash').textContent = '24:00:00';
         $('ringCaption').textContent = 'Ready to start';
+        $('ringCaptionDash').textContent = 'Ready to start';
+        $('miningDotDash').className = 'mini-dot';
         $('rewardText').textContent = 'The server controls the mining timer.';
+        $('rewardTextDash').textContent = '';
         $('miningMeta').hidden = true;
-        btn.textContent = 'Start mining';
-        btn.classList.remove('ready');
-        btn.disabled = false;
+        [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
         return;
     }
 
@@ -320,23 +426,51 @@ function renderMining() {
     if (remain <= 0) {
         setRing(1, true);
         $('countdown').textContent = '00:00:00';
+        $('countdownDash').textContent = '00:00:00';
         $('ringCaption').textContent = 'Session complete';
+        $('ringCaptionDash').textContent = 'Session complete';
+        $('miningDotDash').className = 'mini-dot ready';
         $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
-        btn.textContent = 'Claim XERA';
-        btn.classList.add('ready');
-        btn.disabled = false;
+        $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
+        [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
     } else {
         setRing(fraction, false);
         const s = Math.floor(remain / 1000);
         const h = String(Math.floor(s / 3600)).padStart(2, '0');
         const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
         const sec = String(s % 60).padStart(2, '0');
-        $('countdown').textContent = `${h}:${m}:${sec}`;
+        const clock = `${h}:${m}:${sec}`;
+        $('countdown').textContent = clock;
+        $('countdownDash').textContent = clock;
         $('ringCaption').textContent = 'Mining in progress';
+        $('ringCaptionDash').textContent = 'Mining in progress';
+        $('miningDotDash').className = 'mini-dot active';
         $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
-        btn.textContent = 'Mining active';
-        btn.classList.remove('ready');
-        btn.disabled = true;
+        $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
+        [btn, btnDash].forEach((b) => { b.textContent = 'Mining active'; b.classList.remove('ready'); b.disabled = true; });
+    }
+}
+
+async function startOrClaim(btn, errEl) {
+    errEl.textContent = '';
+    btn.disabled = true;
+    try {
+        if (!mining) {
+            const d = await req('/api/xera/mining/start', { method: 'POST', body: '{}' });
+            mining = d.mining;
+        } else {
+            await req('/api/xera/mining/claim', { method: 'POST', body: JSON.stringify({ session_id: mining.id }) });
+            mining = null;
+            await load();
+        }
+        renderMining();
+    } catch (e) {
+        errEl.textContent = e.message;
+    } finally {
+        if (!(mining && new Date(mining.expires_at) > Date.now())) {
+            $('miningAction').disabled = false;
+            $('miningActionDash').disabled = false;
+        }
     }
 }
 
@@ -350,41 +484,27 @@ $('tabRegister').onclick = () => showAuthTab('register');
 $('goRegister').onclick = () => showAuthTab('register');
 $('goLogin').onclick = () => showAuthTab('login');
 
-$('logout').onclick = () => {
+function doLogout() {
     clearInterval(tickHandle);
     tickHandle = null;
     mining = null;
+    dailyData = null;
+    walletTotalsLoaded = false;
     showLogin();
-};
+}
 
 $('openMiningInfo').onclick = () => { $('miningInfoModal').hidden = false; };
 $('closeMiningInfo').onclick = () => { $('miningInfoModal').hidden = true; };
 $('closeMiningInfoBtn').onclick = () => { $('miningInfoModal').hidden = true; };
 $('miningInfoModal').addEventListener('click', (e) => { if (e.target.id === 'miningInfoModal') $('miningInfoModal').hidden = true; });
 
-$('openStats').onclick = openStats;
 $('closeStats').onclick = () => { $('statsModal').hidden = true; };
 $('statsModal').addEventListener('click', (e) => { if (e.target.id === 'statsModal') $('statsModal').hidden = true; });
 
-$('miningAction').onclick = async () => {
-    const btn = $('miningAction');
-    $('error').textContent = '';
-    btn.disabled = true;
-    try {
-        if (!mining) {
-            const d = await req('/api/xera/mining/start', { method: 'POST', body: '{}' });
-            mining = d.mining;
-        } else {
-            await req('/api/xera/mining/claim', { method: 'POST', body: JSON.stringify({ session_id: mining.id }) });
-            mining = null;
-            await load();
-        }
-        renderMining();
-    } catch (e) {
-        $('error').textContent = e.message;
-    } finally {
-        if (!(mining && new Date(mining.expires_at) > Date.now())) btn.disabled = false;
-    }
-};
+$('closeEcosystem').onclick = () => { $('ecosystemModal').hidden = true; };
+$('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecosystemModal') $('ecosystemModal').hidden = true; });
+
+$('miningAction').onclick = () => startOrClaim($('miningAction'), $('error'));
+$('miningActionDash').onclick = () => startOrClaim($('miningActionDash'), $('errorDash'));
 
 if (token()) load();
