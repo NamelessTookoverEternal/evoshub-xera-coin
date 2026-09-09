@@ -120,13 +120,13 @@ button{-webkit-tap-highlight-color:transparent}
     opacity:.8;
 }
 .brand-mark{
-    width:52px;height:52px;border-radius:16px;
-    background:linear-gradient(145deg,var(--accent),#8b5cf6);
+    width:56px;height:56px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     margin-bottom:20px;
     box-shadow:0 8px 24px rgba(76,126,255,.35);
+    overflow:hidden;
 }
-.brand-mark svg{width:26px;height:26px}
+.brand-mark img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .auth h1{
     font-family:var(--font-display);
     font-size:1.6rem;
@@ -270,7 +270,8 @@ button{-webkit-tap-highlight-color:transparent}
     display:flex;flex-direction:column;gap:10px;
 }
 .mini-card-head{display:flex;align-items:center;justify-content:space-between}
-.mini-card-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:600}
+.mini-card-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.mini-coin{width:16px;height:16px;border-radius:50%;object-fit:cover}
 .mini-dot{width:9px;height:9px;border-radius:50%;background:var(--text-dim)}
 .mini-dot.active{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .mini-dot.ready{background:var(--success);box-shadow:0 0 0 4px var(--success-soft)}
@@ -336,19 +337,96 @@ button{-webkit-tap-highlight-color:transparent}
     margin:18px 0;
     display:flex;flex-direction:column;align-items:center;
 }
-.ring-wrap{position:relative;width:172px;height:172px;margin-bottom:16px}
+.ring-wrap{position:relative;width:172px;height:172px}
 .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring-bg{fill:none;stroke:var(--border-strong);stroke-width:8}
 .ring-fg{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .3s linear}
 .ring-fg.done{stroke:var(--success)}
-.ring-center{
-    position:absolute;inset:0;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
+
+/* ---- Mining scene: coin + tools + particles ---- */
+.mining-scene{
+    position:relative;
+    width:220px;height:220px;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:14px;
 }
-.ring-center .time{font-family:var(--font-display);font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums}
-.ring-center .caption{font-size:.72rem;color:var(--text-dim);margin-top:4px;text-align:center;max-width:120px}
+.coin-wrap{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    pointer-events:none;
+}
+.xera-coin{
+    width:118px;height:118px;border-radius:50%;object-fit:cover;
+    box-shadow:0 0 0 3px var(--accent-soft),0 0 28px rgba(76,126,255,.35);
+    animation:coin-breathe 3.2s ease-in-out infinite;
+}
+@keyframes coin-breathe{
+    0%,100%{ transform:scale(1); filter:brightness(1); }
+    50%{ transform:scale(1.03); filter:brightness(1.08); }
+}
+.mining-scene[data-state="active"] .xera-coin{
+    box-shadow:0 0 0 3px var(--accent-soft),0 0 40px rgba(76,126,255,.55);
+}
+.mining-scene[data-state="ready"] .xera-coin{
+    box-shadow:0 0 0 3px var(--success-soft),0 0 40px rgba(51,214,166,.55);
+    animation:coin-breathe 1.6s ease-in-out infinite;
+}
+
+.mining-tool{
+    position:absolute;width:34px;height:34px;color:var(--text-dim);
+    opacity:.35;transition:opacity .3s ease,color .3s ease;
+}
+.mining-tool svg{width:100%;height:100%}
+.tool-tl{top:14px;left:14px;transform:rotate(-8deg);transform-origin:80% 80%}
+.tool-tr{top:14px;right:14px;transform:rotate(8deg) scaleX(-1);transform-origin:20% 80%}
+.tool-bl{bottom:14px;left:14px;transform:rotate(8deg);transform-origin:80% 20%}
+.tool-br{bottom:14px;right:14px;transform:rotate(-8deg) scaleX(-1);transform-origin:20% 20%}
+
+.mining-scene[data-state="active"] .mining-tool{
+    color:var(--accent);opacity:.85;
+}
+.mining-scene[data-state="active"] .tool-tl{animation:strike-tl 1.8s ease-in-out infinite}
+.mining-scene[data-state="active"] .tool-tr{animation:strike-tr 1.8s ease-in-out infinite .45s}
+.mining-scene[data-state="active"] .tool-bl{animation:strike-bl 1.8s ease-in-out infinite .9s}
+.mining-scene[data-state="active"] .tool-br{animation:strike-br 1.8s ease-in-out infinite 1.35s}
+@keyframes strike-tl{0%,60%,100%{transform:rotate(-8deg)}30%{transform:rotate(14deg)}}
+@keyframes strike-tr{0%,60%,100%{transform:rotate(8deg) scaleX(-1)}30%{transform:rotate(-14deg) scaleX(-1)}}
+@keyframes strike-bl{0%,60%,100%{transform:rotate(8deg)}30%{transform:rotate(-14deg)}}
+@keyframes strike-br{0%,60%,100%{transform:rotate(-8deg) scaleX(-1)}30%{transform:rotate(14deg) scaleX(-1)}}
+
+.mining-particles{position:absolute;inset:0;pointer-events:none}
+.spark{
+    position:absolute;width:5px;height:5px;border-radius:50%;
+    background:var(--accent);
+    opacity:0;
+    left:50%;top:50%;
+}
+.mining-scene[data-state="active"] .spark{animation:spark-fly 1.8s ease-out infinite}
+.sp1{animation-delay:.05s;--dx:-58px;--dy:-40px}
+.sp2{animation-delay:.5s;--dx:56px;--dy:-44px}
+.sp3{animation-delay:.95s;--dx:-52px;--dy:46px}
+.sp4{animation-delay:1.4s;--dx:54px;--dy:42px}
+.sp5{animation-delay:.25s;--dx:-70px;--dy:4px}
+.sp6{animation-delay:1.15s;--dx:70px;--dy:-2px}
+@keyframes spark-fly{
+    0%{ opacity:0; transform:translate(-50%,-50%) translate(0,0) scale(.4); }
+    15%{ opacity:1; }
+    70%{ opacity:.6; }
+    100%{ opacity:0; transform:translate(-50%,-50%) translate(var(--dx),var(--dy)) scale(1); }
+}
+
+.mining-status-row{
+    display:flex;flex-direction:column;align-items:center;
+    margin-bottom:10px;
+}
+.mining-status-row .time{font-family:var(--font-display);font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums}
+.mining-status-row .caption{font-size:.78rem;color:var(--text-dim);margin-top:4px;text-align:center}
 .reward-line{font-size:.88rem;color:var(--text-dim);text-align:center}
 .reward-line b{color:var(--success);font-weight:600}
+
+@media (prefers-reduced-motion: reduce){
+    .xera-coin,.mining-tool,.spark{animation:none !important}
+}
 
 .mining-meta{
     width:100%;

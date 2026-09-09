@@ -14,7 +14,7 @@
   <!-- ===== AUTH (login + register) ===== -->
   <section class="auth" id="authView">
     <div class="brand-mark">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="white" stroke-width="2.6" stroke-linecap="round"/></svg>
+      <img src="/assets/images/xeracoin.jpg" alt="XERA" onerror="this.style.display='none'"/>
     </div>
 
     <div class="auth-tabs" role="tablist">
@@ -110,7 +110,7 @@
 
           <div class="mini-card mining-mini">
             <div class="mini-card-head">
-              <span class="mini-card-title">Mining status</span>
+              <span class="mini-card-title"><img class="mini-coin" src="/assets/images/xeracoin.jpg" alt="" onerror="this.style.display='none'"/>Mining status</span>
               <span class="mini-dot" id="miningDotDash"></span>
             </div>
             <div class="mini-caption" id="ringCaptionDash">Ready to start</div>
@@ -160,15 +160,39 @@
         <section class="tab-panel" data-panel="mine">
           <div class="dash-col dash-col-left">
           <div class="ring-card">
-            <div class="ring-wrap">
-              <svg viewBox="0 0 120 120">
-                <circle class="ring-bg" cx="60" cy="60" r="54"/>
-                <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
-              </svg>
-              <div class="ring-center">
-                <div class="time" id="countdown">--:--:--</div>
-                <div class="caption" id="ringCaption">Start your 24-hour session</div>
+            <div class="mining-scene" id="miningScene" data-state="idle">
+              <div class="mining-tool tool-tl" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none"><path d="M8 32L26 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M20 8l12 12-4 4-12-12z" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>
               </div>
+              <div class="mining-tool tool-tr" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none"><rect x="16" y="6" width="14" height="10" rx="2" transform="rotate(45 23 11)" stroke="currentColor" stroke-width="3"/><path d="M18 16L8 32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              </div>
+              <div class="mining-tool tool-bl" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none"><rect x="10" y="6" width="14" height="10" rx="2" transform="rotate(-45 17 11)" stroke="currentColor" stroke-width="3"/><path d="M22 16L32 32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              </div>
+              <div class="mining-tool tool-br" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none"><path d="M32 32L14 14" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M20 8L8 20l4 4 12-12z" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/></svg>
+              </div>
+
+              <div class="mining-particles" aria-hidden="true">
+                <span class="spark sp1"></span><span class="spark sp2"></span><span class="spark sp3"></span>
+                <span class="spark sp4"></span><span class="spark sp5"></span><span class="spark sp6"></span>
+              </div>
+
+              <div class="ring-wrap">
+                <svg viewBox="0 0 120 120">
+                  <circle class="ring-bg" cx="60" cy="60" r="54"/>
+                  <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="54" stroke-dasharray="339.29" stroke-dashoffset="339.29"/>
+                </svg>
+                <div class="coin-wrap">
+                  <img class="xera-coin" src="/assets/images/xeracoin.jpg" alt="XERA coin" onerror="this.style.display='none'"/>
+                </div>
+              </div>
+            </div>
+
+            <div class="mining-status-row">
+              <div class="time" id="countdown">--:--:--</div>
+              <div class="caption" id="ringCaption" aria-live="polite">Start your 24-hour session</div>
             </div>
             <p class="reward-line" id="rewardText"></p>
 

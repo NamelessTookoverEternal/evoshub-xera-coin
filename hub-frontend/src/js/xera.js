@@ -370,6 +370,11 @@ function setRing(fraction, done) {
     fg.classList.toggle('done', !!done);
 }
 
+function setMiningSceneState(state) {
+    const scene = $('miningScene');
+    if (scene) scene.dataset.state = state;
+}
+
 function fmtDateTime(d) {
     return d.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
@@ -380,6 +385,7 @@ function renderMining() {
 
     if (!mining) {
         setRing(0, false);
+        setMiningSceneState('idle');
         $('countdown').textContent = '24:00:00';
         $('countdownDash').textContent = '24:00:00';
         $('ringCaption').textContent = 'Ready to start';
@@ -407,6 +413,7 @@ function renderMining() {
 
     if (remain <= 0) {
         setRing(1, true);
+        setMiningSceneState('ready');
         $('countdown').textContent = '00:00:00';
         $('countdownDash').textContent = '00:00:00';
         $('ringCaption').textContent = 'Session complete';
@@ -417,6 +424,7 @@ function renderMining() {
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
     } else {
         setRing(fraction, false);
+        setMiningSceneState('active');
         const s = Math.floor(remain / 1000);
         const h = String(Math.floor(s / 3600)).padStart(2, '0');
         const m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
