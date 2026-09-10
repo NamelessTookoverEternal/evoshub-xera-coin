@@ -179,6 +179,8 @@
 .app-icon--amber { background: linear-gradient(135deg, var(--amber), var(--violet)); box-shadow: 0 6px 18px -6px rgba(245,185,66, calc(0.6 * var(--glow-strength))); }
 .app-icon--coin { padding: 0; overflow: hidden; background: none; box-shadow: 0 0 0 1px var(--border2), 0 6px 20px -6px rgba(245,185,66, calc(0.7 * var(--glow-strength))); }
 .app-icon--coin img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.app-icon--logo { padding: 0; overflow: hidden; background: none; box-shadow: 0 0 0 1px var(--border2); }
+.app-icon--logo img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .app-card--xera { border-color: rgba(245,185,66,.18); }
 .app-card--xera:hover { box-shadow: var(--shadow-md), 0 0 32px -14px rgba(245,185,66, calc(0.6 * var(--glow-strength))); }
 .app-card__cat { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--text3); margin-bottom: 4px; }

@@ -10,6 +10,8 @@
     --text-dim:#838da1;
     --accent:#4c7eff;
     --accent-soft:rgba(76,126,255,.14);
+    --accent-2:#33e6c8;
+    --accent-2-soft:rgba(51,230,200,.16);
     --success:#33d6a6;
     --success-soft:rgba(51,214,166,.14);
     --danger:#ff6b6b;
@@ -29,7 +31,10 @@ body{
     font-family:var(--font-ui);
     color:var(--text);
     background:var(--bg);
-    background-image:radial-gradient(60% 40% at 50% 0%,rgba(76,126,255,.14) 0%,rgba(6,8,16,0) 60%);
+    background-image:
+        radial-gradient(46% 30% at 12% -4%, rgba(76,126,255,.14) 0%, transparent 62%),
+        radial-gradient(40% 26% at 92% 2%, rgba(51,230,200,.10) 0%, transparent 62%),
+        radial-gradient(40% 24% at 50% 100%, rgba(51,214,166,.05) 0%, transparent 65%);
     overflow-x:hidden;
 }
 button,input{font-family:inherit}
@@ -72,11 +77,12 @@ button{-webkit-tap-highlight-color:transparent}
 .auth-tabs{
     display:flex;
     gap:4px;
-    background:var(--surface);
+    background:rgba(255,255,255,.03);
     border:1px solid var(--border);
     border-radius:var(--radius-md);
     padding:4px;
     margin-bottom:24px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
 }
 .auth-tab{
     flex:1;
@@ -265,9 +271,11 @@ button{-webkit-tap-highlight-color:transparent}
 
 /* ---- reusable compact card for Dashboard/Rewards/Profile ---- */
 .mini-card{
-    background:var(--surface);border:1px solid var(--border);
+    background:rgba(255,255,255,.03);border:1px solid var(--border);
     border-radius:var(--radius-lg);padding:20px;
     display:flex;flex-direction:column;gap:10px;
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
 }
 .mini-card-head{display:flex;align-items:center;justify-content:space-between}
 .mini-card-title{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:600;display:inline-flex;align-items:center;gap:6px}
@@ -306,7 +314,12 @@ button{-webkit-tap-highlight-color:transparent}
 
 .balance-block{
     text-align:center;
-    padding:28px 0 8px;
+    padding:28px 20px 20px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--border);
+    border-radius:var(--radius-lg);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
 }
 .balance-block .label{
     color:var(--text-dim);
@@ -319,8 +332,10 @@ button{-webkit-tap-highlight-color:transparent}
     font-size:2.9rem;
     line-height:1.1;
     margin:4px 0 10px;
+    background:linear-gradient(100deg,var(--text) 0%,var(--text) 55%,var(--accent-2) 130%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
 }
-.balance-block .amount small{font-size:.4em;color:var(--text-dim);font-weight:500;margin-left:4px}
+.balance-block .amount small{font-size:.4em;-webkit-text-fill-color:var(--text-dim);color:var(--text-dim);font-weight:500;margin-left:4px}
 .status-pill{
     display:inline-flex;align-items:center;gap:6px;
     padding:5px 12px;border-radius:99px;
@@ -330,17 +345,27 @@ button{-webkit-tap-highlight-color:transparent}
 .status-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 
 .ring-card{
-    background:var(--surface);
-    border:1px solid var(--border);
+    position:relative;overflow:hidden;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--border-strong);
     border-radius:var(--radius-lg);
     padding:28px 20px 22px;
     margin:18px 0;
     display:flex;flex-direction:column;align-items:center;
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 30px 60px -34px rgba(0,0,0,.6);
 }
+.ring-card::before{
+    content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+    background:
+        radial-gradient(60% 55% at 50% 8%, rgba(76,126,255,.14) 0%, transparent 70%),
+        radial-gradient(50% 45% at 90% 90%, rgba(51,230,200,.10) 0%, transparent 70%);
+}
+.ring-card > *{position:relative;z-index:1}
 .ring-wrap{position:relative;width:172px;height:172px}
 .ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring-bg{fill:none;stroke:var(--border-strong);stroke-width:8}
-.ring-fg{fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .3s linear}
+.ring-fg{fill:none;stroke:url(#ringGrad);stroke-width:8;stroke-linecap:round;transition:stroke-dashoffset .3s linear}
 .ring-fg.done{stroke:var(--success)}
 
 /* ---- Mining scene: coin + tools + particles ---- */
@@ -365,7 +390,7 @@ button{-webkit-tap-highlight-color:transparent}
     50%{ transform:scale(1.03); filter:brightness(1.08); }
 }
 .mining-scene[data-state="active"] .xera-coin{
-    box-shadow:0 0 0 3px var(--accent-soft),0 0 40px rgba(76,126,255,.55);
+    box-shadow:0 0 0 3px var(--accent-2-soft),0 0 30px rgba(76,126,255,.45),0 0 60px rgba(51,230,200,.30);
 }
 .mining-scene[data-state="ready"] .xera-coin{
     box-shadow:0 0 0 3px var(--success-soft),0 0 40px rgba(51,214,166,.55);
@@ -383,7 +408,7 @@ button{-webkit-tap-highlight-color:transparent}
 .tool-br{bottom:14px;right:14px;transform:rotate(-8deg) scaleX(-1);transform-origin:20% 20%}
 
 .mining-scene[data-state="active"] .mining-tool{
-    color:var(--accent);opacity:.85;
+    color:var(--accent-2);opacity:.9;
 }
 .mining-scene[data-state="active"] .tool-tl{animation:strike-tl 1.8s ease-in-out infinite}
 .mining-scene[data-state="active"] .tool-tr{animation:strike-tr 1.8s ease-in-out infinite .45s}
@@ -483,10 +508,12 @@ button{-webkit-tap-highlight-color:transparent}
     max-width:440px;
     max-height:85vh;
     overflow-y:auto;
-    background:var(--surface);
+    background:rgba(14,18,32,.82);
     border:1px solid var(--border-strong);
     border-radius:var(--radius-lg) var(--radius-lg) 0 0;
     padding:22px 22px calc(22px + env(safe-area-inset-bottom));
+    backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 -20px 60px -30px rgba(0,0,0,.7);
 }
 .modal-head{
     display:flex;
@@ -546,13 +573,14 @@ button{-webkit-tap-highlight-color:transparent}
 .chip-row{display:flex;gap:10px}
 .chip{
     flex:1;
-    background:var(--surface);
+    background:rgba(255,255,255,.025);
     border:1px solid var(--border);
     border-radius:var(--radius-md);
     padding:14px 8px;
     display:flex;flex-direction:column;align-items:center;gap:6px;
     position:relative;
-    opacity:.55;
+    opacity:.6;
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 }
 .chip svg{width:20px;height:20px;color:var(--text-dim)}
 .chip span{font-size:.74rem;color:var(--text-dim)}
