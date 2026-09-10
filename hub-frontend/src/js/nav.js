@@ -18,7 +18,7 @@ navLinks?.querySelectorAll('a').forEach(a => {
 
 // Close the mobile menu on resize back up to desktop, and on Escape.
 window.addEventListener('resize', () => {
-  if (window.innerWidth > 860) {
+  if (window.innerWidth > 1024) {
     navLinks?.classList.remove('nav-links--open')
     hamburger?.classList.remove('is-open')
   }

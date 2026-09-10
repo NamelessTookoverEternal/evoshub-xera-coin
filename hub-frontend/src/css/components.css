@@ -101,8 +101,8 @@
 .nav-logo__text  { font-family:var(--font-display); font-weight:700; font-size:17px; color:var(--text); white-space:nowrap; }
 
 /* Nav links */
-.nav-links { display:flex; align-items:center; gap:clamp(14px,2.2vw,28px); list-style:none; }
-.nav-links a { font-size:14px; color:var(--text2); transition:color .2s; font-family:var(--font-mono); letter-spacing:.2px; }
+.nav-links { display:flex; align-items:center; gap:clamp(10px,1.6vw,24px); list-style:none; }
+.nav-links a { font-size:clamp(12.5px,1.1vw,14px); color:var(--text2); transition:color .2s; font-family:var(--font-mono); letter-spacing:.2px; white-space:nowrap; }
 .nav-links a:hover, .nav-links a.active { color:var(--text); }
 .nav-links a.active { color:var(--blue); }
 
@@ -128,7 +128,7 @@
 .hamburger.is-open span:nth-child(2) { opacity:0; }
 .hamburger.is-open span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
 
-@media (max-width: 860px) {
+@media (max-width: 1024px) {
   .nav-links  { display:none; }
   .hamburger  { display:flex; }
   .nav-links--open {
