@@ -1,0 +1,838 @@
+// automatically generated from `@stdlib/std/stdlib.fc` `/home/claude/hardening/evoshub-main/blockchain/ton/build/XeraMiningDistributor_XeraMiningDistributor.fc` 
+PROGRAM{
+  DECLPROC __tact_store_address_opt
+  DECLPROC __tact_context_get
+  DECLPROC __tact_context_get_sender
+  DECLPROC __tact_dict_get_int_int
+  DECLPROC __tact_dict_set_int_int
+  DECLPROC $DeployOk$_store
+  DECLPROC $DeployOk$_store_cell
+  DECLPROC $JettonTransfer$_store
+  DECLPROC $JettonTransfer$_store_cell
+  DECLPROC $JettonTransfer$_load_bounced
+  DECLPROC $XeraMiningDistributor$_store
+  DECLPROC $XeraMiningDistributor$_load
+  DECLPROC $Context$_get_value
+  DECLPROC $XeraJettonWallet$init$_store
+  DECLPROC $XeraMiningDistributor$init$_load
+  DECLPROC $XeraMiningDistributor$_contract_init
+  DECLPROC $XeraMiningDistributor$_contract_load
+  DECLPROC $XeraMiningDistributor$_contract_store
+  DECLPROC $Cell$_fun_asSlice
+  DECLPROC $global_newAddress
+  DECLPROC $global_contractAddressExt
+  DECLPROC $global_contractAddress
+  DECLPROC $Builder$_fun_asSlice
+  DECLPROC $XeraJettonWallet$_init_child
+  DECLPROC $MessageParameters$_constructor_bounce_to_value_mode_body
+  DECLPROC $XeraMiningDistributor$_fun_claimGasRequirement
+  DECLPROC $XeraMiningDistributor$_fun_ownJettonWallet
+  DECLPROC $XeraMiningDistributor$_fun_is_consumed
+  DECLPROC $XeraMiningDistributor$_fun_total_distributed
+  DECLPROC $XeraMiningDistributor$_fun_claim_gas_requirement
+  DECLPROC $XeraMiningDistributor$_fun_max_allocation
+  DECLPROC $XeraMiningDistributor$_fun_notify
+  DECLPROC $SendParameters$_constructor_to_value_mode_bounce_body
+  DECLPROC $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload
+  DECLPROC $DeployOk$_constructor_queryId
+  115059 DECLMETHOD %is_consumed
+  123148 DECLMETHOD %total_distributed
+  88950 DECLMETHOD %claim_gas_requirement
+  71979 DECLMETHOD %max_allocation
+  DECLPROC recv_internal
+  65535 DECLMETHOD __tact_selector_hack
+  DECLGLOBVAR __tact_context
+  DECLGLOBVAR __tact_context_sender
+  DECLGLOBVAR __tact_child_contract_codes
+  DECLGLOBVAR __tact_randomized
+  __tact_store_address_opt PROCINLINE:<{
+    DUP
+    ISNULL
+    IF:<{
+      DROP
+      b{00} STSLICECONST
+    }>ELSE<{
+      SWAP
+      STSLICE
+    }>
+  }>
+  __tact_context_get PROCINLINE:<{
+    __tact_context GETGLOB
+    4 UNTUPLE
+  }>
+  __tact_context_get_sender PROCINLINE:<{
+    __tact_context_sender GETGLOB
+  }>
+  __tact_dict_get_int_int PROCINLINE:<{
+    s1 s3 s3 XCHG3
+    DICTIGET
+    NULLSWAPIFNOT
+    IF:<{
+      SWAP
+      LDIX
+      DROP
+    }>ELSE<{
+      2DROP
+      PUSHNULL
+    }>
+  }>
+  __tact_dict_set_int_int PROCINLINE:<{
+    OVER
+    ISNULL
+    IF:<{
+      2DROP
+      -ROT
+      DICTIDEL
+      DROP
+    }>ELSE<{
+      NEWC
+      SWAP
+      STIX
+      s1 s3 s3 XCHG3
+      DICTISETB
+    }>
+  }>
+  $DeployOk$_store PROCINLINE:<{
+    2952335191 PUSHINT
+    ROT
+    32 STU
+    64 STU
+  }>
+  $DeployOk$_store_cell PROCINLINE:<{
+    SWAP
+    $DeployOk$_store INLINECALLDICT
+    ENDC
+  }>
+  $JettonTransfer$_store PROCINLINE:<{
+    260734629 PUSHINT
+    s0 s8 XCHG2
+    32 STU
+    s1 s6 XCHG
+    64 STU
+    s0 s4 XCHG2
+    STVARUINT16
+    s1 s2 XCHG
+    STSLICE
+    SWAP
+    __tact_store_address_opt INLINECALLDICT
+    STOPTREF
+    SWAP
+    STVARUINT16
+    STSLICE
+  }>
+  $JettonTransfer$_store_cell PROCINLINE:<{
+    7 -ROLL
+    $JettonTransfer$_store INLINECALLDICT
+    ENDC
+  }>
+  $JettonTransfer$_load_bounced PROCINLINE:<{
+    64 LDU
+    LDVARUINT16
+    -ROT
+  }>
+  $XeraMiningDistributor$_store PROCINLINE:<{
+    s8 s9 XCHG2
+    STSLICE
+    s1 s6 XCHG
+    STREF
+    s1 s4 XCHG
+    STSLICE
+    s1 s2 XCHG
+    256 STU
+    SWAP
+    NEWC
+    STSLICE
+    ROT
+    STVARUINT16
+    ROT
+    STVARUINT16
+    s1 s2 XCHG
+    1 STI
+    s1 s2 XCHG
+    STDICT
+    STBREFR
+  }>
+  $XeraMiningDistributor$_load PROCINLINE:<{
+    LDMSGADDR
+    LDREF
+    LDMSGADDR
+    256 LDU
+    LDREF
+    SWAP
+    CTOS
+    LDMSGADDR
+    LDVARUINT16
+    LDVARUINT16
+    1 LDI
+    LDDICT
+    DROP
+    s5 s9 XCHG
+    s5 s8 XCHG
+    s5 s7 XCHG
+    s5 s6 XCHG
+  }>
+  $Context$_get_value PROCINLINE:<{
+    s1 s3 XCHG
+    3 BLKDROP
+  }>
+  $XeraJettonWallet$init$_store PROCINLINE:<{
+    s2 s3 XCHG2
+    STSLICE
+    STSLICE
+    STREF
+  }>
+  $XeraMiningDistributor$init$_load PROCINLINE:<{
+    LDMSGADDR
+    LDREF
+    LDMSGADDR
+    257 PUSHINT
+    LDIX
+    LDREF
+    SWAP
+    CTOS
+    LDMSGADDR
+    257 PUSHINT
+    LDIX
+    DROP
+    s2 s6 XCHG
+    s2 s5 XCHG
+    s2 s4 XCHG
+    s2 s3 XCHG
+  }>
+  $XeraMiningDistributor$_contract_init PROCINLINE:<{
+    PUSHNULL
+    0 PUSHINT
+    FALSE
+    ROT
+  }>
+  $XeraMiningDistributor$_contract_load PROCINLINE:<{
+    c4 PUSH
+    CTOS
+    1 LDI
+    SWAP
+    IF:<{
+      $XeraMiningDistributor$_load INLINECALLDICT
+      1 9 BLKDROP2
+    }>ELSE<{
+      $XeraMiningDistributor$init$_load INLINECALLDICT
+      s0 s6 XCHG
+      ENDS
+      5 ROLL
+      $XeraMiningDistributor$_contract_init INLINECALLDICT
+    }>
+  }>
+  $XeraMiningDistributor$_contract_store PROCINLINE:<{
+    NEWC
+    TRUE
+    SWAP
+    1 STI
+    9 -ROLL
+    $XeraMiningDistributor$_store INLINECALLDICT
+    ENDC
+    c4 POP
+  }>
+  $Cell$_fun_asSlice PROCINLINE:<{
+        CTOS
+  }>
+  $global_newAddress PROCINLINE:<{
+        NEWC
+    4 PUSHINT
+    SWAP
+    3 STU
+    s1 s2 XCHG
+    8 STI
+    256 STU
+        ENDC
+    $Cell$_fun_asSlice INLINECALLDICT
+  }>
+  $global_contractAddressExt PROCINLINE:<{
+        s0 PUSH HASHCU // `data` hash
+        s2 PUSH HASHCU // `code` hash
+        SWAP2
+        CDEPTH         // `data` depth
+        SWAP
+        CDEPTH         // `code` depth
+        131380 INT     // (2 << 16) | (1 << 8) | 0x34
+        // Group 2: Composition of the Builder
+        NEWC
+        24 STU  // store refs_descriptor | bits_descriptor | data
+        16 STU  // store depth_descriptor for `code`
+        16 STU  // store depth_descriptor for `data`
+        256 STU // store `code` hash
+        256 STU // store `data` hash
+        // Group 3: SHA256 hash of the resulting Builder
+        ONE HASHEXT_SHA256
+    $global_newAddress INLINECALLDICT
+  }>
+  $global_contractAddress PROCINLINE:<{
+    0 PUSHINT
+    -ROT
+    $global_contractAddressExt INLINECALLDICT
+  }>
+  $Builder$_fun_asSlice PROCINLINE:<{
+        ENDC
+        CTOS
+  }>
+  $XeraJettonWallet$_init_child PROCREF:<{
+        B{b5ee9c7201020f010003ec000228ff008e88f4a413f4bcf2c80bed5320e303ed43d901020151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11200301f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e2058e3a038020d7217021d749c21f9430d31f01de8210178d4519ba8e1dd33ffa00596c2112a05023c87f01ca0055305043fa02ce12ceccc9ed54e05f05e003d70d1f0400085473212304f0f2e082218210178d4519ba8fe231d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed54e02182100f8a7ea5ba050607080168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7050900b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000a6206ef2d0807083067004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0004fc8f6f31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc8e0018210595f07bcbae3025f05090a0b0c001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9010d0e0006f2c082001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed54} B>boc PUSHREF
+    NEWC
+    FALSE
+    SWAP
+    1 STI
+    3 2 BLKSWAP
+    $XeraJettonWallet$init$_store INLINECALLDICT
+    ENDC
+  }>
+  $MessageParameters$_constructor_bounce_to_value_mode_body PROCINLINE:<{
+    s3 s3 XCHG2
+    s0 s4 XCHG
+  }>
+  $XeraMiningDistributor$_fun_claimGasRequirement PROCREF:<{
+    300000000 PUSHINT
+  }>
+  $XeraMiningDistributor$_fun_ownJettonWallet PROCREF:<{
+        MYADDR
+    s9 s8 s(-1) PU2XC
+    $XeraJettonWallet$_init_child INLINECALLDICT
+    $global_contractAddress INLINECALLDICT
+  }>
+  $XeraMiningDistributor$_fun_is_consumed PROCREF:<{
+    257 PUSHINT
+    s2 PUSH
+    s0 s2 XCHG
+    1 PUSHINT
+    __tact_dict_get_int_int INLINECALLDICT
+    ISNULL
+    NOT
+  }>
+  $XeraMiningDistributor$_fun_total_distributed PROCREF:<{
+    s2 PUSH
+  }>
+  $XeraMiningDistributor$_fun_claim_gas_requirement PROCREF:<{
+    $XeraMiningDistributor$_fun_claimGasRequirement INLINECALLDICT
+  }>
+  $XeraMiningDistributor$_fun_max_allocation PROCREF:<{
+    s3 PUSH
+  }>
+  $XeraMiningDistributor$_fun_notify PROCINLINE:<{
+    __tact_context_get_sender INLINECALLDICT
+    FALSE
+    0 PUSHINT
+    s0 s3 XCHG2
+    66 PUSHINT
+    SWAP
+    $MessageParameters$_constructor_bounce_to_value_mode_body INLINECALLDICT
+        NEWC
+        b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+        1 STI               // store `bounce`
+        b{000} STSLICECONST // store bounced = false and src = addr_none
+        STSLICE             // store `to`
+        SWAP
+        STGRAMS             // store `value`
+        106 PUSHINT         // 1 + 4 + 4 + 64 + 32 + 1
+        STZEROES
+        // → Stack state
+        // s0: Builder
+        // s1: `body`
+        // s2: `mode`
+        STDICT
+        ENDC
+        SWAP
+        SENDRAWMSG
+  }>
+  $SendParameters$_constructor_to_value_mode_bounce_body PROCINLINE:<{
+    s2 s4 XCHG
+    PUSHNULL
+    s4 s3 XCHG2
+    PUSHNULL
+    s0 s3 XCHG
+  }>
+  $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload PROCINLINE:<{
+  }>
+  $DeployOk$_constructor_queryId PROCINLINE:<{
+  }>
+  %is_consumed PROC:<{
+    $XeraMiningDistributor$_contract_load INLINECALLDICT
+    9 ROLL
+    $XeraMiningDistributor$_fun_is_consumed INLINECALLDICT
+    9 1 BLKDROP2
+  }>
+  %total_distributed PROC:<{
+    $XeraMiningDistributor$_contract_load INLINECALLDICT
+    $XeraMiningDistributor$_fun_total_distributed INLINECALLDICT
+    9 1 BLKDROP2
+  }>
+  %claim_gas_requirement PROC:<{
+    $XeraMiningDistributor$_contract_load INLINECALLDICT
+    $XeraMiningDistributor$_fun_claim_gas_requirement INLINECALLDICT
+    9 1 BLKDROP2
+  }>
+  %max_allocation PROC:<{
+    $XeraMiningDistributor$_contract_load INLINECALLDICT
+    $XeraMiningDistributor$_fun_max_allocation INLINECALLDICT
+    9 1 BLKDROP2
+  }>
+  recv_internal PROC:<{
+    SWAP
+    CTOS
+    2 PUSHINT
+    SDSKIPFIRST
+    1 LDI
+    1 LDI
+    LDMSGADDR
+    OVER
+    s3 s4 XCHG
+    s6 s6 XCHG2
+    4 TUPLE
+    __tact_context SETGLOB
+    s0 s2 XCHG
+    __tact_context_sender SETGLOB
+    $XeraMiningDistributor$_contract_load INLINECALLDICT
+    s0 s10 XCHG
+    IFJMP:<{
+      s0 s8 XCHG
+      32 PUSHINT
+      SDSKIPFIRST
+      0 PUSHINT
+      OVER
+      SBITS
+      31 GTINT
+      IF:<{
+        DROP
+        32 LDU
+        SWAP
+      }>
+      260734629 PUSHINT
+      EQUAL
+      IFJMP:<{
+        $JettonTransfer$_load_bounced INLINECALLDICT
+        2 1 BLKDROP2
+        SUB
+        s6 s8 XCHG
+        2 6 BLKSWAP
+        $XeraMiningDistributor$_contract_store INLINECALLDICT
+      }>
+      10 BLKDROP
+    }>
+    s0 s8 XCHG
+    32 LDUQ 130 THROWIFNOT
+    OVER
+    13 PUSHPOW2
+    EQUAL
+    IFJMP:<{
+      NIP
+      64 LDU
+      LDREF
+      51332 PUSHINT
+      s11 PUSH
+      NOT
+      THROWANYIFNOT
+      SWAP
+          CTOS
+          LDMSGADDR
+          LDVARUINT16
+      256 LDU
+      64 LDU
+      DROP
+      23160 PUSHINT
+          NOW
+      s2 PUSH
+      LEQ
+      THROWANYIFNOT
+      31814 PUSHINT
+      s15 PUSH
+      257 PUSHINT
+      s4 PUSH
+      1 PUSHINT
+      __tact_dict_get_int_int INLINECALLDICT
+      ISNULL
+      THROWANYIFNOT
+      15577 PUSHINT
+      s3 PUSH
+      0 GTINT
+      THROWANYIFNOT
+      61156 PUSHINT
+      s7 s3 PUSH2
+      ADD
+      s9 PUSH
+      LEQ
+      THROWANYIFNOT
+          NEWC
+      13 PUSHPOW2
+      SWAP
+      32 STU
+      s6 s(-1) PUXC
+      64 STU
+      s4 PUSH
+          STSLICER
+      s3 PUSH
+          STVARUINT16
+      s2 s(-1) PUXC
+      256 STU
+      64 STU
+          ENDC
+      54449 PUSHINT
+      SWAP
+          HASHCU
+      s0 s5 s10 XC2PU
+          CHKSIGNU
+      s1 s4 XCHG
+      THROWANYIFNOT
+      s0 s12 XCHG
+      257 PUSHINT
+      s3 PUSH
+      TRUE
+      1 PUSHINT
+      __tact_dict_set_int_int INLINECALLDICT
+      s4 s12 XCPU
+      ADD
+      s12 PUSH
+      2500 PUSHINT
+      MUL
+      10000 PUSHINT
+      DIV
+      s13 s13 XCPU
+      SUB
+      s8 s11 XCHG
+      s7 s10 XCHG
+      s6 s9 XCHG
+      s5 s11 XCHG
+      s4 s10 XCHG
+      s3 s9 XCHG
+      s1 s12 s11 XCHG3
+      $XeraMiningDistributor$_fun_ownJettonWallet INLINECALLDICT
+      63486 PUSHINT
+      __tact_context_get INLINECALLDICT
+      $Context$_get_value INLINECALLDICT
+      9 3 BLKSWAP
+      $XeraMiningDistributor$_fun_claimGasRequirement INLINECALLDICT
+      s1 s10 XCHG
+      GEQ
+      s1 s10 XCHG
+      THROWANYIFNOT
+      100000000 PUSHINT
+      1 PUSHINT
+      TRUE
+      PUSHNULL
+      PUSHNULL
+      10000000 PUSHINT
+          b{} PUSHSLICE
+      18 s() PUSH
+      s0 s5 XCHG
+      s4 22 s() XCHG
+      21 s() PUSH
+      s0 s4 XCHG
+      s3 23 s() XCHG
+      s0 s2 XCHG
+      s1 23 s() XCHG
+      $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload INLINECALLDICT
+      NEWC
+      $JettonTransfer$_store_cell INLINECALLDICT
+      s12 PUSH
+      s0 s4 XCHG
+      s0 18 s() XCHG
+      SWAP
+      $SendParameters$_constructor_to_value_mode_bounce_body INLINECALLDICT
+          NEWC
+          b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+          1 STI               // store `bounce`
+          b{000} STSLICECONST // store bounced = false and src = addr_none
+          STSLICE             // store `to`
+          SWAP
+          STGRAMS             // store `value`
+          105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+          STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+          // → Stack state
+          // s0: Builder
+          // s1: `data`
+          // s2: `code`
+          // s3: `body`
+          // s4: `mode`
+          // Group 2: Placing the Builder after code and data, then checking those for nullability
+          s2 XCHG0
+          DUP2
+          ISNULL
+          SWAP
+          ISNULL
+          AND
+          // → Stack state
+          // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+          // s1: `code`
+          // s2: `data`
+          // s3: Builder
+          // s4: `body`
+          // s5: `mode`
+          // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+          <{
+              DROP2 // drop `data` and `code`, since either of those is null
+              b{0} STSLICECONST
+          }> PUSHCONT
+          // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+          <{
+              // _ split_depth:(Maybe (## 5))
+              //   special:(Maybe TickTock)
+              //   code:(Maybe ^Cell)
+              //   data:(Maybe ^Cell)
+              //   library:(Maybe ^Cell)
+              // = StateInit;
+              ROT                // place message Builder on top
+              b{10} STSLICECONST // store Maybe = true, Either = false
+              // Start composing inlined StateInit
+              b{00} STSLICECONST // store split_depth and special first
+              STDICT             // store code
+              STDICT             // store data
+              b{0} STSLICECONST  // store library
+          }> PUSHCONT
+          // Group 3: IFELSE that does the branching shown above
+          IFELSE
+          // → Stack state
+          // s0: Builder
+          // s1: null or StateInit
+          // s2: `body`
+          // s3: `mode`
+          // Group 4: Finalizing the message
+          STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+          ENDC
+          // → Stack state
+          // s0: Cell
+          // s1: `mode`
+          // Group 5: Sending the message, with `mode` on top
+          SWAP
+          SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+      150000000 PUSHINT
+      1 PUSHINT
+      TRUE
+      PUSHNULL
+      PUSHNULL
+      20000000 PUSHINT
+          NEWC
+      SWAP
+      s0 19 s() XCHG
+          STSLICER
+      s1 s15 XCHG
+      256 STU
+      $Builder$_fun_asSlice INLINECALLDICT
+      s5 s15 XCHG
+      s4 16 s() XCHG
+      s8 PUSH
+      s3 s1 s4 XCHG3
+      s2 s15 XCHG
+      s0 18 s() XCHG
+      SWAP
+      $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload INLINECALLDICT
+      NEWC
+      $JettonTransfer$_store_cell INLINECALLDICT
+      s4 s8 XCHG
+      s3 s11 XCHG
+      s12 s9 s0 XCHG3
+      $SendParameters$_constructor_to_value_mode_bounce_body INLINECALLDICT
+          NEWC
+          b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+          1 STI               // store `bounce`
+          b{000} STSLICECONST // store bounced = false and src = addr_none
+          STSLICE             // store `to`
+          SWAP
+          STGRAMS             // store `value`
+          105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+          STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+          // → Stack state
+          // s0: Builder
+          // s1: `data`
+          // s2: `code`
+          // s3: `body`
+          // s4: `mode`
+          // Group 2: Placing the Builder after code and data, then checking those for nullability
+          s2 XCHG0
+          DUP2
+          ISNULL
+          SWAP
+          ISNULL
+          AND
+          // → Stack state
+          // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+          // s1: `code`
+          // s2: `data`
+          // s3: Builder
+          // s4: `body`
+          // s5: `mode`
+          // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+          <{
+              DROP2 // drop `data` and `code`, since either of those is null
+              b{0} STSLICECONST
+          }> PUSHCONT
+          // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+          <{
+              // _ split_depth:(Maybe (## 5))
+              //   special:(Maybe TickTock)
+              //   code:(Maybe ^Cell)
+              //   data:(Maybe ^Cell)
+              //   library:(Maybe ^Cell)
+              // = StateInit;
+              ROT                // place message Builder on top
+              b{10} STSLICECONST // store Maybe = true, Either = false
+              // Start composing inlined StateInit
+              b{00} STSLICECONST // store split_depth and special first
+              STDICT             // store code
+              STDICT             // store data
+              b{0} STSLICECONST  // store library
+          }> PUSHCONT
+          // Group 3: IFELSE that does the branching shown above
+          IFELSE
+          // → Stack state
+          // s0: Builder
+          // s1: null or StateInit
+          // s2: `body`
+          // s3: `mode`
+          // Group 4: Finalizing the message
+          STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+          ENDC
+          // → Stack state
+          // s0: Cell
+          // s1: `mode`
+          // Group 5: Sending the message, with `mode` on top
+          SWAP
+          SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+      s0 s8 XCHG
+      s3 s7 XCHG
+      s3 s5 XCHG
+      -ROT
+      $XeraMiningDistributor$_contract_store INLINECALLDICT
+    }>
+    OVER
+    8193 PUSHINT
+    EQUAL
+    IFJMP:<{
+      NIP
+      s4 POP
+      s0 s3 XCHG
+      256 LDU
+      DROP
+      __tact_context_get INLINECALLDICT
+      2DROP
+      56540 PUSHINT
+      s2 POP
+      s4 PUSH
+      SDEQ
+      THROWANYIFNOT
+      s6 s8 XCHG
+      s5 s7 XCHG
+      s4 s6 XCHG
+      s4 s5 s5 XCHG3
+      s3 s1 s3 XCHG3
+      $XeraMiningDistributor$_contract_store INLINECALLDICT
+    }>
+    OVER
+    8194 PUSHINT
+    EQUAL
+    IFJMP:<{
+      NIP
+      s8 POP
+      s0 s7 XCHG
+      1 LDI
+      DROP
+      __tact_context_get INLINECALLDICT
+      2DROP
+      56540 PUSHINT
+      s2 POP
+      s4 PUSH
+      SDEQ
+      THROWANYIFNOT
+      s6 s8 XCHG
+      s5 s7 XCHG
+      s4 s6 XCHG
+      s3 s5 XCHG
+      s4 s0 s3 XCHG3
+      s0 s2 XCHG
+      $XeraMiningDistributor$_contract_store INLINECALLDICT
+    }>
+    SWAP
+    2490013878 PUSHINT
+    EQUAL
+    IFJMP:<{
+      64 LDU
+      DROP
+      $DeployOk$_constructor_queryId INLINECALLDICT
+      NEWC
+      $DeployOk$_store_cell INLINECALLDICT
+      s7 s9 XCHG
+      s6 s8 XCHG
+      s5 s7 XCHG
+      s4 s6 XCHG
+      s3 s5 XCHG
+      s4 s3 s0 XCHG3
+      $XeraMiningDistributor$_fun_notify INLINECALLDICT
+      $XeraMiningDistributor$_contract_store INLINECALLDICT
+    }>
+    10 BLKDROP
+    130 THROW
+  }>
+  __tact_selector_hack PROC:<{
+    @atend @ 1 {
+            execute current@ context@ current!
+            {
+                // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+                // We want to extract recv_internal/recv_external from the dict and select needed function
+                // not by jumping to the needed function by it's index, but by using usual IF statements.
+                }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+                <{ // Start of the new code builder
+                    SETCP0
+                    // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                    swap
+                    // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                    <s ref@
+                    // Extract the recv_internal from the dict
+                    dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                    swap
+                    // Delete the recv_internal from the dict
+                    0 swap @procdictkeylen idict- drop
+                    // Delete the recv_external from the dict (it's okay if it's not there)
+                    -1 swap @procdictkeylen idict- drop
+                    // Delete the __tact_selector_hack from the dict
+                    65535 swap @procdictkeylen idict- drop
+                    // Bring the code builder from the bottom of the stack
+                    // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                    depth 1- roll
+                    // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                    swap
+                    // Check if the dict is empty
+                    dup null?
+                    // Store a copy of this flag in the bottom of the stack
+                    dup depth 1- -roll
+                    {
+                        // If the dict is empty, just drop it (it will be null if it's empty)
+                        drop
+                    }
+                    {
+                        // If the dict is not empty, prepare continuation to be stored in c3
+                        <{
+                            // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                            swap @procdictkeylen DICTPUSHCONST
+                            // Jump to the needed function by it's index
+                            DICTIGETJMPZ
+                            // If such key is not found, throw 11 along with the key as an argument
+                            11 THROWARG
+                        }> PUSHCONT
+                        // Store the continuation in c3
+                        c3 POP
+                    } cond
+                    // Function id is on top of the (runtime) stack
+                    DUP IFNOTJMP:<{
+                        // place recv_internal here
+                        DROP swap @addop
+                    }>
+                    // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                    depth 1- roll
+                    {
+                        // If the dict is empty, throw 11
+                        11 THROWARG
+                    }
+                    {
+                        // If the dict is not empty, jump to continuation from c3
+                        c3 PUSH JMPX
+                    } cond
+                }> b>
+            } : }END>c
+            current@ context! current!
+        } does @atend !
+  }>
+}END>c

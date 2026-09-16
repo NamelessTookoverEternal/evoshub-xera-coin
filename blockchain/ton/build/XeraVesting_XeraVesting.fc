@@ -1,0 +1,934 @@
+#pragma version =0.4.6;
+#pragma allow-post-modification;
+#pragma compute-asm-ltr;
+
+;; XeraVesting_XeraVesting.headers.fc
+;;
+;; Header files for XeraVesting
+;; NOTE: declarations are sorted for optimal order
+;;
+
+;; __tact_store_address_opt
+builder __tact_store_address_opt(builder b, slice address) inline;
+
+;; __tact_not_null
+forall X -> X __tact_not_null(X x) impure inline;
+
+;; __tact_context_get
+(int, slice, int, slice) __tact_context_get() inline;
+
+;; __tact_context_get_sender
+slice __tact_context_get_sender() inline;
+
+;; __tact_dict_get_slice_int
+int __tact_dict_get_slice_int(cell d, int kl, slice k, int vl) inline;
+
+;; __tact_dict_set_slice_int
+(cell, ()) __tact_dict_set_slice_int(cell d, int kl, slice k, int v, int vl) inline;
+
+;; __tact_dict_get_int_cell
+cell __tact_dict_get_int_cell(cell d, int kl, int k) inline;
+
+;; __tact_dict_set_int_cell
+(cell, ()) __tact_dict_set_int_cell(cell d, int kl, int k, cell v) inline;
+
+;; $DeployOk$_store
+builder $DeployOk$_store(builder build_0, (int) v) inline;
+
+;; $DeployOk$_store_cell
+cell $DeployOk$_store_cell((int) v, builder b) inline;
+
+;; $JettonTransfer$_store
+builder $JettonTransfer$_store(builder build_0, (int, int, slice, slice, cell, int, slice) v) inline;
+
+;; $JettonTransfer$_store_cell
+cell $JettonTransfer$_store_cell((int, int, slice, slice, cell, int, slice) v, builder b) inline;
+
+;; $Tranche$_store
+builder $Tranche$_store(builder build_0, (slice, int, int, int, int) v) inline;
+
+;; $Tranche$_store_cell
+cell $Tranche$_store_cell((slice, int, int, int, int) v, builder b) inline;
+
+;; $Tranche$_load
+(slice, ((slice, int, int, int, int))) $Tranche$_load(slice sc_0) inline;
+
+;; $Tranche$_as_optional
+tuple $Tranche$_as_optional((slice, int, int, int, int) v) inline;
+
+;; $Tranche$_load_opt
+tuple $Tranche$_load_opt(cell cl) inline;
+
+;; $XeraVesting$_store
+builder $XeraVesting$_store(builder build_0, (slice, cell, slice, slice, int, int, cell, cell) v) inline;
+
+;; $XeraVesting$_load
+(slice, ((slice, cell, slice, slice, int, int, cell, cell))) $XeraVesting$_load(slice sc_0) inline;
+
+;; $Context$_get_value
+_ $Context$_get_value((int, slice, int, slice) v) inline;
+
+;; $Tranche$_not_null
+((slice, int, int, int, int)) $Tranche$_not_null(tuple v) inline;
+
+;; $Tranche$_to_tuple
+tuple $Tranche$_to_tuple(((slice, int, int, int, int)) v) inline;
+
+;; $Tranche$_to_opt_tuple
+tuple $Tranche$_to_opt_tuple(tuple v) inline;
+
+;; $Tranche$_to_opt_external
+tuple $Tranche$_to_opt_external(tuple v) inline;
+
+;; $XeraJettonWallet$init$_store
+builder $XeraJettonWallet$init$_store(builder build_0, (slice, slice, cell) v) inline;
+
+;; $XeraVesting$init$_load
+(slice, ((slice, cell, slice, slice, int))) $XeraVesting$init$_load(slice sc_0) inline;
+
+;; $XeraVesting$_contract_init
+(slice, cell, slice, slice, int, int, cell, cell) $XeraVesting$_contract_init(slice $minter, cell $jettonWalletCode, slice $distributor, slice $admin, int $vestingDurationSeconds) impure inline;
+
+;; $XeraVesting$_contract_load
+(slice, cell, slice, slice, int, int, cell, cell) $XeraVesting$_contract_load() impure inline;
+
+;; $XeraVesting$_contract_store
+() $XeraVesting$_contract_store((slice, cell, slice, slice, int, int, cell, cell) v) impure inline;
+
+;; $Cell$_fun_asSlice
+slice $Cell$_fun_asSlice(cell $self) impure inline;
+
+;; $global_newAddress
+slice $global_newAddress(int $chain, int $hash) impure inline;
+
+;; $global_contractAddressExt
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline;
+
+;; $global_contractAddress
+slice $global_contractAddress((cell, cell) $s) impure inline;
+
+;; $XeraJettonWallet$_init_child
+(cell, cell) $XeraJettonWallet$_init_child(slice $minter, slice $owner, cell $jettonWalletCode) inline_ref;
+
+;; $MessageParameters$_constructor_bounce_to_value_mode_body
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline;
+
+;; $XeraVesting$_fun_releasableOf
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_releasableOf((slice, cell, slice, slice, int, int, cell, cell) $self, (slice, int, int, int, int) $t) impure inline_ref;
+
+;; $XeraVesting$_fun_lockedOf
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_lockedOf((slice, cell, slice, slice, int, int, cell, cell) $self, slice $owner) impure inline_ref;
+
+;; $XeraVesting$_fun_ownJettonWallet
+((slice, cell, slice, slice, int, int, cell, cell), slice) $XeraVesting$_fun_ownJettonWallet((slice, cell, slice, slice, int, int, cell, cell) $self) impure inline_ref;
+
+;; $XeraVesting$_fun_releasable
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_releasable((slice, cell, slice, slice, int, int, cell, cell) $self, int $referenceId) impure inline_ref;
+
+;; $XeraVesting$_fun_locked_remaining
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_locked_remaining((slice, cell, slice, slice, int, int, cell, cell) $self, slice $owner) impure inline_ref;
+
+;; $XeraVesting$_fun_tranche_of
+((slice, cell, slice, slice, int, int, cell, cell), tuple) $XeraVesting$_fun_tranche_of((slice, cell, slice, slice, int, int, cell, cell) $self, int $referenceId) impure inline_ref;
+
+;; $XeraVesting$_fun_notify
+((slice, cell, slice, slice, int, int, cell, cell), ()) $XeraVesting$_fun_notify((slice, cell, slice, slice, int, int, cell, cell) $self, cell $body) impure inline;
+
+;; $Tranche$_constructor_owner_amount_released_start_duration
+((slice, int, int, int, int)) $Tranche$_constructor_owner_amount_released_start_duration(slice $owner, int $amount, int $released, int $start, int $duration) inline;
+
+;; $SendParameters$_constructor_to_value_mode_bounce_body
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline;
+
+;; $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload
+((int, int, slice, slice, cell, int, slice)) $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload(int $queryId, int $amount, slice $destination, slice $responseDestination, cell $customPayload, int $forwardTonAmount, slice $forwardPayload) inline;
+
+;; $DeployOk$_constructor_queryId
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline;
+
+
+;; XeraVesting_XeraVesting.stdlib.fc
+global (int, slice, int, slice) __tact_context;
+global slice __tact_context_sender;
+global cell __tact_child_contract_codes;
+global int __tact_randomized;
+
+builder __tact_store_addr_none(builder b) asm "b{00} STSLICECONST";
+
+builder __tact_store_address_opt(builder b, slice address) inline {
+    if (null?(address)) {
+        return __tact_store_addr_none(b);
+    } else {
+        return b.store_slice(address);
+    }
+}
+
+forall X -> X __tact_not_null(X x) impure inline {
+    throw_if(128, null?(x)); return x;
+}
+
+(cell, int) __tact_dict_delete(cell dict, int key_len, slice index) asm(index dict key_len) """
+    DICTDEL
+""";
+
+(slice, int) __tact_dict_get(cell dict, int key_len, slice index) asm(index dict key_len) """
+    DICTGET NULLSWAPIFNOT
+""";
+
+(int, slice, int, slice) __tact_context_get() inline {
+    return __tact_context;
+}
+
+slice __tact_context_get_sender() inline {
+    return __tact_context_sender;
+}
+
+forall X0, X1, X2, X3, X4 -> tuple __tact_tuple_create_5((X0, X1, X2, X3, X4) v) asm """
+    5 TUPLE
+""";
+
+forall X0, X1, X2, X3, X4 -> (X0, X1, X2, X3, X4) __tact_tuple_destroy_5(tuple v) asm """
+    5 UNTUPLE
+""";
+
+int __tact_dict_get_slice_int(cell d, int kl, slice k, int vl) inline {
+    var (r, ok) = __tact_dict_get(d, kl, k);
+    if (ok) {
+        return r~load_int(vl);
+    } else {
+        return null();
+    }
+}
+
+(cell, ()) __tact_dict_set_slice_int(cell d, int kl, slice k, int v, int vl) inline {
+    if (null?(v)) {
+        var (r, ok) = __tact_dict_delete(d, kl, k);
+        return (r, ());
+    } else {
+        return (dict_set_builder(d, kl, k, begin_cell().store_int(v, vl)), ());
+    }
+}
+
+cell __tact_dict_get_int_cell(cell d, int kl, int k) inline {
+    var (r, ok) = idict_get_ref?(d, kl, k);
+    if (ok) {
+        return r;
+    } else {
+        return null();
+    }
+}
+
+(cell, ()) __tact_dict_set_int_cell(cell d, int kl, int k, cell v) inline {
+    if (null?(v)) {
+        var (r, ok) = idict_delete?(d, kl, k);
+        return (r, ());
+    } else {
+        return (idict_set_ref(d, kl, k, v), ());
+    }
+}
+
+builder $global_beginCell() impure asm """
+    NEWC
+""";
+
+slice $global_emptySlice() impure asm """
+    b{} PUSHSLICE
+""";
+
+int $global_contractHash(cell $code, cell $data) impure asm """
+    s0 PUSH HASHCU // `data` hash
+    s2 PUSH HASHCU // `code` hash
+    SWAP2
+    CDEPTH         // `data` depth
+    SWAP
+    CDEPTH         // `code` depth
+    131380 INT     // (2 << 16) | (1 << 8) | 0x34
+
+    // Group 2: Composition of the Builder
+    NEWC
+    24 STU  // store refs_descriptor | bits_descriptor | data
+    16 STU  // store depth_descriptor for `code`
+    16 STU  // store depth_descriptor for `data`
+    256 STU // store `code` hash
+    256 STU // store `data` hash
+
+    // Group 3: SHA256 hash of the resulting Builder
+    ONE HASHEXT_SHA256
+""";
+
+slice $Slice$_fun_asAddressUnsafe(slice $self) impure asm "NOP";
+
+slice $Cell$_fun_beginParse(cell $self) impure asm """
+    CTOS
+""";
+
+slice $Cell$_fun_asSlice(cell $self) impure inline {
+    var ($self) = $self;
+    return $Cell$_fun_beginParse($self);
+}
+
+cell $Builder$_fun_endCell(builder $self) impure asm """
+    ENDC
+""";
+
+slice $global_newAddress(int $chain, int $hash) impure inline {
+    return $Slice$_fun_asAddressUnsafe($Cell$_fun_asSlice($Builder$_fun_endCell(store_uint(store_int(store_uint($global_beginCell(), 4, 3), $chain, 8), $hash, 256))));
+}
+
+slice $global_contractAddressExt(int $chain, cell $code, cell $data) impure inline {
+    int $hash = $global_contractHash($code, $data);
+    return $global_newAddress($chain, $hash);
+}
+
+slice $global_contractAddress((cell, cell) $s) impure inline {
+    var (($s'code, $s'data)) = $s;
+    return $global_contractAddressExt(0, $s'code, $s'data);
+}
+
+slice $global_myAddress() impure asm """
+    MYADDR
+""";
+
+int $global_myBalance() impure asm """
+    BALANCE FIRST
+""";
+
+() $global_nativeReserve(int $amount, int $mode) impure asm """
+    RAWRESERVE
+""";
+
+() $global_message((int, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    106 PUSHINT         // 1 + 4 + 4 + 64 + 32 + 1
+    STZEROES
+    // → Stack state
+    // s0: Builder
+    // s1: `body`
+    // s2: `mode`
+    STDICT
+    ENDC
+    SWAP
+    SENDRAWMSG
+""";
+
+() $global_send((int, cell, cell, cell, int, slice, int) $params) impure asm """
+    NEWC
+    b{01} STSLICECONST  // store tag = $0 and ihr_disabled = true
+    1 STI               // store `bounce`
+    b{000} STSLICECONST // store bounced = false and src = addr_none
+    STSLICE             // store `to`
+    SWAP
+    STGRAMS             // store `value`
+    105 PUSHINT         // 1 + 4 + 4 + 64 + 32
+    STZEROES            // store currency_collection, ihr_fee, fwd_fee, created_lt and created_at
+    // → Stack state
+    // s0: Builder
+    // s1: `data`
+    // s2: `code`
+    // s3: `body`
+    // s4: `mode`
+
+    // Group 2: Placing the Builder after code and data, then checking those for nullability
+    s2 XCHG0
+    DUP2
+    ISNULL
+    SWAP
+    ISNULL
+    AND
+    // → Stack state
+    // s0: -1 (true) if `data` and `code` are both null, 0 (false) otherwise
+    // s1: `code`
+    // s2: `data`
+    // s3: Builder
+    // s4: `body`
+    // s5: `mode`
+
+    // Group 3: Left branch of the IFELSE, executed if s0 is -1 (true)
+    <{
+        DROP2 // drop `data` and `code`, since either of those is null
+        b{0} STSLICECONST
+    }> PUSHCONT
+
+    // Group 3: Right branch of the IFELSE, executed if s0 is 0 (false)
+    <{
+        // _ split_depth:(Maybe (## 5))
+        //   special:(Maybe TickTock)
+        //   code:(Maybe ^Cell)
+        //   data:(Maybe ^Cell)
+        //   library:(Maybe ^Cell)
+        // = StateInit;
+        ROT                // place message Builder on top
+        b{10} STSLICECONST // store Maybe = true, Either = false
+        // Start composing inlined StateInit
+        b{00} STSLICECONST // store split_depth and special first
+        STDICT             // store code
+        STDICT             // store data
+        b{0} STSLICECONST  // store library
+    }> PUSHCONT
+
+    // Group 3: IFELSE that does the branching shown above
+    IFELSE
+    // → Stack state
+    // s0: Builder
+    // s1: null or StateInit
+    // s2: `body`
+    // s3: `mode`
+
+    // Group 4: Finalizing the message
+    STDICT // store `body` as ref with an extra Maybe bit, since `body` might be null
+    ENDC
+    // → Stack state
+    // s0: Cell
+    // s1: `mode`
+
+    // Group 5: Sending the message, with `mode` on top
+    SWAP
+    SENDRAWMSG // https://github.com/tact-lang/tact/issues/1558
+""";
+
+int $global_now() impure asm """
+    NOW
+""";
+
+(slice, slice) $Slice$_fun_loadAddress(slice $self) impure asm( -> 1 0) """
+    LDMSGADDR
+""";
+
+((slice, cell, slice, slice, int, int, cell, cell), ()) $XeraVesting$_fun_notify((slice, cell, slice, slice, int, int, cell, cell) $self, cell $body) impure inline {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    slice $to = __tact_context_get_sender();
+    int $bounce = false;
+    if (false) {
+        int $balance = $global_myBalance();
+        int $balanceBeforeMessage = ($balance - $Context$_get_value(__tact_context_get()));
+        if (($balanceBeforeMessage < 0)) {
+            $global_nativeReserve(0, 0);
+            $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 130, $body));
+            return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), ());
+        }
+    }
+    $global_message($MessageParameters$_constructor_bounce_to_value_mode_body($bounce, $to, 0, 66, $body));
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), ());
+}
+
+;; XeraVesting_XeraVesting.storage.fc
+;;
+;; Type: Context
+;; TLB: _ bounceable:bool sender:address value:int257 raw:^slice = Context
+;;
+
+_ $Context$_get_value((int, slice, int, slice) v) inline {
+    var (v'bounceable, v'sender, v'value, v'raw) = v;
+    return v'value;
+}
+
+;;
+;; Type: SendParameters
+;; TLB: _ mode:int257 body:Maybe ^cell code:Maybe ^cell data:Maybe ^cell value:int257 to:address bounce:bool = SendParameters
+;;
+
+((int, cell, cell, cell, int, slice, int)) $SendParameters$_constructor_to_value_mode_bounce_body(slice $to, int $value, int $mode, int $bounce, cell $body) inline {
+    return ($mode, $body, null(), null(), $value, $to, $bounce);
+}
+
+;;
+;; Type: MessageParameters
+;; TLB: _ mode:int257 body:Maybe ^cell value:int257 to:address bounce:bool = MessageParameters
+;;
+
+((int, cell, int, slice, int)) $MessageParameters$_constructor_bounce_to_value_mode_body(int $bounce, slice $to, int $value, int $mode, cell $body) inline {
+    return ($mode, $body, $value, $to, $bounce);
+}
+
+;;
+;; Type: DeployOk
+;; Header: 0xaff90f57
+;; TLB: deploy_ok#aff90f57 queryId:uint64 = DeployOk
+;;
+
+builder $DeployOk$_store(builder build_0, (int) v) inline {
+    var (v'queryId) = v;
+    build_0 = store_uint(build_0, 2952335191, 32);
+    build_0 = build_0.store_uint(v'queryId, 64);
+    return build_0;
+}
+
+cell $DeployOk$_store_cell((int) v, builder b) inline {
+    return $DeployOk$_store(b, v).end_cell();
+}
+
+((int)) $DeployOk$_constructor_queryId(int $queryId) inline {
+    return ($queryId);
+}
+
+;;
+;; Type: JettonTransfer
+;; Header: 0x0f8a7ea5
+;; TLB: jetton_transfer#0f8a7ea5 queryId:uint64 amount:coins destination:address responseDestination:address customPayload:Maybe ^cell forwardTonAmount:coins forwardPayload:remainder<slice> = JettonTransfer
+;;
+
+builder $JettonTransfer$_store(builder build_0, (int, int, slice, slice, cell, int, slice) v) inline {
+    var (v'queryId, v'amount, v'destination, v'responseDestination, v'customPayload, v'forwardTonAmount, v'forwardPayload) = v;
+    build_0 = store_uint(build_0, 260734629, 32);
+    build_0 = build_0.store_uint(v'queryId, 64);
+    build_0 = build_0.store_varuint16(v'amount);
+    build_0 = build_0.store_slice(v'destination);
+    build_0 = __tact_store_address_opt(build_0, v'responseDestination);
+    build_0 = build_0.store_maybe_ref(v'customPayload);
+    build_0 = build_0.store_varuint16(v'forwardTonAmount);
+    build_0 = build_0.store_slice(v'forwardPayload);
+    return build_0;
+}
+
+cell $JettonTransfer$_store_cell((int, int, slice, slice, cell, int, slice) v, builder b) inline {
+    return $JettonTransfer$_store(b, v).end_cell();
+}
+
+((int, int, slice, slice, cell, int, slice)) $JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload(int $queryId, int $amount, slice $destination, slice $responseDestination, cell $customPayload, int $forwardTonAmount, slice $forwardPayload) inline {
+    return ($queryId, $amount, $destination, $responseDestination, $customPayload, $forwardTonAmount, $forwardPayload);
+}
+
+;;
+;; Type: Tranche
+;; TLB: _ owner:address amount:coins released:coins start:uint64 duration:uint64 = Tranche
+;;
+
+builder $Tranche$_store(builder build_0, (slice, int, int, int, int) v) inline {
+    var (v'owner, v'amount, v'released, v'start, v'duration) = v;
+    build_0 = build_0.store_slice(v'owner);
+    build_0 = build_0.store_varuint16(v'amount);
+    build_0 = build_0.store_varuint16(v'released);
+    build_0 = build_0.store_uint(v'start, 64);
+    build_0 = build_0.store_uint(v'duration, 64);
+    return build_0;
+}
+
+cell $Tranche$_store_cell((slice, int, int, int, int) v, builder b) inline {
+    return $Tranche$_store(b, v).end_cell();
+}
+
+(slice, ((slice, int, int, int, int))) $Tranche$_load(slice sc_0) inline {
+    var v'owner = sc_0~load_msg_addr();
+    var v'amount = sc_0~load_varuint16();
+    var v'released = sc_0~load_varuint16();
+    var v'start = sc_0~load_uint(64);
+    var v'duration = sc_0~load_uint(64);
+    return (sc_0, (v'owner, v'amount, v'released, v'start, v'duration));
+}
+
+tuple $Tranche$_as_optional((slice, int, int, int, int) v) inline {
+    var (v'owner, v'amount, v'released, v'start, v'duration) = v;
+    return __tact_tuple_create_5(v'owner, v'amount, v'released, v'start, v'duration);
+}
+
+tuple $Tranche$_load_opt(cell cl) inline {
+    if (null?(cl)) {
+        return null();
+    }
+    var sc = cl.begin_parse();
+    return $Tranche$_as_optional(sc~$Tranche$_load());
+}
+
+((slice, int, int, int, int)) $Tranche$_tensor_cast((slice, int, int, int, int) v) asm "NOP";
+
+((slice, int, int, int, int)) $Tranche$_not_null(tuple v) inline {
+    throw_if(128, null?(v));
+    var (slice vvv'owner, int vvv'amount, int vvv'released, int vvv'start, int vvv'duration) = __tact_tuple_destroy_5(v);
+    return (vvv'owner, vvv'amount, vvv'released, vvv'start, vvv'duration);
+}
+
+tuple $Tranche$_to_tuple(((slice, int, int, int, int)) v) inline {
+    var (v'owner, v'amount, v'released, v'start, v'duration) = v;
+    return __tact_tuple_create_5(v'owner, v'amount, v'released, v'start, v'duration);
+}
+
+tuple $Tranche$_to_opt_tuple(tuple v) inline {
+    if (null?(v)) { return null(); } 
+    return $Tranche$_to_tuple($Tranche$_not_null(v)); 
+}
+
+tuple $Tranche$_to_opt_external(tuple v) inline {
+    var loaded = $Tranche$_to_opt_tuple(v);
+    if (null?(loaded)) {
+        return null();
+    } else {
+        return (loaded);
+    }
+}
+
+((slice, int, int, int, int)) $Tranche$_constructor_owner_amount_released_start_duration(slice $owner, int $amount, int $released, int $start, int $duration) inline {
+    return ($owner, $amount, $released, $start, $duration);
+}
+
+;;
+;; Type: XeraJettonWallet
+;; TLB: _ balance:coins owner:address minter:address jettonWalletCode:^cell = XeraJettonWallet
+;;
+
+builder $XeraJettonWallet$init$_store(builder build_0, (slice, slice, cell) v) inline {
+    var (v'minter, v'owner, v'jettonWalletCode) = v;
+    build_0 = build_0.store_slice(v'minter);
+    build_0 = build_0.store_slice(v'owner);
+    build_0 = build_0.store_ref(v'jettonWalletCode);
+    return build_0;
+}
+
+cell $XeraJettonWallet$_child_get_code() impure asm """
+    B{b5ee9c7201020f010003ec000228ff008e88f4a413f4bcf2c80bed5320e303ed43d901020151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11200301f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e2058e3a038020d7217021d749c21f9430d31f01de8210178d4519ba8e1dd33ffa00596c2112a05023c87f01ca0055305043fa02ce12ceccc9ed54e05f05e003d70d1f0400085473212304f0f2e082218210178d4519ba8fe231d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed54e02182100f8a7ea5ba050607080168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7050900b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000a6206ef2d0807083067004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0004fc8f6f31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc8e0018210595f07bcbae3025f05090a0b0c001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9010d0e0006f2c082001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed54} B>boc PUSHREF
+""";
+
+(cell, cell) $XeraJettonWallet$_init_child(slice $minter, slice $owner, cell $jettonWalletCode) inline_ref {
+    ;; Build init code cell
+
+    ;; Contract Code: XeraJettonWallet
+    cell init_code = $XeraJettonWallet$_child_get_code();
+
+
+    builder b = begin_cell();
+    b = b.store_int(false, 1);
+    b = $XeraJettonWallet$init$_store(b, ($minter, $owner, $jettonWalletCode));
+    return (init_code, b.end_cell());
+}
+
+;;
+;; Type: XeraVesting
+;; TLB: _ minter:address jettonWalletCode:^cell distributor:address admin:address vestingDuration:uint64 paused:bool tranches:dict<int, ^Tranche{owner:address,amount:coins,released:coins,start:uint64,duration:uint64}> userLockedTotal:dict<address, int> = XeraVesting
+;;
+
+builder $XeraVesting$_store(builder build_0, (slice, cell, slice, slice, int, int, cell, cell) v) inline {
+    var (v'minter, v'jettonWalletCode, v'distributor, v'admin, v'vestingDuration, v'paused, v'tranches, v'userLockedTotal) = v;
+    build_0 = build_0.store_slice(v'minter);
+    build_0 = build_0.store_ref(v'jettonWalletCode);
+    build_0 = build_0.store_slice(v'distributor);
+    build_0 = build_0.store_slice(v'admin);
+    build_0 = build_0.store_uint(v'vestingDuration, 64);
+    build_0 = build_0.store_int(v'paused, 1);
+    var build_1 = begin_cell();
+    build_1 = build_1.store_dict(v'tranches);
+    build_1 = build_1.store_dict(v'userLockedTotal);
+    build_0 = store_builder_ref(build_0, build_1);
+    return build_0;
+}
+
+(slice, ((slice, cell, slice, slice, int, int, cell, cell))) $XeraVesting$_load(slice sc_0) inline {
+    var v'minter = sc_0~load_msg_addr();
+    var v'jettonWalletCode = sc_0~load_ref();
+    var v'distributor = sc_0~load_msg_addr();
+    var v'admin = sc_0~load_msg_addr();
+    var v'vestingDuration = sc_0~load_uint(64);
+    var v'paused = sc_0~load_int(1);
+    slice sc_1 = sc_0~load_ref().begin_parse();
+    var v'tranches = sc_1~load_dict();
+    var v'userLockedTotal = sc_1~load_dict();
+    return (sc_0, (v'minter, v'jettonWalletCode, v'distributor, v'admin, v'vestingDuration, v'paused, v'tranches, v'userLockedTotal));
+}
+
+(slice, ((slice, cell, slice, slice, int))) $XeraVesting$init$_load(slice sc_0) inline {
+    var v'minter = sc_0~load_msg_addr();
+    var v'jettonWalletCode = sc_0~load_ref();
+    var v'distributor = sc_0~load_msg_addr();
+    var v'admin = sc_0~load_msg_addr();
+    slice sc_1 = sc_0~load_ref().begin_parse();
+    var v'vestingDurationSeconds = sc_1~load_int(257);
+    return (sc_0, (v'minter, v'jettonWalletCode, v'distributor, v'admin, v'vestingDurationSeconds));
+}
+
+(slice, cell, slice, slice, int, int, cell, cell) $XeraVesting$_contract_load() impure inline {
+    slice $sc = get_data().begin_parse();
+    int $loaded = $sc~load_int(1);
+    if ($loaded) {
+        return $sc~$XeraVesting$_load();
+    }
+    else {
+        (slice $minter, cell $jettonWalletCode, slice $distributor, slice $admin, int $vestingDurationSeconds) = $sc~$XeraVesting$init$_load();
+        $sc.end_parse();
+        return $XeraVesting$_contract_init($minter, $jettonWalletCode, $distributor, $admin, $vestingDurationSeconds);
+    }
+}
+
+() $XeraVesting$_contract_store((slice, cell, slice, slice, int, int, cell, cell) v) impure inline {
+    builder b = begin_cell();
+    b = b.store_int(true, 1);
+    b = $XeraVesting$_store(b, v);
+    set_data(b.end_cell());
+}
+
+;;
+;; Contract XeraVesting functions
+;;
+
+(slice, cell, slice, slice, int, int, cell, cell) $XeraVesting$_contract_init(slice $minter, cell $jettonWalletCode, slice $distributor, slice $admin, int $vestingDurationSeconds) impure inline {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = (null(), null(), null(), null(), null(), null(), null(), null());
+    $self'minter = $minter;
+    $self'jettonWalletCode = $jettonWalletCode;
+    $self'distributor = $distributor;
+    $self'admin = $admin;
+    $self'vestingDuration = $vestingDurationSeconds;
+    $self'paused = false;
+    return ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_releasableOf((slice, cell, slice, slice, int, int, cell, cell) $self, (slice, int, int, int, int) $t) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    var (($t'owner, $t'amount, $t'released, $t'start, $t'duration)) = $t;
+    int $elapsed = ($global_now() - $t'start);
+    int $vested = $t'amount;
+    if (($elapsed < $t'duration)) {
+        $vested = (($t'amount * $elapsed) / $t'duration);
+    }
+    if (($vested <= $t'released)) {
+        var $fresh$ret_43 = 0;
+        return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_43);
+    }
+    var $fresh$ret_44 = ($vested - $t'released);
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_44);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_lockedOf((slice, cell, slice, slice, int, int, cell, cell) $self, slice $owner) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    int $v = __tact_dict_get_slice_int($self'userLockedTotal, 267, $owner, 257);
+    if (null?($v)) {
+        var $fresh$ret_45 = 0;
+        return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_45);
+    }
+    var $fresh$ret_46 = __tact_not_null($v);
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_46);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), slice) $XeraVesting$_fun_ownJettonWallet((slice, cell, slice, slice, int, int, cell, cell) $self) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    var $fresh$ret_47 = $global_contractAddress($XeraJettonWallet$_init_child($self'minter, $global_myAddress(), $self'jettonWalletCode));
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_47);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_releasable((slice, cell, slice, slice, int, int, cell, cell) $self, int $referenceId) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    tuple $t = $Tranche$_load_opt(__tact_dict_get_int_cell($self'tranches, 257, $referenceId));
+    if (null?($t)) {
+        var $fresh$ret_48 = 0;
+        return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_48);
+    }
+    var $fresh$ret_49 = ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_releasableOf($Tranche$_tensor_cast($Tranche$_not_null($t)));
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_49);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), int) $XeraVesting$_fun_locked_remaining((slice, cell, slice, slice, int, int, cell, cell) $self, slice $owner) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    var $fresh$ret_50 = ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_lockedOf($owner);
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_50);
+}
+
+((slice, cell, slice, slice, int, int, cell, cell), tuple) $XeraVesting$_fun_tranche_of((slice, cell, slice, slice, int, int, cell, cell) $self, int $referenceId) impure inline_ref {
+    var (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)) = $self;
+    var $fresh$ret_51 = $Tranche$_load_opt(__tact_dict_get_int_cell($self'tranches, 257, $referenceId));
+    return (($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal), $fresh$ret_51);
+}
+
+;;
+;; Get methods of a Contract XeraVesting
+;;
+
+_ %releasable(int $referenceId) method_id(104853) {
+    int $referenceId = $referenceId;
+    var self = $XeraVesting$_contract_load();
+    var res = self~$XeraVesting$_fun_releasable($referenceId);
+    return res;
+}
+
+_ %locked_remaining(slice $owner) method_id(71936) {
+    slice $owner = $owner;
+    var self = $XeraVesting$_contract_load();
+    var res = self~$XeraVesting$_fun_locked_remaining($owner);
+    return res;
+}
+
+_ %tranche_of(int $referenceId) method_id(89828) {
+    int $referenceId = $referenceId;
+    var self = $XeraVesting$_contract_load();
+    var res = self~$XeraVesting$_fun_tranche_of($referenceId);
+    return $Tranche$_to_opt_external(res);
+}
+
+;;
+;; Routing of a Contract XeraVesting
+;;
+
+;; message opcode reader utility: only binary receivers
+;; Returns 32 bit message opcode, otherwise throws the "Invalid incoming message" exit code
+(slice, int) ~load_opcode_internal(slice s) asm( -> 1 0) "32 LDUQ 130 THROWIFNOT";
+
+() recv_internal(int msg_value, cell in_msg_cell, slice in_msg) impure {
+    
+    ;; Context
+    var cs = in_msg_cell.begin_parse();
+    cs~skip_bits(2);
+    var msg_bounceable = cs~load_int(1);
+    var msg_bounced = cs~load_int(1);
+    slice msg_sender_addr = cs~load_msg_addr();
+    __tact_context = (msg_bounceable, msg_sender_addr, msg_value, cs);
+    __tact_context_sender = msg_sender_addr;
+    
+    ;; Load contract data
+    var ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal) = $XeraVesting$_contract_load();
+    
+    ;; Handle bounced messages
+    if (msg_bounced) { return (); }
+    var op = in_msg~load_opcode_internal();
+    ;; Receive JettonTransferNotification message
+    if (op == 0x7362d09c) {
+        var $msg'queryId = in_msg~load_uint(64);
+        var $msg'amount = in_msg~load_varuint16();
+        var $msg'sender = in_msg~load_msg_addr();
+        var $msg'forwardPayload = in_msg;
+        var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+        throw_unless(11354, ( equal_slices_bits($ctx'sender, ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_ownJettonWallet()) ));
+        throw_unless(42316, ( equal_slices_bits($msg'sender, $self'distributor) ));
+        throw_unless(7445, (~ $self'paused));
+        slice $fwd = $msg'forwardPayload;
+        slice $user = $fwd~$Slice$_fun_loadAddress();
+        int $referenceId = $fwd~load_uint(256);
+        throw_unless(16591, null?($Tranche$_load_opt(__tact_dict_get_int_cell($self'tranches, 257, $referenceId))));
+        $self'tranches~__tact_dict_set_int_cell(257, $referenceId, $Tranche$_store_cell($Tranche$_constructor_owner_amount_released_start_duration($user, $msg'amount, 0, $global_now(), $self'vestingDuration), begin_cell()));
+        int $prior = ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_lockedOf($user);
+        $self'userLockedTotal~__tact_dict_set_slice_int(267, $user, ($prior + $msg'amount), 257);
+        $XeraVesting$_contract_store(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal));
+        return ();
+    }
+    
+    ;; Receive ReleaseOne message
+    if (op == 128116498) {
+        var $msg'referenceId = in_msg~load_uint(256);
+        tuple $t = $Tranche$_load_opt(__tact_dict_get_int_cell($self'tranches, 257, $msg'referenceId));
+        throw_unless(63506, (~ null?($t)));
+        var ($tranche'owner, $tranche'amount, $tranche'released, $tranche'start, $tranche'duration) = $Tranche$_not_null($t);
+        int $amount = ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_releasableOf($Tranche$_tensor_cast(($tranche'owner, $tranche'amount, $tranche'released, $tranche'start, $tranche'duration)));
+        throw_unless(34116, ($amount > 0));
+        $tranche'released = ($tranche'released + $amount);
+        $self'tranches~__tact_dict_set_int_cell(257, $msg'referenceId, $Tranche$_store_cell(($tranche'owner, $tranche'amount, $tranche'released, $tranche'start, $tranche'duration), begin_cell()));
+        int $prior = ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_lockedOf($tranche'owner);
+        $self'userLockedTotal~__tact_dict_set_slice_int(267, $tranche'owner, ($prior - $amount), 257);
+        $global_send($SendParameters$_constructor_to_value_mode_bounce_body(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_ownJettonWallet(), 0, 64, true, $JettonTransfer$_store_cell($JettonTransfer$_constructor_queryId_amount_destination_responseDestination_customPayload_forwardTonAmount_forwardPayload(0, $amount, $tranche'owner, null(), null(), 10000000, $global_emptySlice()), begin_cell())));
+        $XeraVesting$_contract_store(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal));
+        return ();
+    }
+    
+    ;; Receive SetDistributor message
+    if (op == 0x2003) {
+        var $msg'distributor = in_msg~load_msg_addr();
+        var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+        throw_unless(58683, ( equal_slices_bits($ctx'sender, $self'admin) ));
+        $self'distributor = $msg'distributor;
+        $XeraVesting$_contract_store(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal));
+        return ();
+    }
+    
+    ;; Receive SetPaused message
+    if (op == 0x2002) {
+        var $msg'paused = in_msg~load_int(1);
+        var ($ctx'bounceable, $ctx'sender, $ctx'value, $ctx'raw) = __tact_context_get();
+        throw_unless(58683, ( equal_slices_bits($ctx'sender, $self'admin) ));
+        $self'paused = $msg'paused;
+        $XeraVesting$_contract_store(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal));
+        return ();
+    }
+    
+    ;; Receive Deploy message
+    if (op == 0x946a98b6) {
+        var $deploy'queryId = in_msg~load_uint(64);
+        ($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal)~$XeraVesting$_fun_notify($DeployOk$_store_cell($DeployOk$_constructor_queryId($deploy'queryId), begin_cell()));
+        $XeraVesting$_contract_store(($self'minter, $self'jettonWalletCode, $self'distributor, $self'admin, $self'vestingDuration, $self'paused, $self'tranches, $self'userLockedTotal));
+        return ();
+    }
+    
+    ;; Throw if not handled
+    throw(130);
+}
+
+
+() __tact_selector_hack_asm() impure asm """
+@atend @ 1 {
+        execute current@ context@ current!
+        {
+            // The core idea of this function is to save gas by avoiding unnecessary dict jump, when recv_internal/recv_external is called
+            // We want to extract recv_internal/recv_external from the dict and select needed function
+            // not by jumping to the needed function by it's index, but by using usual IF statements.
+
+            }END> b> // Close previous builder, now we have a cell of previous code on top of the stack
+
+            <{ // Start of the new code builder
+                SETCP0
+                // Swap the new code builder with the previous code, now we have previous code on top of the stack
+                swap
+                // Transform cell to slice and load first ref from the previous code, now we have the dict on top of the stack
+                <s ref@
+
+                // Extract the recv_internal from the dict
+                dup 0 swap @procdictkeylen idict@ { "internal shortcut error" abort } ifnot
+                swap
+
+                // Delete the recv_internal from the dict
+                0 swap @procdictkeylen idict- drop
+                // Delete the recv_external from the dict (it's okay if it's not there)
+                -1 swap @procdictkeylen idict- drop
+                // Delete the __tact_selector_hack from the dict
+                65535 swap @procdictkeylen idict- drop
+
+                // Bring the code builder from the bottom of the stack
+                // because if recv_external extraction is optional, and the number of elements on the stack is not fixed
+                depth 1- roll
+                // Swap with the dict from which we extracted recv_internal and (maybe) recv_external
+                swap
+
+                // Check if the dict is empty
+                dup null?
+                // Store a copy of this flag in the bottom of the stack
+                dup depth 1- -roll
+                {
+                    // If the dict is empty, just drop it (it will be null if it's empty)
+                    drop
+                }
+                {
+                    // If the dict is not empty, prepare continuation to be stored in c3
+                    <{
+                        // Save this dict as first ref in this continuation, it will be pushed in runtime by DICTPUSHCONST
+                        swap @procdictkeylen DICTPUSHCONST
+                        // Jump to the needed function by it's index
+                        DICTIGETJMPZ
+                        // If such key is not found, throw 11 along with the key as an argument
+                        11 THROWARG
+                    }> PUSHCONT
+                    // Store the continuation in c3
+                    c3 POP
+                } cond
+
+                // Function id is on top of the (runtime) stack
+                DUP IFNOTJMP:<{
+                    // place recv_internal here
+                    DROP swap @addop
+                }>
+
+                // Bring back the flag, indicating if the dict is empty or not from the bottom of the stack
+                depth 1- roll
+                {
+                    // If the dict is empty, throw 11
+                    11 THROWARG
+                }
+                {
+                    // If the dict is not empty, jump to continuation from c3
+                    c3 PUSH JMPX
+                } cond
+            }> b>
+        } : }END>c
+        current@ context! current!
+    } does @atend !
+""";
+
+() __tact_selector_hack() method_id(65535) {
+    return __tact_selector_hack_asm();
+}
