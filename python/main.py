@@ -5,6 +5,14 @@ Run:  uvicorn main:app --reload
 Docs: http://localhost:8000/docs  (disabled automatically when ENVIRONMENT=production)
 """
 import os
+from dotenv import load_dotenv
+
+# Loads .env for local dev only — a no-op if the file doesn't exist, so it
+# never overrides real platform env vars (Fly secrets, Netlify env, etc.)
+# in production, and never errors if .env is absent (e.g. `os.environ`
+# already populated by the host).
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,6 +25,7 @@ from utils.xera_supabase import supabase
 from xera.routes import router as xera_router
 from xera.routes_admin import router as xera_admin_router
 from xera.routes_auth import router as xera_auth_router
+from xera.routes_chain import router as xera_chain_router
 _IS_PROD = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
 app = FastAPI(
     title="EVOS Business Hub API",
@@ -96,6 +105,7 @@ app.include_router(website_requests.router, prefix="/api")
 app.include_router(xera_auth_router, prefix="/api/xera/auth", tags=["xera-auth"])
 app.include_router(xera_router, prefix="/api/xera", tags=["xera"])
 app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admin"])
+app.include_router(xera_chain_router, prefix="/api/xera", tags=["xera-chain"])
 @app.get("/")
 @app.head("/")
 def root():
