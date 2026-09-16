@@ -90,6 +90,7 @@
         <button type="button" class="tab-nav-item active" data-tab="dashboard">Dashboard</button>
         <button type="button" class="tab-nav-item" data-tab="mine">Mine</button>
         <button type="button" class="tab-nav-item" data-tab="wallet">Wallet</button>
+        <button type="button" class="tab-nav-item" data-tab="chain">Blockchain</button>
         <button type="button" class="tab-nav-item" data-tab="activity">Activity</button>
         <button type="button" class="tab-nav-item" data-tab="rewards">Rewards</button>
         <button type="button" class="tab-nav-item" data-tab="profile">Profile</button>
@@ -245,6 +246,7 @@
             <div class="wp-stat"><span>Mining allocation left ecosystem-wide</span><b id="walletRemainingSupply">—</b></div>
           </div>
           <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">Buying, withdrawing and transferring XERA aren't live yet — this wallet currently only reflects what you've mined and claimed.</p>
+          <button type="button" class="info-link" data-goto="chain">Settle a claim on BNB →</button>
           <div class="section-title">Coming soon</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>
@@ -253,11 +255,64 @@
           </div>
         </section>
 
+        <!-- ---------------- BLOCKCHAIN ---------------- -->
+        <section class="tab-panel" data-panel="chain">
+          <div class="section-title">Mining balance → Blockchain claim</div>
+          <p style="font-size:.8rem;color:var(--text-secondary)">
+            Settling a mined entitlement on-chain sends <b>25% straight to your wallet</b> and locks the remaining
+            <b>75% for the 6-month launch phase</b>, releasing gradually. The 75% is not spendable until it vests —
+            it is not lost, just locked.
+          </p>
+
+          <div class="section-title" style="margin-top:18px">Wallets</div>
+          <div class="chain-wallet-row" data-chain="BNB">
+            <div class="chain-wallet-info">
+              <span class="chain-badge">BNB</span>
+              <span id="chainWalletAddrBNB" class="chain-wallet-addr">Not connected</span>
+            </div>
+            <button type="button" class="btn btn-sm" id="chainConnectBNB">Connect BNB wallet</button>
+          </div>
+          <div class="chain-wallet-row chain-wallet-disabled" data-chain="TON" aria-disabled="true">
+            <div class="chain-wallet-info">
+              <span class="chain-badge">TON</span>
+              <span class="chain-wallet-addr">Coming Soon</span>
+            </div>
+            <button type="button" class="btn btn-sm" id="chainConnectTON" disabled aria-disabled="true">Coming Soon</button>
+          </div>
+          <p class="banner-error" id="chainWalletError"></p>
+
+          <div class="section-title" style="margin-top:18px">Claim a mining entitlement</div>
+          <div class="chain-claim-selector">
+            <label for="chainSelect">Settle on</label>
+            <select id="chainSelect">
+              <option value="BNB">BNB Smart Chain</option>
+              <option value="TON" disabled>TON — Coming Soon</option>
+            </select>
+          </div>
+          <div id="chainClaimableList" class="chain-claimable-list"></div>
+          <p class="banner-error" id="chainClaimError"></p>
+
+          <div class="section-title" style="margin-top:18px">Vesting status</div>
+          <div class="wp-stat-grid">
+            <div class="wp-stat"><span>Transferable so far</span><b id="chainReleasable">—</b></div>
+            <div class="wp-stat"><span>Still locked</span><b id="chainLocked">—</b></div>
+          </div>
+
+          <div class="section-title" style="margin-top:18px">Legacy balance migration</div>
+          <div id="chainMigrationBlock">
+            <p style="font-size:.78rem;color:var(--text-secondary)">Checking for a pre-blockchain legacy balance…</p>
+          </div>
+
+          <div class="section-title" style="margin-top:18px">Recent on-chain settlements</div>
+          <div id="chainClaimHistory"></div>
+        </section>
+
         <!-- ---------------- ACTIVITY ---------------- -->
         <section class="tab-panel" data-panel="activity">
           <div class="section-title">Activity</div>
           <div id="transactions"></div>
         </section>
+
 
         <!-- ---------------- REWARDS ---------------- -->
         <section class="tab-panel" data-panel="rewards">
@@ -382,5 +437,6 @@
 
 </div>
 <script src="../../js/xera.js" type="module"></script>
+<script src="../../js/xera-chain.js" type="module"></script>
 </body>
 </html>

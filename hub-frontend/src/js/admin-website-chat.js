@@ -14,7 +14,10 @@
 // Supabase Auth session, which doesn't apply to admins for the same
 // reason above.
 
-const API_BASE = "https://evoshub-xera-coin.onrender.com"
+const API_BASE = import.meta.env.VITE_API_BASE_URL ||
+  ((location.hostname === "localhost" || location.hostname === "127.0.0.1")
+    ? "http://localhost:8000"
+    : "https://api.evoshub.xyz") // same fallback pattern as xera.js — see ../../.env.example
 // The XERA admin API is a separate router mounted on the same backend and
 // gated by the exact same admin_agents-backed token as /api/admin above —
 // one admin login covers both, so no second sign-in is needed here.

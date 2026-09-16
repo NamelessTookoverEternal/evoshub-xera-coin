@@ -83,7 +83,10 @@ form.addEventListener('submit', async (e) => {
     // bot can always mint a fresh anonymous session to dodge a per-visitor
     // limit. The DB-level RLS policies and triggers still apply underneath
     // this as a second, independent line of defense.
-    const apiBase = import.meta.env.VITE_API_BASE_URL
+    const apiBase = import.meta.env.VITE_API_BASE_URL ||
+      ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8000'
+        : 'https://api.evoshub.xyz') // same fallback pattern as xera.js/xera-chain.js — see .env.example
     const res = await fetch(`${apiBase}/api/website-requests`, {
       method: 'POST',
       headers: {

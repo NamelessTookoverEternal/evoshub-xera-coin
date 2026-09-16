@@ -16,7 +16,10 @@ submit?.addEventListener('click', async () => {
   submit.disabled = true
 
   try {
-    const apiBase = import.meta.env.VITE_API_BASE_URL
+    const apiBase = import.meta.env.VITE_API_BASE_URL ||
+      ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8000'
+        : 'https://api.evoshub.xyz') // same fallback pattern as xera.js/xera-chain.js — see .env.example
     const res = await fetch(`${apiBase}/api/contact`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -6,7 +6,7 @@
 // and /api/xera/ecosystem routes, which are deliberately unauthenticated
 // and return aggregate/public data only.
 
-export const XERA_API = window.XERA_API_BASE || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
+export const XERA_API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 
 export function fmtXera(n) {
   return Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
