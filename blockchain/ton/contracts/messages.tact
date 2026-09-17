@@ -121,6 +121,14 @@ message(0x2002) SetPaused {
     paused: Bool;
 }
 
+// Two-phase wiring for XeraMiningDistributor <-> XeraVesting (see
+// vesting.tact's init NatSpec for why this exists: the two contracts'
+// addresses would otherwise depend on each other, which is circular and
+// undeployable).
+message(0x2003) SetDistributorWallet {
+    newWallet: Address;
+}
+
 // ---- XERA vesting messages (section 3/4/15) ----
 // Deposits into XeraVesting arrive as a standard Jetton credit (a
 // JettonTransferNotification whose forwardPayload encodes the user +
@@ -128,10 +136,6 @@ message(0x2002) SetPaused {
 // message, so the credit and the "who it's for" metadata are atomic:
 // there's no separate message that could arrive out of order with, or
 // without, the actual token transfer.
-
-message(0x2003) SetDistributor {
-    distributor: Address;
-}
 
 message(0x3001) Release {
     queryId: Int as uint64;

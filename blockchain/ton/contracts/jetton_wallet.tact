@@ -20,28 +20,6 @@ contract XeraJettonWallet {
         self.jettonWalletCode = jettonWalletCode;
     }
 
-    // If the downstream JettonTransferInternal we just sent (in
-    // receive(JettonTransfer) below) can't be delivered — the destination
-    // wallet's deploy/compute fails, or it runs out of gas — TON bounces
-    // it back to us (we send with bounce: true specifically so this
-    // happens instead of silently vanishing tokens). Without this
-    // handler, the balance we already debited in receive(JettonTransfer)
-    // would never be restored: real value would be gone with no error
-    // visible anywhere on-chain. This is what item 6 of the hardening
-    // brief calls a "stuck funds" async-failure case — this handler is
-    // the recovery mechanism for the jetton-wallet hop of it (the
-    // distributor's own consumed/totalDistributed bookkeeping is a
-    // separate, contract-level concern — see mining_distributor.tact's
-    // header comment on the settlement/recovery model).
-    //
-    // Tact truncates a bounced message to what fits in the first ~224
-    // bits after the opcode, so only `amount` (not `sender` or the rest)
-    // is reliably available here — which is exactly what we need to
-    // restore the balance correctly regardless of which transfer bounced.
-    bounced(msg: bounced<JettonTransferInternal>) {
-        self.balance = self.balance + msg.amount;
-    }
-
     receive(msg: JettonTransferInternal) {
         let ctx: Context = context();
         // Only the minter (initial mint) or another XeraJettonWallet with
@@ -53,6 +31,16 @@ contract XeraJettonWallet {
 
         self.balance = self.balance + msg.amount;
 
+        // NOTE (found via blockchain/ton/tests/debug_mint.spec.ts, same
+        // class of bug as mining_distributor.tact's original two-leg send —
+        // see that file's fix comment): sending an explicit-value message
+        // first and then a SendRemainingValue (mode 64, "remaining value of
+        // the CURRENT inbound message") message second still over-commits —
+        // mode 64 does not subtract what the first send already spent
+        // within the same transaction. A plain Mint (forwardTonAmount = 1
+        // nanoton, responseDestination = admin) reliably failed the action
+        // phase with exit code 37 ("Not enough Toncoin") until both sends
+        // below were given explicit fixed values.
         if (msg.forwardTonAmount > 0) {
             send(SendParameters{
                 to: self.owner,
@@ -63,6 +51,14 @@ contract XeraJettonWallet {
                     queryId: msg.queryId,
                     amount: msg.amount,
                     sender: msg.sender,
+                    // BUG (found via blockchain/ton/tests/XeraSettlement.integration.spec.ts):
+                    // this previously hardcoded emptySlice() instead of
+                    // propagating the incoming forward payload, silently
+                    // discarding whatever the ORIGINAL sender attached
+                    // (e.g. mining_distributor.tact's (user, referenceId)
+                    // payload for XeraVesting to read) — every downstream
+                    // notification-payload consumer would Cell-underflow
+                    // trying to parse an empty slice as real data.
                     forwardPayload: msg.forwardPayload
                 }.toCell()
             });
@@ -71,21 +67,8 @@ contract XeraJettonWallet {
         if (msg.responseDestination != null) {
             send(SendParameters{
                 to: msg.responseDestination!!,
-                value: 0,
-                // SendRemainingValue (64) computes "remaining value of the
-                // INBOUND message" independently of other actions already
-                // queued in this same transaction — combined with the
-                // notification send above (explicit value, paid
-                // separately), the two together over-commit against this
-                // wallet's actual balance and the whole action list aborts
-                // with "not enough funds" (confirmed empirically in the
-                // TON sandbox; the same failure mode already documented in
-                // mining_distributor.tact's Claim handler for its own two
-                // outgoing legs). SendRemainingBalance (128) instead sends
-                // whatever the contract's balance ACTUALLY is at the point
-                // this action executes — correct after an earlier
-                // explicit-value send in the same transaction.
-                mode: SendRemainingBalance,
+                value: ton("0.005"), // small fixed gas refund — NOT the incoming message's true remaining value (see note above for why SendRemainingValue is unsafe here)
+                mode: SendPayGasSeparately,
                 bounce: false,
                 body: TokenExcesses{ queryId: msg.queryId }.toCell()
             });

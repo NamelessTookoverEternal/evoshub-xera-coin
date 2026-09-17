@@ -1659,49 +1659,49 @@ export function dictValueParserSetPaused(): DictionaryValue<SetPaused> {
     }
 }
 
-export type SetDistributor = {
-    $$type: 'SetDistributor';
-    distributor: Address;
+export type SetDistributorWallet = {
+    $$type: 'SetDistributorWallet';
+    newWallet: Address;
 }
 
-export function storeSetDistributor(src: SetDistributor) {
+export function storeSetDistributorWallet(src: SetDistributorWallet) {
     return (builder: Builder) => {
         const b_0 = builder;
         b_0.storeUint(8195, 32);
-        b_0.storeAddress(src.distributor);
+        b_0.storeAddress(src.newWallet);
     };
 }
 
-export function loadSetDistributor(slice: Slice) {
+export function loadSetDistributorWallet(slice: Slice) {
     const sc_0 = slice;
     if (sc_0.loadUint(32) !== 8195) { throw Error('Invalid prefix'); }
-    const _distributor = sc_0.loadAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+    const _newWallet = sc_0.loadAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function loadTupleSetDistributor(source: TupleReader) {
-    const _distributor = source.readAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+export function loadTupleSetDistributorWallet(source: TupleReader) {
+    const _newWallet = source.readAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function loadGetterTupleSetDistributor(source: TupleReader) {
-    const _distributor = source.readAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+export function loadGetterTupleSetDistributorWallet(source: TupleReader) {
+    const _newWallet = source.readAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function storeTupleSetDistributor(source: SetDistributor) {
+export function storeTupleSetDistributorWallet(source: SetDistributorWallet) {
     const builder = new TupleBuilder();
-    builder.writeAddress(source.distributor);
+    builder.writeAddress(source.newWallet);
     return builder.build();
 }
 
-export function dictValueParserSetDistributor(): DictionaryValue<SetDistributor> {
+export function dictValueParserSetDistributorWallet(): DictionaryValue<SetDistributorWallet> {
     return {
         serialize: (src, builder) => {
-            builder.storeRef(beginCell().store(storeSetDistributor(src)).endCell());
+            builder.storeRef(beginCell().store(storeSetDistributorWallet(src)).endCell());
         },
         parse: (src) => {
-            return loadSetDistributor(src.loadRef().beginParse());
+            return loadSetDistributorWallet(src.loadRef().beginParse());
         }
     }
 }
@@ -1937,7 +1937,7 @@ function initXeraMiningDistributor_init_args(src: XeraMiningDistributor_init_arg
 }
 
 async function XeraMiningDistributor_init(minter: Address, jettonWalletCode: Cell, vesting: Address, signerPublicKey: bigint, admin: Address, maxAllocation: bigint) {
-    const __code = Cell.fromHex('b5ee9c72410228010009db000228ff008e88f4a413f4bcf2c80bed5320e303ed43d9010c0202710207020120030501abb992bed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e2db3c6c9180400022301abb9b76ed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e2db3c6c918060104db3c21020158080a01afb42e7da89a1a400031c3ff481a9f481a7ffa803a1f481f401f401a401e8086020b220b020ae20acd8331c4bf481a9f481020203ae01a803a1f481020203ae0060204c204a204820460da2aa08dae0e0b1c4aa11b678d923009002e8101012202714133f40c6fa19401d70030925b6de26eb301abb4219da89a1a400031c3ff481a9f481a7ffa803a1f481f401f401a401e8086020b220b020ae20acd8331c4bf481a9f481020203ae01a803a1f481020203ae0060204c204a204820460da2aa08dae0e0b1c5b678d92300b00022203f83001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e20ae30208d70d1ff2e08221830cbae30221812001ba0d0e25009a088020d7217021d749c21f9430d31f01de82100f8a7ea5ba8e30d33ffa00596c21a110685515c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed54e05f0a01f631d33fd48200c8842bb3f2f401d0fa40fa00d3ffd33f30815a78f82322bbf2f4817c462f81010124714133f40c6fa19401d70030925b6de26ef2f4813cd923c200f2f48200eee45373a029bbf2f4c8830c01cb1f5260cb3f24cf1623fa025220cbffcb3fc98200d4b101f90054105af91014f2f40c810101237f710f03d6216e955b59f45a3098c801cf004133f442e2514ca02c8109c4a8812710a90451dda1108b107a1069105b104a103941cbdb3c8200f7fef8416f24135f035582db3c1abe1af2f4821005f5e100717f6d6d82089896808b0856120504111604561504031117030201111701c81021220168f828546991db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d011011c88c87001ca0055215023cececcc9120228ff008e88f4a413f4bcf2c80bed5320e303ed43d913150151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11201400085473212301f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e2058e3a038020d7217021d749c21f9430d31f01de8210178d4519ba8e1dd33ffa00596c2112a05023c87f01ca0055305043fa02ce12ceccc9ed54e05f05e003d70d1f1604f0f2e082218210178d4519ba8fe231d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed54e02182100f8a7ea5ba1718191a0168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7051b00b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000a6206ef2d0807083067004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0004fc8f6f31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc8e0018210595f07bcbae3025f051b1c1d20001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9011e1f001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed540006f2c082000c821011e1a30001fc556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec92c0411120110246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00821008f0d180717f6d6d8209312d00c8011113cf161fcbffc9d02301f4105f04111004284314102f111201c8556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec91048103b4c9010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00081037103559240048c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed5402b88e43313403d3ff30f8416f245b8200dcdc3224c705f2f410681057104644554313c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed54e021812002bae302018210946a98b6bae3025f0af2c08226270088313807d20030f8416f245b8200dcdc3224c705f2f41068105710461035440302c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed5400c8d33f30c8018210aff90f5758cb1fcb3fc9107910681057104610354430f84270705003804201503304c8cf8580ca00cf8440ce01fa02806acf40f400c901fb00c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed54d1722b87');
+    const __code = Cell.fromHex('b5ee9c724102260100094e000228ff008e88f4a413f4bcf2c80bed5320e303ed43d9010c0202710207020120030501abb992bed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e2db3c6c9180400022301abb9b76ed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e2db3c6c918060104db3c1f020158080a01afb42e7da89a1a400031c3ff481a9f481a7ffa803a1f481f401f401a401e8086020b220b020ae20acd8331c4bf481a9f481020203ae01a803a1f481020203ae0060204c204a204820460da2aa08dae0e0b1c4aa11b678d923009002e8101012202714133f40c6fa19401d70030925b6de26eb301abb4219da89a1a400031c3ff481a9f481a7ffa803a1f481f401f401a401e8086020b220b020ae20acd8331c4bf481a9f481020203ae01a803a1f481020203ae0060204c204a204820460da2aa08dae0e0b1c5b678d92300b00022202f43001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e1ffa40d4fa40d3ffd401d0fa40fa00fa00d200f4043010591058105710566c198e25fa40d4fa40810101d700d401d0fa40810101d70030102610251024102306d155046d707058e20a925f0ae008d70d1ff2e08221830cbae302210d2301f631d33fd48200c8842bb3f2f401d0fa40fa00d3ffd33f30815a78f82322bbf2f4817c462f81010124714133f40c6fa19401d70030925b6de26ef2f4813cd923c200f2f48200eee45373a029bbf2f4c8830c01cb1f5260cb3f24cf1623fa025220cbffcb3fc98200d4b101f90054105af91014f2f40c810101237f710e03ce216e955b59f45a3098c801cf004133f442e2514ca02c8109c4a8812710a90451dda1108b107a1069105b104a103941cbdb3c8200f7fef8416f24135f035582db3c1abe1af2f4821005f5e100717f6d6d238b0856120504111604561504031117030201111701c80f1f200168f828546991db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d010011c88c87001ca0055215023cececcc9110228ff008e88f4a413f4bcf2c80bed5320e303ed43d912140151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11201300085473212303d03001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e205925f05e003d70d1ff2e082218210178d4519bae3022182100f8a7ea5bae302018210595f07bcbae3025f05f2c08215191c03c431d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed541617180168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7051a00b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000ac206ef2d08082084c4b40717004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0002de31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc81a1b001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9011d1e001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed54000c821011e1a30001fc556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec92c0411120110246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00821008f0d180717f6d6d8209312d00c8011113cf161fcbffc9d02101f4105f04111004284314102f111201c8556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec91048103b4c9010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00081037103559220048c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed5402c0812001ba8e43313403d3ff30f8416f245b8200dcdc3224c705f2f410681057104644554313c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed54e021812002bae302018210946a98b6bae3025f0af2c08224250088313807d20030f8416f245b8200dcdc3224c705f2f41068105710461035440302c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed5400c8d33f30c8018210aff90f5758cb1fcb3fc9107910681057104610354430f84270705003804201503304c8cf8580ca00cf8440ce01fa02806acf40f400c901fb00c87f01ca0055805089ce16cc14ce12cbff01c8ce58fa0258fa0212ca0012f400cdc9ed5439788bea');
     const builder = beginCell();
     builder.storeUint(0, 1);
     initXeraMiningDistributor_init_args({ $$type: 'XeraMiningDistributor_init_args', minter, jettonWalletCode, vesting, signerPublicKey, admin, maxAllocation })(builder);
@@ -2074,7 +2074,7 @@ const XeraMiningDistributor_types: ABIType[] = [
     {"name":"Claim","header":8192,"fields":[{"name":"queryId","type":{"kind":"simple","type":"uint","optional":false,"format":64}},{"name":"data","type":{"kind":"simple","type":"cell","optional":false}},{"name":"signature","type":{"kind":"simple","type":"slice","optional":false,"format":"remainder"}}]},
     {"name":"RotateSigner","header":8193,"fields":[{"name":"newSigner","type":{"kind":"simple","type":"uint","optional":false,"format":256}}]},
     {"name":"SetPaused","header":8194,"fields":[{"name":"paused","type":{"kind":"simple","type":"bool","optional":false}}]},
-    {"name":"SetDistributor","header":8195,"fields":[{"name":"distributor","type":{"kind":"simple","type":"address","optional":false}}]},
+    {"name":"SetDistributorWallet","header":8195,"fields":[{"name":"newWallet","type":{"kind":"simple","type":"address","optional":false}}]},
     {"name":"Release","header":12289,"fields":[{"name":"queryId","type":{"kind":"simple","type":"uint","optional":false,"format":64}}]},
     {"name":"XeraJettonWallet$Data","header":null,"fields":[{"name":"balance","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"owner","type":{"kind":"simple","type":"address","optional":false}},{"name":"minter","type":{"kind":"simple","type":"address","optional":false}},{"name":"jettonWalletCode","type":{"kind":"simple","type":"cell","optional":false}}]},
     {"name":"XeraMiningDistributor$Data","header":null,"fields":[{"name":"minter","type":{"kind":"simple","type":"address","optional":false}},{"name":"jettonWalletCode","type":{"kind":"simple","type":"cell","optional":false}},{"name":"vesting","type":{"kind":"simple","type":"address","optional":false}},{"name":"signerPublicKey","type":{"kind":"simple","type":"uint","optional":false,"format":256}},{"name":"admin","type":{"kind":"simple","type":"address","optional":false}},{"name":"maxAllocation","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"totalDistributed","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"paused","type":{"kind":"simple","type":"bool","optional":false}},{"name":"consumed","type":{"kind":"dict","key":"int","value":"bool"}}]},
@@ -2096,7 +2096,7 @@ const XeraMiningDistributor_opcodes = {
     "Claim": 8192,
     "RotateSigner": 8193,
     "SetPaused": 8194,
-    "SetDistributor": 8195,
+    "SetDistributorWallet": 8195,
     "Release": 12289,
 }
 

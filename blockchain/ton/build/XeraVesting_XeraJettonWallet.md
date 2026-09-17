@@ -1,6 +1,6 @@
 # Tact compilation report
 Contract: XeraJettonWallet
-BoC Size: 1016 bytes
+BoC Size: 957 bytes
 
 ## Structures (Structs and Messages)
 Total structures: 34
@@ -117,9 +117,9 @@ Signature: `RotateSigner{newSigner:uint256}`
 TL-B: `set_paused#00002002 paused:bool = SetPaused`
 Signature: `SetPaused{paused:bool}`
 
-### SetDistributor
-TL-B: `set_distributor#00002003 distributor:address = SetDistributor`
-Signature: `SetDistributor{distributor:address}`
+### SetDistributorWallet
+TL-B: `set_distributor_wallet#00002003 newWallet:address = SetDistributorWallet`
+Signature: `SetDistributorWallet{newWallet:address}`
 
 ### Release
 TL-B: `release#00003001 queryId:uint64 = Release`
@@ -138,8 +138,8 @@ TL-B: `release_one#07a2e712 referenceId:uint256 = ReleaseOne`
 Signature: `ReleaseOne{referenceId:uint256}`
 
 ### XeraVesting$Data
-TL-B: `_ minter:address jettonWalletCode:^cell distributor:address admin:address vestingDuration:uint64 paused:bool tranches:dict<int, ^Tranche{owner:address,amount:coins,released:coins,start:uint64,duration:uint64}> userLockedTotal:dict<address, int> = XeraVesting`
-Signature: `XeraVesting{minter:address,jettonWalletCode:^cell,distributor:address,admin:address,vestingDuration:uint64,paused:bool,tranches:dict<int, ^Tranche{owner:address,amount:coins,released:coins,start:uint64,duration:uint64}>,userLockedTotal:dict<address, int>}`
+TL-B: `_ minter:address jettonWalletCode:^cell distributorOwnerAddress:address distributorWalletConfigured:bool admin:address vestingDuration:uint64 paused:bool tranches:dict<int, ^Tranche{owner:address,amount:coins,released:coins,start:uint64,duration:uint64}> userLockedTotal:dict<address, int> = XeraVesting`
+Signature: `XeraVesting{minter:address,jettonWalletCode:^cell,distributorOwnerAddress:address,distributorWalletConfigured:bool,admin:address,vestingDuration:uint64,paused:bool,tranches:dict<int, ^Tranche{owner:address,amount:coins,released:coins,start:uint64,duration:uint64}>,userLockedTotal:dict<address, int>}`
 
 ## Get methods
 Total get methods: 1
@@ -185,13 +185,14 @@ No arguments
 * 136: Invalid standard address
 * 138: Not a basechain address
 * 7445: XeraVesting: deposits paused
-* 11354: XeraVesting: notification not from our own jetton wallet
+* 14565: XeraVesting: notification not from our own wallet
 * 16591: XeraVesting: referenceId already deposited
 * 17068: XeraJettonWallet: not owner
+* 22115: XeraVesting: distributor wallet not configured yet
 * 26240: XeraJettonWallet: insufficient balance
 * 29707: XeraJettonWallet: unauthorized credit
 * 34116: XeraVesting: nothing to release
-* 42316: XeraVesting: credit not from the authorized distributor
+* 48369: XeraVesting: unauthorized credit source
 * 58683: XeraVesting: not admin
 * 63506: XeraVesting: unknown referenceId
 

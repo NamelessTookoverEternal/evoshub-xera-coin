@@ -5,7 +5,7 @@ describe("XeraToken", function () {
   it("mints the exact fixed supply to the vault, once, at deployment", async function () {
     const [vault] = await ethers.getSigners();
     const Token = await ethers.getContractFactory("XeraToken");
-    const supply = 400_000_000n; // BNB chain allocation
+    const supply = 425_000_000n; // example public-side figure for this chain, deployment-configured
     const token = await Token.deploy(vault.address, supply);
     await token.waitForDeployment();
 

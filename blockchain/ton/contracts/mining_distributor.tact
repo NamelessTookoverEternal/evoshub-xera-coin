@@ -36,52 +36,6 @@ contract XeraMiningDistributor with Deployable {
         self.paused = false;
     }
 
-    // ------------------------------------------------------------------
-    // Async settlement failure model (item 6 of the hardening brief).
-    //
-    // consumed[referenceId] and totalDistributed are set BEFORE the two
-    // JettonTransfer sends below, which is only safe because of what
-    // happens if one of those sends can't be delivered downstream:
-    //
-    //   - consumed[referenceId] is NEVER unset, even on bounce. This is
-    //     deliberate, not an oversight: the invariant from day one is ONE
-    //     reference_id = ONE settlement opportunity, and the backend's
-    //     cross-chain reservation (xera_reserve_onchain_claim) already
-    //     treats this reference_id as consumed the moment it signed this
-    //     claim — un-consuming it here would let the SAME reference_id be
-    //     signed again for the other chain while this chain's attempt is
-    //     still potentially in flight, which is exactly the double-spend
-    //     this whole architecture exists to prevent.
-    //
-    //   - totalDistributed IS corrected on bounce (see the two bounced()
-    //     handlers below), because it exists purely to enforce this
-    //     chain's allocation cap against tokens that actually left this
-    //     contract's custody — overcounting it after a bounce would
-    //     eventually make legitimate claims fail the cap check for tokens
-    //     that were never really distributed.
-    //
-    //   - The bounced value itself is NOT lost: `bounce: true` on both
-    //     legs means a failed downstream send returns the TON/any
-    //     attached value to `myWallet` automatically, and myWallet's own
-    //     bounced<JettonTransferInternal> handler (jetton_wallet.tact)
-    //     restores its jetton balance. The tokens end up back in the
-    //     distributor's own jetton wallet, not destroyed.
-    //
-    //   - Recovery is explicitly NOT automatic on-chain — TON contracts
-    //     can't retry their own past sends. The backend's confirmation
-    //     step (python/xera/chain/claims.py) is responsible for detecting
-    //     an incomplete settlement (both legs must be independently
-    //     verified — see onchain_indexer.py) and surfacing it as a FAILED
-    //     claim for support/governance follow-up, which can re-deliver
-    //     the shortfall from the distributor's own wallet balance (which
-    //     still holds it) using an ordinary, separately-authorized
-    //     transfer — never a second Claim message, since referenceId
-    //     stays permanently consumed.
-    // ------------------------------------------------------------------
-    bounced(msg: bounced<JettonTransfer>) {
-        self.totalDistributed = self.totalDistributed - msg.amount;
-    }
-
     receive(msg: Claim) {
         require(!self.paused, "XeraMiningDistributor: paused");
 
@@ -155,7 +109,7 @@ contract XeraMiningDistributor with Deployable {
                 destination: user,
                 responseDestination: null,
                 customPayload: null,
-                forwardTonAmount: ton("0.01"), // see jetton_minter.tact's Mint handler comment — 1 nanoton aborts the whole action list
+                forwardTonAmount: 1,
                 forwardPayload: emptySlice()
             }.toCell()
         });

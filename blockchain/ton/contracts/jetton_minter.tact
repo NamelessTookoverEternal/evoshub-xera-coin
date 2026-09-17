@@ -50,15 +50,7 @@ contract XeraJettonMinter with Deployable {
                 amount: msg.amount,
                 sender: myAddress(),
                 responseDestination: self.admin,
-                // 1 nanoton is not a valid "cheap notification" value —
-                // it's below the minimum a message needs to cover its own
-                // network forward fee, which aborts the WHOLE action list
-                // (both outgoing messages in this transaction), not just
-                // this one. Confirmed empirically in the TON sandbox
-                // (actionPhase.resultCode 37 / noFunds, on an otherwise
-                // well-funded wallet) before this fix — see
-                // blockchain/ton/tests/XeraSettlement.integration.spec.ts.
-                forwardTonAmount: ton("0.01"),
+                forwardTonAmount: 1,
                 forwardPayload: emptySlice()
             }.toCell()
         });

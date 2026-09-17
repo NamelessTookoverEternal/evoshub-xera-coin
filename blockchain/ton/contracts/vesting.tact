@@ -22,6 +22,28 @@ import "./jetton_wallet.tact";
 // indexer knows which referenceIds belong to a user (from
 // xera_onchain_claims) and sends one message per releasable tranche —
 // functionally equivalent, just batched off-chain instead of on-chain.
+//
+// TWO-PHASE WIRING WITH XeraMiningDistributor (found via
+// blockchain/ton/tests/XeraSettlement.integration.spec.ts — an earlier
+// version took `distributorOwnerAddress` as an init parameter, which is
+// WRONG: it makes this contract's address depend on the distributor's
+// jetton-wallet address, while XeraMiningDistributor's own init takes
+// THIS contract's address as a parameter, making the distributor's
+// address depend on vesting's address. Two contract addresses each
+// depending on the other's address is circular and literally
+// undeployable — neither contract could ever be created first).
+//
+// The fix: `distributorOwnerAddress` is NOT part of init/address-
+// determining state. It starts as an inert placeholder (self.admin, which
+// can never itself be a jetton wallet contract) and `admin` wires the
+// real value in AFTER both contracts exist, via `SetDistributorWallet`.
+// Deployment order:
+//   1. Deploy XeraVesting (placeholder wallet, deposits effectively
+//      impossible until wired).
+//   2. Deploy XeraMiningDistributor with `vesting` = the address from (1).
+//   3. Compute the distributor's own jetton wallet address (derivable
+//      once (2)'s address is known).
+//   4. admin sends SetDistributorWallet with that address to (1).
 struct Tranche {
     owner: Address;
     amount: Int as coins;
@@ -37,49 +59,71 @@ message ReleaseOne {
 contract XeraVesting with Deployable {
     minter: Address;
     jettonWalletCode: Cell;
-    distributor: Address; // the distributor CONTRACT's address (not its jetton wallet — see receive(JettonTransferNotification) below for why that distinction matters)
+    distributorOwnerAddress: Address; // the DISTRIBUTOR CONTRACT'S OWN address (== JettonTransferNotification.sender for a
+    // legitimate deposit — see that handler), NOT its Jetton wallet address. Wired post-deployment, NOT an init param — see NatSpec above.
+    distributorWalletConfigured: Bool; // extra explicit guard — see receive(JettonTransferNotification)
     admin: Address; // governance/multisig
     vestingDuration: Int as uint64;
     paused: Bool; // blocks new tranches only — NEVER blocks ReleaseOne, see below
     tranches: map<Int, Tranche>; // referenceId -> Tranche
     userLockedTotal: map<Address, Int>; // owner -> sum of (amount - released) across all their tranches
 
-    init(minter: Address, jettonWalletCode: Cell, distributor: Address, admin: Address, vestingDurationSeconds: Int) {
+    init(minter: Address, jettonWalletCode: Cell, admin: Address, vestingDurationSeconds: Int) {
         self.minter = minter;
         self.jettonWalletCode = jettonWalletCode;
-        self.distributor = distributor;
+        self.distributorOwnerAddress = admin; // inert placeholder, see NatSpec
+        self.distributorWalletConfigured = false;
         self.admin = admin;
         self.vestingDuration = vestingDurationSeconds;
         self.paused = false;
     }
 
-    // Authenticating this credit requires checking TWO different things,
-    // easy to conflate (an earlier version of this contract checked only
-    // `ctx.sender == distributorJettonWallet`, which is simply wrong — see
-    // below):
-    //
-    //   1. `ctx.sender` — the actual TON-level sender of THIS message — is
-    //      the physical jetton wallet that sent it. Tracing the real
-    //      message flow (Distributor -> Distributor's wallet -> Vesting's
-    //      wallet -> Vesting): the JettonTransferNotification we're
-    //      handling right now is always sent by OUR OWN jetton wallet
-    //      (self.ownJettonWallet()), never by the distributor's wallet —
-    //      the distributor's wallet only ever talks to OUR wallet, one
-    //      hop earlier. So this must check self.ownJettonWallet(), not
-    //      any address belonging to the distributor.
-    //
-    //   2. `msg.sender` — a field INSIDE the message, TEP-74's record of
-    //      who originally initiated the transfer (propagated hop-by-hop
-    //      by jetton_wallet.tact as `sender: self.owner` / `sender:
-    //      msg.sender`) — this is what actually identifies the
-    //      distributor: it will equal the distributor CONTRACT's address,
-    //      because that's the `owner` of the wallet that started this
-    //      transfer chain. This is the field a forged notification would
-    //      need to fake, so it's the one that matters for authorization.
+    // admin-only, one-time-in-practice (callable again only for a
+    // deliberate distributor migration — see section 14/deployment docs).
+    // Despite the message name (kept for ABI/wire compatibility), the
+    // value wired in is the DISTRIBUTOR CONTRACT'S OWN address, not its
+    // Jetton wallet address — see distributorOwnerAddress's field comment
+    // and the JettonTransferNotification handler below for why.
+    receive(msg: SetDistributorWallet) {
+        let ctx: Context = context();
+        require(ctx.sender == self.admin, "XeraVesting: not admin");
+        self.distributorOwnerAddress = msg.newWallet;
+        self.distributorWalletConfigured = true;
+    }
+
     receive(msg: JettonTransferNotification) {
         let ctx: Context = context();
-        require(ctx.sender == self.ownJettonWallet(), "XeraVesting: notification not from our own jetton wallet");
-        require(msg.sender == self.distributor, "XeraVesting: credit not from the authorized distributor");
+        require(self.distributorWalletConfigured, "XeraVesting: distributor wallet not configured yet");
+
+        // TWO separate checks are required here, not one — conflating them
+        // is exactly the bug this replaced (see below):
+        //
+        // 1. ctx.sender must be genuinely OUR OWN Jetton wallet. Without
+        //    this, anyone could deploy an arbitrary dummy contract and
+        //    send a JettonTransferNotification directly to this contract
+        //    with a FORGED `sender` field claiming to be the distributor's
+        //    wallet, backed by zero real tokens — creating a fraudulent
+        //    vesting tranche out of thin air. contractAddress(initOf ...)
+        //    recomputes the one true address our own wallet code+data
+        //    would deploy to, so this can't be spoofed.
+        // 2. msg.sender (the field TEP-74 notifications carry, filled in
+        //    by the SENDING wallet with the original transferring party)
+        //    must equal the distributor's wallet specifically — otherwise
+        //    any real token holder could deposit into vesting and create
+        //    a tranche for themselves.
+        //
+        // An earlier version checked ONLY `ctx.sender == distributorOwnerAddress`
+        // directly, conflating both checks into one that could never be
+        // simultaneously correct: ctx.sender for a JettonTransferNotification
+        // is ALWAYS the notifying contract's OWN wallet (that's what a
+        // wallet-to-owner forward is), never the distributor's wallet
+        // address itself — so every legitimate deposit was silently
+        // rejected (fail-closed, not a fund-loss bug, but it meant NO TON
+        // claim could ever complete its vesting leg). Found via
+        // blockchain/ton/tests/XeraSettlement.integration.spec.ts.
+        let expectedOwnWallet: Address = self.ownJettonWallet();
+        require(ctx.sender == expectedOwnWallet, "XeraVesting: notification not from our own wallet");
+        require(msg.sender == self.distributorOwnerAddress, "XeraVesting: unauthorized credit source");
         require(!self.paused, "XeraVesting: deposits paused");
 
         let fwd: Slice = msg.forwardPayload;
@@ -131,7 +175,7 @@ contract XeraVesting with Deployable {
                 destination: tranche.owner,
                 responseDestination: null,
                 customPayload: null,
-                forwardTonAmount: ton("0.01"), // see jetton_minter.tact's Mint handler comment — 1 nanoton aborts the whole action list
+                forwardTonAmount: 1,
                 forwardPayload: emptySlice()
             }.toCell()
         });
@@ -161,30 +205,6 @@ contract XeraVesting with Deployable {
         return contractAddress(initOf XeraJettonWallet(self.minter, myAddress(), self.jettonWalletCode));
     }
 
-    // ------------------------------------------------------------------
-    // Deployment wiring: XeraVesting's `distributor` field and
-    // XeraMiningDistributor's own contract address are mutually
-    // referential (the distributor's init takes `vesting: Address`, and
-    // correct authentication here requires knowing the distributor's
-    // address) — TON/Tact addresses are a pure function of a contract's
-    // OWN init data, so there is no init-parameter ordering that lets
-    // each contract bake in the other's address up front.
-    //
-    // Resolved the standard way: deploy XeraVesting first with a
-    // deliberately inert placeholder (e.g. the admin's own address, which
-    // will never itself send a JettonTransferNotification), deploy
-    // XeraMiningDistributor next now that vesting's real address is
-    // known, then have admin call SetDistributor with the distributor's
-    // real address before any real claim is submitted. Until that call,
-    // every deposit attempt fails closed (wrong `msg.sender` check) —
-    // there is no window where an incorrect/placeholder wiring is
-    // exploitable, only one where it's simply non-functional.
-    receive(msg: SetDistributor) {
-        let ctx: Context = context();
-        require(ctx.sender == self.admin, "XeraVesting: not admin");
-        self.distributor = msg.distributor;
-    }
-
     receive(msg: SetPaused) {
         let ctx: Context = context();
         require(ctx.sender == self.admin, "XeraVesting: not admin");
@@ -205,5 +225,9 @@ contract XeraVesting with Deployable {
 
     get fun tranche_of(referenceId: Int): Tranche? {
         return self.tranches.get(referenceId);
+    }
+
+    get fun distributor_wallet_configured(): Bool {
+        return self.distributorWalletConfigured;
     }
 }

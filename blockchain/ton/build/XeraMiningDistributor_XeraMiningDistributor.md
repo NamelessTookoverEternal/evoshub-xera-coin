@@ -1,6 +1,6 @@
 # Tact compilation report
 Contract: XeraMiningDistributor
-BoC Size: 2535 bytes
+BoC Size: 2394 bytes
 
 ## Structures (Structs and Messages)
 Total structures: 32
@@ -117,9 +117,9 @@ Signature: `RotateSigner{newSigner:uint256}`
 TL-B: `set_paused#00002002 paused:bool = SetPaused`
 Signature: `SetPaused{paused:bool}`
 
-### SetDistributor
-TL-B: `set_distributor#00002003 distributor:address = SetDistributor`
-Signature: `SetDistributor{distributor:address}`
+### SetDistributorWallet
+TL-B: `set_distributor_wallet#00002003 newWallet:address = SetDistributorWallet`
+Signature: `SetDistributorWallet{newWallet:address}`
 
 ### Release
 TL-B: `release#00003001 queryId:uint64 = Release`

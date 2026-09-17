@@ -1659,49 +1659,49 @@ export function dictValueParserSetPaused(): DictionaryValue<SetPaused> {
     }
 }
 
-export type SetDistributor = {
-    $$type: 'SetDistributor';
-    distributor: Address;
+export type SetDistributorWallet = {
+    $$type: 'SetDistributorWallet';
+    newWallet: Address;
 }
 
-export function storeSetDistributor(src: SetDistributor) {
+export function storeSetDistributorWallet(src: SetDistributorWallet) {
     return (builder: Builder) => {
         const b_0 = builder;
         b_0.storeUint(8195, 32);
-        b_0.storeAddress(src.distributor);
+        b_0.storeAddress(src.newWallet);
     };
 }
 
-export function loadSetDistributor(slice: Slice) {
+export function loadSetDistributorWallet(slice: Slice) {
     const sc_0 = slice;
     if (sc_0.loadUint(32) !== 8195) { throw Error('Invalid prefix'); }
-    const _distributor = sc_0.loadAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+    const _newWallet = sc_0.loadAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function loadTupleSetDistributor(source: TupleReader) {
-    const _distributor = source.readAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+export function loadTupleSetDistributorWallet(source: TupleReader) {
+    const _newWallet = source.readAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function loadGetterTupleSetDistributor(source: TupleReader) {
-    const _distributor = source.readAddress();
-    return { $$type: 'SetDistributor' as const, distributor: _distributor };
+export function loadGetterTupleSetDistributorWallet(source: TupleReader) {
+    const _newWallet = source.readAddress();
+    return { $$type: 'SetDistributorWallet' as const, newWallet: _newWallet };
 }
 
-export function storeTupleSetDistributor(source: SetDistributor) {
+export function storeTupleSetDistributorWallet(source: SetDistributorWallet) {
     const builder = new TupleBuilder();
-    builder.writeAddress(source.distributor);
+    builder.writeAddress(source.newWallet);
     return builder.build();
 }
 
-export function dictValueParserSetDistributor(): DictionaryValue<SetDistributor> {
+export function dictValueParserSetDistributorWallet(): DictionaryValue<SetDistributorWallet> {
     return {
         serialize: (src, builder) => {
-            builder.storeRef(beginCell().store(storeSetDistributor(src)).endCell());
+            builder.storeRef(beginCell().store(storeSetDistributorWallet(src)).endCell());
         },
         parse: (src) => {
-            return loadSetDistributor(src.loadRef().beginParse());
+            return loadSetDistributorWallet(src.loadRef().beginParse());
         }
     }
 }
@@ -1936,7 +1936,8 @@ export type XeraVesting$Data = {
     $$type: 'XeraVesting$Data';
     minter: Address;
     jettonWalletCode: Cell;
-    distributor: Address;
+    distributorOwnerAddress: Address;
+    distributorWalletConfigured: boolean;
     admin: Address;
     vestingDuration: bigint;
     paused: boolean;
@@ -1949,7 +1950,8 @@ export function storeXeraVesting$Data(src: XeraVesting$Data) {
         const b_0 = builder;
         b_0.storeAddress(src.minter);
         b_0.storeRef(src.jettonWalletCode);
-        b_0.storeAddress(src.distributor);
+        b_0.storeAddress(src.distributorOwnerAddress);
+        b_0.storeBit(src.distributorWalletConfigured);
         b_0.storeAddress(src.admin);
         b_0.storeUint(src.vestingDuration, 64);
         b_0.storeBit(src.paused);
@@ -1962,44 +1964,48 @@ export function loadXeraVesting$Data(slice: Slice) {
     const sc_0 = slice;
     const _minter = sc_0.loadAddress();
     const _jettonWalletCode = sc_0.loadRef();
-    const _distributor = sc_0.loadAddress();
+    const _distributorOwnerAddress = sc_0.loadAddress();
+    const _distributorWalletConfigured = sc_0.loadBit();
     const _admin = sc_0.loadAddress();
     const _vestingDuration = sc_0.loadUintBig(64);
     const _paused = sc_0.loadBit();
     const _tranches = Dictionary.load(Dictionary.Keys.BigInt(257), dictValueParserTranche(), sc_0);
     const _userLockedTotal = Dictionary.load(Dictionary.Keys.Address(), Dictionary.Values.BigInt(257), sc_0);
-    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributor: _distributor, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
+    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributorOwnerAddress: _distributorOwnerAddress, distributorWalletConfigured: _distributorWalletConfigured, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
 }
 
 export function loadTupleXeraVesting$Data(source: TupleReader) {
     const _minter = source.readAddress();
     const _jettonWalletCode = source.readCell();
-    const _distributor = source.readAddress();
+    const _distributorOwnerAddress = source.readAddress();
+    const _distributorWalletConfigured = source.readBoolean();
     const _admin = source.readAddress();
     const _vestingDuration = source.readBigNumber();
     const _paused = source.readBoolean();
     const _tranches = Dictionary.loadDirect(Dictionary.Keys.BigInt(257), dictValueParserTranche(), source.readCellOpt());
     const _userLockedTotal = Dictionary.loadDirect(Dictionary.Keys.Address(), Dictionary.Values.BigInt(257), source.readCellOpt());
-    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributor: _distributor, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
+    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributorOwnerAddress: _distributorOwnerAddress, distributorWalletConfigured: _distributorWalletConfigured, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
 }
 
 export function loadGetterTupleXeraVesting$Data(source: TupleReader) {
     const _minter = source.readAddress();
     const _jettonWalletCode = source.readCell();
-    const _distributor = source.readAddress();
+    const _distributorOwnerAddress = source.readAddress();
+    const _distributorWalletConfigured = source.readBoolean();
     const _admin = source.readAddress();
     const _vestingDuration = source.readBigNumber();
     const _paused = source.readBoolean();
     const _tranches = Dictionary.loadDirect(Dictionary.Keys.BigInt(257), dictValueParserTranche(), source.readCellOpt());
     const _userLockedTotal = Dictionary.loadDirect(Dictionary.Keys.Address(), Dictionary.Values.BigInt(257), source.readCellOpt());
-    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributor: _distributor, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
+    return { $$type: 'XeraVesting$Data' as const, minter: _minter, jettonWalletCode: _jettonWalletCode, distributorOwnerAddress: _distributorOwnerAddress, distributorWalletConfigured: _distributorWalletConfigured, admin: _admin, vestingDuration: _vestingDuration, paused: _paused, tranches: _tranches, userLockedTotal: _userLockedTotal };
 }
 
 export function storeTupleXeraVesting$Data(source: XeraVesting$Data) {
     const builder = new TupleBuilder();
     builder.writeAddress(source.minter);
     builder.writeCell(source.jettonWalletCode);
-    builder.writeAddress(source.distributor);
+    builder.writeAddress(source.distributorOwnerAddress);
+    builder.writeBoolean(source.distributorWalletConfigured);
     builder.writeAddress(source.admin);
     builder.writeNumber(source.vestingDuration);
     builder.writeBoolean(source.paused);
@@ -2023,7 +2029,6 @@ export function dictValueParserXeraVesting$Data(): DictionaryValue<XeraVesting$D
     $$type: 'XeraVesting_init_args';
     minter: Address;
     jettonWalletCode: Cell;
-    distributor: Address;
     admin: Address;
     vestingDurationSeconds: bigint;
 }
@@ -2033,19 +2038,16 @@ function initXeraVesting_init_args(src: XeraVesting_init_args) {
         const b_0 = builder;
         b_0.storeAddress(src.minter);
         b_0.storeRef(src.jettonWalletCode);
-        b_0.storeAddress(src.distributor);
         b_0.storeAddress(src.admin);
-        const b_1 = new Builder();
-        b_1.storeInt(src.vestingDurationSeconds, 257);
-        b_0.storeRef(b_1.endCell());
+        b_0.storeInt(src.vestingDurationSeconds, 257);
     };
 }
 
-async function XeraVesting_init(minter: Address, jettonWalletCode: Cell, distributor: Address, admin: Address, vestingDurationSeconds: bigint) {
-    const __code = Cell.fromHex('b5ee9c72410225010009e3000228ff008e88f4a413f4bcf2c80bed5320e303ed43d901090202710207020120030501a1b9900ed44d0d200018e21fa40d4fa40fa40d33fd200d401d0f404f404301028102710261025102410236c188e1cfa40d4fa40fa40d401d0810101d700301514433005d155036d6d7059e25507db3c6c818040104db3c0f01cdb9ee4ed44d0d200018e21fa40d4fa40fa40d33fd200d401d0f404f404301028102710261025102410236c188e1cfa40d4fa40fa40d401d0810101d700301514433005d155036d6d7059e25507db3c6c81206e92306d99206ef2d0806f256f05e2206e92306dde806004e810101230259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e201a1bcccaf6a268690000c710fd206a7d207d20699fe9006a00e87a027a0218081408138813081288120811b60c470e7d206a7d207d206a00e8408080eb80180a8a219802e8aa81b6b6b82cf12a83ed9e3640c08016c810101230259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e2206e923070e0206ef2d0806f25db3c0d02ee3001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e21fa40d4fa40fa40d33fd200d401d0f404f404301028102710261025102410236c188e1cfa40d4fa40fa40d401d0810101d700301514433005d155036d6d7059e209925f09e007d70d1ff2e0822182107362d09cbae302210a0c02ee31d33f31fa00fa40f8416f2410235f031069105810471039487a812c5a0cdb3c1cc7051cf2f48200a54c5184c70518f2f4811d1527b3f2f405fa40d3ff308140cf2b8101012359f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e26ef2f481010170f82324544c302bc8100b01e055405045ce58fa0201fa02cb3fcb3fc9103c12206e953059f45a30944133f415e2104710364540430829db3c81010b0aa049301a810101216e955b59f4593098c801cf004133f441e2105710461035443012c87f01ca0055705078ce15cc13cececb3fca0001c8f40012f400cdc9ed540f03fe821007a2e712ba8f7131d3ff30278101012259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e28200f812216eb3f2f4206ef2d0806f2554743253430c11100c10bf10ae109d08111008107f0611110605111205db3c8200854421c200f2f451bba08101012a04103e11101fc8e0218120030d0e23003e34f82301a1547203b9963012a858a9049410246c31e25301bb925b70e001a103ce55405045ce58fa0201fa02cb3fcb3fc9103c4b80206e953059f45a30944133f415e21037465010491038410829db3c81010b511aa152b0810101216e955b59f4593098c801cf004133f441e2db3c7080407f226d6d82089896808b0810460511110504111204c80f1021004481010b22028101014133f40a6fa19401d70030925b6de2206e923070e0206ef2d0800168f828546881db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d011011c88c87001ca0055215023cececcc9120228ff008e88f4a413f4bcf2c80bed5320e303ed43d913150151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11201400085473212301f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e2058e3a038020d7217021d749c21f9430d31f01de8210178d4519ba8e1dd33ffa00596c2112a05023c87f01ca0055305043fa02ce12ceccc9ed54e05f05e003d70d1f1604f0f2e082218210178d4519ba8fe231d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed54e02182100f8a7ea5ba1718191a0168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7051b00b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000a6206ef2d0807083067004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0004fc8f6f31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc8e0018210595f07bcbae3025f051b1c1d20001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9011e1f001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed540006f2c08201ca556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec944304cb010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb00551522003cc87f01ca0055705078ce15cc13cececb3fca0001c8f40012f400cdc9ed5401faba8e3a313403fa4030f8416f245b8200e53b3224c705f2f410571046443512c87f01ca0055705078ce15cc13cececb3fca0001c8f40012f400cdc9ed54e021812002ba8e366c21d20030f8416f245b8200e53b3224c705f2f410575514c87f01ca0055705078ce15cc13cececb3fca0001c8f40012f400cdc9ed54e0012400d88210946a98b6ba8e5dd33f30c8018210aff90f5758cb1fcb3fc91068105710461035443012f84270705003804201503304c8cf8580ca00cf8440ce01fa02806acf40f400c901fb00c87f01ca0055705078ce15cc13cececb3fca0001c8f40012f400cdc9ed54e05f09f2c08275a728e5');
+async function XeraVesting_init(minter: Address, jettonWalletCode: Cell, admin: Address, vestingDurationSeconds: bigint) {
+    const __code = Cell.fromHex('b5ee9c7241022801000a29000228ff008e88f4a413f4bcf2c80bed5320e303ed43d9010c0202710207020120030501a1b9900ed44d0d200018e25fa40d4fa40d200fa40d33fd200d401d0f404f4043010291028102710261025102410236c198e18fa40d4fa40810101d700553004d155026d6d237055317059e25508db3c6c918040104db3c1401cdb9ee4ed44d0d200018e25fa40d4fa40d200fa40d33fd200d401d0f404f4043010291028102710261025102410236c198e18fa40d4fa40810101d700553004d155026d6d237055317059e25508db3c6c91206e92306d99206ef2d0806f256f05e2206e92306dde806004e810101230259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e2020148080a01a1b732bda89a1a400031c4bf481a9f481a401f481a67fa401a803a1e809e8086020522050204e204c204a20482046d8331c31f481a9f481020203ae00aa6009a2aa04dada46e0aa62e0b3c4aa11b678d923009016c810101230259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e2206e923070e0206ef2d0806f25db3c12019db7707da89a1a400031c4bf481a9f481a401f481a67fa401a803a1e809e8086020522050204e204c204a20482046d8331c31f481a9f481020203ae00aa6009a2aa04dada46e0aa62e0b3c5b678d92300b00022502f63001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200018e25fa40d4fa40d200fa40d33fd200d401d0f404f4043010291028102710261025102410236c198e18fa40d4fa40810101d700553004d155026d6d237055317059e20a925f0ae008d70d1ff2e08221812003bae3022182107362d09cba0d0e007e31343402fa4030f8416f245b8200e53b3223c705f2f410571046057f4455c87f01ca0055805089ce16cc14ce12ca00cecb3fca0001c8f40012f400cdc9ed5403b8e30221821007a2e712bae30221812002ba8e396c21d20030f8416f245b8200e53b3224c705f2f410685515c87f01ca0055805089ce16cc14ce12ca00cecb3fca0001c8f40012f400cdc9ed54e0018210946a98b6bae3025f0af2c0820f112702fe31d33f31fa00fa40f8416f2410235f0381566328f2f4108a5e361059104a10394abcdb3c0d8138e50ec7051df2f48200bcf151a6c7051af2f4811d1521b3f2f409fa40d3ff308140cf2a8101012359f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e26ef2f481010170f82324544c3027c8151001f255405045ce58fa0201fa02cb3fcb3fc9103b12206e953059f45a30944133f415e210681057104610354430490a29db3c81010b0ca04b301a810101216e955b59f4593098c801cf004133f441e21068105710461035443012c87f01ca0055805089ce16cc14ce12ca00cecb3fca0001c8f40012f400cdc9ed541402f431d3ff30288101012259f40d6fa192306ddf206e92306d8e11d0fa40fa00fa00d33fd33f55406c156f05e28200f812216eb3f2f4206ef2d0806f2554743253430d11110d0c11100c10bf10ae0911110908111008107f0611120605111305db3c8200854421c200f2f451bba08101012e04103e011110011111c81213003e34f82301a1547203b9963012a858a9049410246c31e25301bb925b70e001a103ca55405045ce58fa0201fa02cb3fcb3fc9103d4c80206e953059f45a30944133f415e2104810374650104a103941092adb3c81010b511ba152c0810101216e955b59f4593098c801cf004133f441e2db3c7080407f226d6d718b0810460511120504111304c8141525004481010b22028101014133f40a6fa19401d70030925b6de2206e923070e0206ef2d0800168f828546991db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d016011c88c87001ca0055215023cececcc9170228ff008e88f4a413f4bcf2c80bed5320e303ed43d9181a0151a65ec0bb513434800066fe803e903e9035154c1b05277e903e9035154800f4561c140cf8b6cf1b11201900085473212303d03001d072d721d200d200fa4021103450666f04f86102f862ed44d0d200019bfa00fa40fa40d455306c149dfa40fa40d4552003d158705033e205925f05e003d70d1ff2e082218210178d4519bae3022182100f8a7ea5bae302018210595f07bcbae3025f05f2c0821b1f2203c431d33ffa00fa40d72c01916d93fa4001e201fa00f8416f2410235f0381740b531ac70592317f8e8f104910384abb25db3c4ab010491038e2f2f45174a021c2009437135f03e30d206eb3915be30d4003c87f01ca0055305043fa02ce12ceccc9ed541c1d1e0168546331db3c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d0c7052000b27170274713506ac8553082107362d09c5005cb1f13cb3f01fa02cecec9264314450010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0000ac206ef2d08082084c4b40717004c8018210d53276db58cb1fcb3fc91034413010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb0002de31d33ffa00fa40d72c01916d93fa4001e201f40431fa00f8416f245b8142ac3228c705f2f48166805385bef2f45174a152842adb3c5c705920f90022f9005ad76501d76582020134c8cb17cb0fcb0fcbffcbff71f90400c87401cb0212ca07cbffc9d050767080407f2b4813507dc82021001ef82ac87001ca0055215023cececcc900f255508210178d45195007cb1f15cb3f5003fa02ce01206e9430cf84809201cee201fa02cec910561058103441301810464515504403c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb004003c87f01ca0055305043fa02ce12ceccc9ed5402fed33ffa00d72c01916d93fa4001e231f8416f245b8142ac3225c705f2f48166805352bef2f45141a17080405414357f08c8553082107bdd97de5005cb1f13cb3f01fa02ce01206e9430cf84809201cee2c926044313506610246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf818ae2f400c9012324001a58cf8680cf8480f400f400cf81002cfb004003c87f01ca0055305043fa02ce12ceccc9ed5401ca556082100f8a7ea55008cb1f16cb3f5004fa0212ce01206e9430cf84809201cee2f40001fa02cec944304dc010246d50436d03c8cf8580ca00cf8440ce01fa028069cf40025c6e016eb0935bcf819d58cf8680cf8480f400f400cf81e2f400c901fb005516260042c87f01ca0055805089ce16cc14ce12ca00cecb3fca0001c8f40012f400cdc9ed5400c2d33f30c8018210aff90f5758cb1fcb3fc9107910681057104610354430f84270705003804201503304c8cf8580ca00cf8440ce01fa02806acf40f400c901fb00c87f01ca0055805089ce16cc14ce12ca00cecb3fca0001c8f40012f400cdc9ed544fdc70cc');
     const builder = beginCell();
     builder.storeUint(0, 1);
-    initXeraVesting_init_args({ $$type: 'XeraVesting_init_args', minter, jettonWalletCode, distributor, admin, vestingDurationSeconds })(builder);
+    initXeraVesting_init_args({ $$type: 'XeraVesting_init_args', minter, jettonWalletCode, admin, vestingDurationSeconds })(builder);
     const __data = builder.endCell();
     return { code: __code, data: __data };
 }
@@ -2088,13 +2090,14 @@ export const XeraVesting_errors = {
     136: { message: "Invalid standard address" },
     138: { message: "Not a basechain address" },
     7445: { message: "XeraVesting: deposits paused" },
-    11354: { message: "XeraVesting: notification not from our own jetton wallet" },
+    14565: { message: "XeraVesting: notification not from our own wallet" },
     16591: { message: "XeraVesting: referenceId already deposited" },
     17068: { message: "XeraJettonWallet: not owner" },
+    22115: { message: "XeraVesting: distributor wallet not configured yet" },
     26240: { message: "XeraJettonWallet: insufficient balance" },
     29707: { message: "XeraJettonWallet: unauthorized credit" },
     34116: { message: "XeraVesting: nothing to release" },
-    42316: { message: "XeraVesting: credit not from the authorized distributor" },
+    48369: { message: "XeraVesting: unauthorized credit source" },
     58683: { message: "XeraVesting: not admin" },
     63506: { message: "XeraVesting: unknown referenceId" },
 } as const
@@ -2137,13 +2140,14 @@ export const XeraVesting_errors_backward = {
     "Invalid standard address": 136,
     "Not a basechain address": 138,
     "XeraVesting: deposits paused": 7445,
-    "XeraVesting: notification not from our own jetton wallet": 11354,
+    "XeraVesting: notification not from our own wallet": 14565,
     "XeraVesting: referenceId already deposited": 16591,
     "XeraJettonWallet: not owner": 17068,
+    "XeraVesting: distributor wallet not configured yet": 22115,
     "XeraJettonWallet: insufficient balance": 26240,
     "XeraJettonWallet: unauthorized credit": 29707,
     "XeraVesting: nothing to release": 34116,
-    "XeraVesting: credit not from the authorized distributor": 42316,
+    "XeraVesting: unauthorized credit source": 48369,
     "XeraVesting: not admin": 58683,
     "XeraVesting: unknown referenceId": 63506,
 } as const
@@ -2177,12 +2181,12 @@ const XeraVesting_types: ABIType[] = [
     {"name":"Claim","header":8192,"fields":[{"name":"queryId","type":{"kind":"simple","type":"uint","optional":false,"format":64}},{"name":"data","type":{"kind":"simple","type":"cell","optional":false}},{"name":"signature","type":{"kind":"simple","type":"slice","optional":false,"format":"remainder"}}]},
     {"name":"RotateSigner","header":8193,"fields":[{"name":"newSigner","type":{"kind":"simple","type":"uint","optional":false,"format":256}}]},
     {"name":"SetPaused","header":8194,"fields":[{"name":"paused","type":{"kind":"simple","type":"bool","optional":false}}]},
-    {"name":"SetDistributor","header":8195,"fields":[{"name":"distributor","type":{"kind":"simple","type":"address","optional":false}}]},
+    {"name":"SetDistributorWallet","header":8195,"fields":[{"name":"newWallet","type":{"kind":"simple","type":"address","optional":false}}]},
     {"name":"Release","header":12289,"fields":[{"name":"queryId","type":{"kind":"simple","type":"uint","optional":false,"format":64}}]},
     {"name":"XeraJettonWallet$Data","header":null,"fields":[{"name":"balance","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"owner","type":{"kind":"simple","type":"address","optional":false}},{"name":"minter","type":{"kind":"simple","type":"address","optional":false}},{"name":"jettonWalletCode","type":{"kind":"simple","type":"cell","optional":false}}]},
     {"name":"Tranche","header":null,"fields":[{"name":"owner","type":{"kind":"simple","type":"address","optional":false}},{"name":"amount","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"released","type":{"kind":"simple","type":"uint","optional":false,"format":"coins"}},{"name":"start","type":{"kind":"simple","type":"uint","optional":false,"format":64}},{"name":"duration","type":{"kind":"simple","type":"uint","optional":false,"format":64}}]},
     {"name":"ReleaseOne","header":128116498,"fields":[{"name":"referenceId","type":{"kind":"simple","type":"uint","optional":false,"format":256}}]},
-    {"name":"XeraVesting$Data","header":null,"fields":[{"name":"minter","type":{"kind":"simple","type":"address","optional":false}},{"name":"jettonWalletCode","type":{"kind":"simple","type":"cell","optional":false}},{"name":"distributor","type":{"kind":"simple","type":"address","optional":false}},{"name":"admin","type":{"kind":"simple","type":"address","optional":false}},{"name":"vestingDuration","type":{"kind":"simple","type":"uint","optional":false,"format":64}},{"name":"paused","type":{"kind":"simple","type":"bool","optional":false}},{"name":"tranches","type":{"kind":"dict","key":"int","value":"Tranche","valueFormat":"ref"}},{"name":"userLockedTotal","type":{"kind":"dict","key":"address","value":"int"}}]},
+    {"name":"XeraVesting$Data","header":null,"fields":[{"name":"minter","type":{"kind":"simple","type":"address","optional":false}},{"name":"jettonWalletCode","type":{"kind":"simple","type":"cell","optional":false}},{"name":"distributorOwnerAddress","type":{"kind":"simple","type":"address","optional":false}},{"name":"distributorWalletConfigured","type":{"kind":"simple","type":"bool","optional":false}},{"name":"admin","type":{"kind":"simple","type":"address","optional":false}},{"name":"vestingDuration","type":{"kind":"simple","type":"uint","optional":false,"format":64}},{"name":"paused","type":{"kind":"simple","type":"bool","optional":false}},{"name":"tranches","type":{"kind":"dict","key":"int","value":"Tranche","valueFormat":"ref"}},{"name":"userLockedTotal","type":{"kind":"dict","key":"address","value":"int"}}]},
 ]
 
 const XeraVesting_opcodes = {
@@ -2201,7 +2205,7 @@ const XeraVesting_opcodes = {
     "Claim": 8192,
     "RotateSigner": 8193,
     "SetPaused": 8194,
-    "SetDistributor": 8195,
+    "SetDistributorWallet": 8195,
     "Release": 12289,
     "ReleaseOne": 128116498,
 }
@@ -2210,18 +2214,20 @@ const XeraVesting_getters: ABIGetter[] = [
     {"name":"releasable","methodId":104853,"arguments":[{"name":"referenceId","type":{"kind":"simple","type":"int","optional":false,"format":257}}],"returnType":{"kind":"simple","type":"int","optional":false,"format":257}},
     {"name":"locked_remaining","methodId":71936,"arguments":[{"name":"owner","type":{"kind":"simple","type":"address","optional":false}}],"returnType":{"kind":"simple","type":"int","optional":false,"format":257}},
     {"name":"tranche_of","methodId":89828,"arguments":[{"name":"referenceId","type":{"kind":"simple","type":"int","optional":false,"format":257}}],"returnType":{"kind":"simple","type":"Tranche","optional":true}},
+    {"name":"distributor_wallet_configured","methodId":113539,"arguments":[],"returnType":{"kind":"simple","type":"bool","optional":false}},
 ]
 
 export const XeraVesting_getterMapping: { [key: string]: string } = {
     'releasable': 'getReleasable',
     'locked_remaining': 'getLockedRemaining',
     'tranche_of': 'getTrancheOf',
+    'distributor_wallet_configured': 'getDistributorWalletConfigured',
 }
 
 const XeraVesting_receivers: ABIReceiver[] = [
+    {"receiver":"internal","message":{"kind":"typed","type":"SetDistributorWallet"}},
     {"receiver":"internal","message":{"kind":"typed","type":"JettonTransferNotification"}},
     {"receiver":"internal","message":{"kind":"typed","type":"ReleaseOne"}},
-    {"receiver":"internal","message":{"kind":"typed","type":"SetDistributor"}},
     {"receiver":"internal","message":{"kind":"typed","type":"SetPaused"}},
     {"receiver":"internal","message":{"kind":"typed","type":"Deploy"}},
 ]
@@ -2233,12 +2239,12 @@ export class XeraVesting implements Contract {
     public static readonly errors = XeraVesting_errors_backward;
     public static readonly opcodes = XeraVesting_opcodes;
     
-    static async init(minter: Address, jettonWalletCode: Cell, distributor: Address, admin: Address, vestingDurationSeconds: bigint) {
-        return await XeraVesting_init(minter, jettonWalletCode, distributor, admin, vestingDurationSeconds);
+    static async init(minter: Address, jettonWalletCode: Cell, admin: Address, vestingDurationSeconds: bigint) {
+        return await XeraVesting_init(minter, jettonWalletCode, admin, vestingDurationSeconds);
     }
     
-    static async fromInit(minter: Address, jettonWalletCode: Cell, distributor: Address, admin: Address, vestingDurationSeconds: bigint) {
-        const __gen_init = await XeraVesting_init(minter, jettonWalletCode, distributor, admin, vestingDurationSeconds);
+    static async fromInit(minter: Address, jettonWalletCode: Cell, admin: Address, vestingDurationSeconds: bigint) {
+        const __gen_init = await XeraVesting_init(minter, jettonWalletCode, admin, vestingDurationSeconds);
         const address = contractAddress(0, __gen_init);
         return new XeraVesting(address, __gen_init);
     }
@@ -2261,17 +2267,17 @@ export class XeraVesting implements Contract {
         this.init = init;
     }
     
-    async send(provider: ContractProvider, via: Sender, args: { value: bigint, bounce?: boolean| null | undefined }, message: JettonTransferNotification | ReleaseOne | SetDistributor | SetPaused | Deploy) {
+    async send(provider: ContractProvider, via: Sender, args: { value: bigint, bounce?: boolean| null | undefined }, message: SetDistributorWallet | JettonTransferNotification | ReleaseOne | SetPaused | Deploy) {
         
         let body: Cell | null = null;
+        if (message && typeof message === 'object' && !(message instanceof Slice) && message.$$type === 'SetDistributorWallet') {
+            body = beginCell().store(storeSetDistributorWallet(message)).endCell();
+        }
         if (message && typeof message === 'object' && !(message instanceof Slice) && message.$$type === 'JettonTransferNotification') {
             body = beginCell().store(storeJettonTransferNotification(message)).endCell();
         }
         if (message && typeof message === 'object' && !(message instanceof Slice) && message.$$type === 'ReleaseOne') {
             body = beginCell().store(storeReleaseOne(message)).endCell();
-        }
-        if (message && typeof message === 'object' && !(message instanceof Slice) && message.$$type === 'SetDistributor') {
-            body = beginCell().store(storeSetDistributor(message)).endCell();
         }
         if (message && typeof message === 'object' && !(message instanceof Slice) && message.$$type === 'SetPaused') {
             body = beginCell().store(storeSetPaused(message)).endCell();
@@ -2307,6 +2313,13 @@ export class XeraVesting implements Contract {
         const source = (await provider.get('tranche_of', builder.build())).stack;
         const result_p = source.readTupleOpt();
         const result = result_p ? loadTupleTranche(result_p) : null;
+        return result;
+    }
+    
+    async getDistributorWalletConfigured(provider: ContractProvider) {
+        const builder = new TupleBuilder();
+        const source = (await provider.get('distributor_wallet_configured', builder.build())).stack;
+        const result = source.readBoolean();
         return result;
     }
     

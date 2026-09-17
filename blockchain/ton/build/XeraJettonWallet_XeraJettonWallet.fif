@@ -1,11 +1,10 @@
-// automatically generated from `@stdlib/std/stdlib.fc` `/home/claude/hardening/evoshub-main/blockchain/ton/build/XeraJettonWallet_XeraJettonWallet.fc` 
+// automatically generated from `@stdlib/std/stdlib.fc` `/home/claude/audit/evoshub-main/blockchain/ton/build/XeraJettonWallet_XeraJettonWallet.fc` 
 PROGRAM{
   DECLPROC __tact_store_address_opt
   DECLPROC __tact_not_null
   DECLPROC __tact_context_get
   DECLPROC $JettonTransferInternal$_store
   DECLPROC $JettonTransferInternal$_store_cell
-  DECLPROC $JettonTransferInternal$_load_bounced
   DECLPROC $JettonTransferNotification$_store
   DECLPROC $JettonTransferNotification$_store_cell
   DECLPROC $JettonBurnNotification$_store
@@ -80,11 +79,6 @@ PROGRAM{
     6 -ROLL
     $JettonTransferInternal$_store INLINECALLDICT
     ENDC
-  }>
-  $JettonTransferInternal$_load_bounced PROCINLINE:<{
-    64 LDU
-    LDVARUINT16
-    -ROT
   }>
   $JettonTransferNotification$_store PROCINLINE:<{
     1935855772 PUSHINT
@@ -295,28 +289,6 @@ PROGRAM{
     $XeraJettonWallet$_contract_load INLINECALLDICT
     s0 s5 XCHG
     IFJMP:<{
-      s0 s3 XCHG
-      32 PUSHINT
-      SDSKIPFIRST
-      0 PUSHINT
-      OVER
-      SBITS
-      31 GTINT
-      IF:<{
-        DROP
-        32 LDU
-        SWAP
-      }>
-      395134233 PUSHINT
-      EQUAL
-      IFJMP:<{
-        $JettonTransferInternal$_load_bounced INLINECALLDICT
-        2 1 BLKDROP2
-        s1 s2 XCHG
-        ADD
-        s2 s3 XCHG2
-        $XeraJettonWallet$_contract_store INLINECALLDICT
-      }>
       5 BLKDROP
     }>
     s0 s3 XCHG
@@ -451,8 +423,8 @@ PROGRAM{
       NOT
       IF:<{
         __tact_not_null INLINECALLDICT
-        0 PUSHINT
-        7 PUSHPOW2
+        5000000 PUSHINT
+        1 PUSHINT
         FALSE
         s0 s4 XCHG
         $TokenExcesses$_constructor_queryId INLINECALLDICT

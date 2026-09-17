@@ -92,12 +92,9 @@ describe('TON mining settlement — full integration', () => {
         await minter.send(deployer.getSender(), { value: toNano('1') }, { $$type: 'Deploy', queryId: 0n } as any);
 
         vesting = blockchain.openContract(
-            await XeraVesting.fromInit(
-                minter.address, jettonWalletCode,
-                admin.address, // inert placeholder — see SetDistributor wiring below
-                admin.address, VESTING_DURATION
-            )
+            await XeraVesting.fromInit(minter.address, jettonWalletCode, admin.address, VESTING_DURATION)
         );
+        await vesting.send(deployer.getSender(), { value: toNano('1') }, { $$type: 'Deploy', queryId: 0n } as any);
 
         distributor = blockchain.openContract(
             await XeraMiningDistributor.fromInit(
@@ -107,12 +104,14 @@ describe('TON mining settlement — full integration', () => {
         );
         await distributor.send(deployer.getSender(), { value: toNano('1') }, { $$type: 'Deploy', queryId: 0n } as any);
 
-        // Wire vesting to the now-known real distributor address (see
-        // vesting.tact's SetDistributor doc for why this two-step
-        // deploy-then-wire sequence is required).
+        // Two-phase wiring (see vesting.tact's NatSpec): now that the
+        // distributor's address is known, tell vesting to accept credits
+        // whose JettonTransferNotification.sender equals the distributor
+        // CONTRACT's own address (that's what TEP-74 puts in `sender` —
+        // the wallet's OWNER, not the wallet's own contract address).
         await vesting.send(
             admin.getSender(), { value: toNano('0.05') },
-            { $$type: 'SetDistributor', distributor: distributor.address } as any
+            { $$type: 'SetDistributorWallet', newWallet: distributor.address } as any
         );
     });
 

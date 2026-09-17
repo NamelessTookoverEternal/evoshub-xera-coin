@@ -23,9 +23,6 @@ builder $JettonTransferInternal$_store(builder build_0, (int, int, slice, slice,
 ;; $JettonTransferInternal$_store_cell
 cell $JettonTransferInternal$_store_cell((int, int, slice, slice, int, slice) v, builder b) inline;
 
-;; $JettonTransferInternal$_load_bounced
-(slice, ((int, int))) $JettonTransferInternal$_load_bounced(slice sc_0) inline;
-
 ;; $JettonTransferNotification$_store
 builder $JettonTransferNotification$_store(builder build_0, (int, int, slice, slice) v) inline;
 
@@ -312,12 +309,6 @@ cell $JettonTransferInternal$_store_cell((int, int, slice, slice, int, slice) v,
     return $JettonTransferInternal$_store(b, v).end_cell();
 }
 
-(slice, ((int, int))) $JettonTransferInternal$_load_bounced(slice sc_0) inline {
-    var v'queryId = sc_0~load_uint(64);
-    var v'amount = sc_0~load_varuint16();
-    return (sc_0, (v'queryId, v'amount));
-}
-
 ((int, int, slice, slice, int, slice)) $JettonTransferInternal$_constructor_queryId_amount_sender_responseDestination_forwardTonAmount_forwardPayload(int $queryId, int $amount, slice $sender, slice $responseDestination, int $forwardTonAmount, slice $forwardPayload) inline {
     return ($queryId, $amount, $sender, $responseDestination, $forwardTonAmount, $forwardPayload);
 }
@@ -535,23 +526,7 @@ _ %get_wallet_data() method_id(97026) {
     var ($self'balance, $self'owner, $self'minter, $self'jettonWalletCode) = $XeraJettonWallet$_contract_load();
     
     ;; Handle bounced messages
-    if (msg_bounced) {
-        ;; Skip 0xFFFFFFFF prefix of a bounced message
-        in_msg~skip_bits(32);
-        int op = 0;
-        if (slice_bits(in_msg) >= 32) {
-            op = in_msg~load_uint(32);
-        }
-        ;; Bounced handler for JettonTransferInternal message
-        if (op == 0x178d4519) {
-            var ($msg'queryId, $msg'amount) = in_msg~$JettonTransferInternal$_load_bounced();
-            $self'balance = ($self'balance + $msg'amount);
-            $XeraJettonWallet$_contract_store(($self'balance, $self'owner, $self'minter, $self'jettonWalletCode));
-            return ();
-        }
-        
-        return ();
-    }
+    if (msg_bounced) { return (); }
     var op = in_msg~load_opcode_internal();
     ;; Receive JettonTransferInternal message
     if (op == 0x178d4519) {
@@ -568,7 +543,7 @@ _ %get_wallet_data() method_id(97026) {
             $global_send($SendParameters$_constructor_to_value_mode_bounce_body($self'owner, $msg'forwardTonAmount, 1, false, $JettonTransferNotification$_store_cell($JettonTransferNotification$_constructor_queryId_amount_sender_forwardPayload($msg'queryId, $msg'amount, $msg'sender, $msg'forwardPayload), begin_cell())));
         }
         if ((~ null?($msg'responseDestination))) {
-            $global_send($SendParameters$_constructor_to_value_mode_bounce_body(__tact_not_null($msg'responseDestination), 0, 128, false, $TokenExcesses$_store_cell($TokenExcesses$_constructor_queryId($msg'queryId), begin_cell())));
+            $global_send($SendParameters$_constructor_to_value_mode_bounce_body(__tact_not_null($msg'responseDestination), 5000000, 1, false, $TokenExcesses$_store_cell($TokenExcesses$_constructor_queryId($msg'queryId), begin_cell())));
         }
         $XeraJettonWallet$_contract_store(($self'balance, $self'owner, $self'minter, $self'jettonWalletCode));
         return ();
