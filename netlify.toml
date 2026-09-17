@@ -105,10 +105,10 @@
   status = 200
 
 # Same headers as vercel.json. NOTE: connect-src is pinned to
-# api.evoshub.xyz for the eventual production domain — during Netlify/Fly
-# test rounds on *.netlify.app / *.fly.dev, either loosen this temporarily
-# (e.g. add https://*.fly.dev) or the browser's CSP will silently block
-# API calls even though CORS on the backend allows them. See
+# api.evoshub.xyz for the eventual production domain — during Netlify/Fly/Render
+# test rounds on *.netlify.app / *.fly.dev / *.onrender.com, either loosen this
+# temporarily (e.g. add https://*.onrender.com) or the browser's CSP will
+# silently block API calls even though CORS on the backend allows them. See
 # DEPLOY_TESTING.md.
 [[headers]]
   for = "/*"
@@ -117,4 +117,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.evoshub.xyz https://*.fly.dev; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.evoshub.xyz https://*.fly.dev https://*.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
