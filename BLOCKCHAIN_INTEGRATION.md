@@ -7,17 +7,17 @@ sole source of truth for how much XERA a user has earned. This layer only
 adds: (1) a way to settle a finalized entitlement on BNB or TON, and (2) a
 one-time legacy-balance migration.
 
-## 1. Approved chain supply split
+## 1. Blocking decision — read this first
 
-The current approved aggregate XERA supply split is:
-
-- BNB Smart Chain = 400,000,000 XERA
-- TON = 100,000,000 XERA
-- Combined = 500,000,000 XERA
-
-BNB is the active initial production chain. TON remains in the repository
-for future activation and is currently disabled in the user-facing
-frontend as "Coming Soon".
+**There is no approved BNB/TON supply split.** `XERA-smart-contract-architecture.md`
+(already in this repo) explicitly lists it as an open decision, not a
+settled one. Per your own instruction, I have not invented a number.
+Every contract and script takes the per-chain supply as a deployment-time
+argument (`XERA_BNB_CHAIN_SUPPLY` for BNB, `mintableSupply` constructor arg
+for TON's `XeraJettonMinter`) rather than a hard-coded constant, so nothing
+here is blocked on it — but you cannot deploy to mainnet (or meaningfully
+test the "combined caps = 500,000,000" invariant end-to-end) until you
+decide it. The two values must sum to exactly 500,000,000.
 
 ## 2. Contract architecture
 
@@ -191,11 +191,16 @@ with real 25/75 math, cross-chain reservation collision, missing-wallet
 and unknown-entitlement rejection, onchain-disabled flag, and
 claim-ownership mismatch on confirm.
 
-**BNB contracts (Solidity)** — the Solidity sources and full Hardhat test
-suite are present. In the current review environment the checked-in
-`node_modules` is incomplete, so Hardhat/solc could not actually be
-executed. The test suite therefore remains **NOT RUN in this environment**.
-Run it in a complete Node environment with:
+**BNB contracts (Solidity)** — all 4 contracts + every OpenZeppelin
+dependency **compile cleanly** (verified via `blockchain/bnb/tools/verify_compile_offline.js`,
+a standalone solc-based check, since this sandbox's network egress
+doesn't reach `binaries.soliditylang.org` for Hardhat's own compiler
+downloader). The full Hardhat test suite in `blockchain/bnb/test/`
+(covering every case listed in section 20 of the brief — invalid
+signature, tampered amount/user/referenceId, expiry, replay, cap
+enforcement, pause, signer rotation, domain binding, vesting math,
+premature release, Merkle proof validation) is written but **has not been
+executed in this sandbox** for the same network reason. Run it yourself:
 `cd blockchain/bnb && npm install && npx hardhat test`.
 
 **TON contracts (Tact)** — all 4 contracts **compile successfully** with
@@ -301,7 +306,7 @@ DEPLOYER_PRIVATE_KEY=
 BSC_TESTNET_RPC_URL=
 BSC_MAINNET_RPC_URL=
 BSCSCAN_API_KEY=
-XERA_BNB_CHAIN_SUPPLY=400000000     # BNB allocation
+XERA_BNB_CHAIN_SUPPLY=              # BLOCKED — see section 1
 XERA_VAULT_MULTISIG_ADDRESS=
 XERA_GOVERNANCE_MULTISIG_ADDRESS=
 XERA_TIMELOCK_ADDRESS=

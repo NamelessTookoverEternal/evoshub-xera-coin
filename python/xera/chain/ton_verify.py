@@ -31,8 +31,6 @@ import struct
 
 from nacl.signing import VerifyKey
 from nacl.exceptions import BadSignatureError
-from pytoniq_core import Address as _TonAddress
-from pytoniq_core.boc.address import AddressError as _TonAddressError
 
 _TON_PROOF_PREFIX = b"ton-proof-item-v2/"
 _TON_CONNECT_PREFIX = b"ton-connect"
@@ -42,27 +40,14 @@ def decode_ton_address(address: str) -> tuple[int, bytes]:
     """
     Decodes a TEP-0002 user-friendly TON address (base64 or base64url,
     36 bytes: 1 tag + 1 workchain + 32 hash + 2 crc16) into
-    (workchain, hash). Raises ValueError on malformed input — including,
-    critically, a WRONG crc16 (a corrupted, truncated, or hand-crafted
-    address with mismatched trailing bytes). Delegates to pytoniq-core's
-    own Address parser rather than hand-decoding the base64/CRC ourselves:
-    it's an already-relied-on dependency (see ton_claim_signer.py,
-    onchain_indexer.py) that validates the checksum internally, so this
-    function doesn't carry its own separate, easier-to-get-wrong crc16
-    implementation for something this security-relevant.
-
-    Bounceable vs non-bounceable forms of the same address both resolve
-    to the same (workchain, hash) here, which is correct — that flag
-    doesn't change WHICH account the address identifies, only how a
-    wallet should treat a failed transfer to it, so wallet-ownership
-    checks are unaffected by which form the user's client happened to
-    submit.
+    (workchain, hash). Raises ValueError on malformed input.
     """
-    try:
-        parsed = _TonAddress(address)
-    except (_TonAddressError, ValueError, TypeError) as e:
-        raise ValueError(f"invalid TON address: {e}") from e
-    return parsed.wc, bytes(parsed.hash_part)
+    raw = address.replace("-", "+").replace("_", "/")
+    padding = "=" * (-len(raw) % 4)
+    data = base64.b64decode(raw + padding)
+    if len(data) != 36:
+        raise ValueError("invalid TON address length")
+    workchain_byte = data[1]
     workchain = workchain_byte if workchain_byte < 128 else workchain_byte - 256
     address_hash = data[2:34]
     return workchain, address_hash
