@@ -84,8 +84,11 @@
     .wp-cols{grid-template-columns:1fr}
   }
 </style>
+  <link rel="stylesheet" href="../../css/xera-space.css">
 </head>
 <body>
+  <div class="xera-public-space" aria-hidden="true"><div class="xera-public-stars" id="xeraPublicStars"></div></div>
+
 <div class="app" style="max-width:1100px">
 
   <header class="topbar">
@@ -334,5 +337,6 @@
   }, { rootMargin: '-20% 0px -70% 0px' });
   sections.forEach((s) => io.observe(s));
 </script>
+  <script type="module" src="../../js/xera-space.js"></script>
 </body>
 </html>

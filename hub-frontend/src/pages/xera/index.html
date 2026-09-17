@@ -9,6 +9,21 @@
 <link href="../../css/xera.css" rel="stylesheet"/>
 </head>
 <body>
+<!-- XERA ambient visual layer: stars + nebula + digital globe. Decorative only. -->
+<div class="xera-space" aria-hidden="true">
+  <div class="xera-nebula xera-nebula-a"></div>
+  <div class="xera-nebula xera-nebula-b"></div>
+  <div class="xera-globe">
+    <div class="xera-globe-core"></div>
+    <span class="globe-lat lat-1"></span><span class="globe-lat lat-2"></span>
+    <span class="globe-lon lon-1"></span><span class="globe-lon lon-2"></span><span class="globe-lon lon-3"></span>
+    <span class="globe-node node-1"></span><span class="globe-node node-2"></span><span class="globe-node node-3"></span>
+  </div>
+  <div class="xera-orbit orbit-a"></div>
+  <div class="xera-orbit orbit-b"></div>
+  <div class="xera-starfield" id="xeraStarfield"></div>
+  <div class="xera-scanline"></div>
+</div>
 <div class="app">
 
   <!-- ===== AUTH (login + register) ===== -->
@@ -194,6 +209,11 @@
                 </svg>
                 <div class="coin-wrap">
                   <img class="xera-coin" src="/assets/images/xeracoin.jpg" alt="XERA coin" onerror="this.style.display='none'"/>
+                  <div class="coin-orbit-particles" aria-hidden="true">
+                    <span class="orbit-particle op1"></span>
+                    <span class="orbit-particle op2"></span>
+                    <span class="orbit-particle op3"></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -436,6 +456,7 @@
   </div>
 
 </div>
+<script src="../../js/xera-space.js" type="module"></script>
 <script src="../../js/xera.js" type="module"></script>
 <script src="../../js/xera-chain.js" type="module"></script>
 </body>

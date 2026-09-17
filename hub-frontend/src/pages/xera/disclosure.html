@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="../../css/layout.css">
   <link rel="stylesheet" href="../../css/components.css">
   <link rel="stylesheet" href="../../css/animations.css">
+  <link rel="stylesheet" href="../../css/xera-space.css">
   <style>
     .disc-list { list-style:none; padding:0; margin:20px 0; display:flex; flex-direction:column; gap:14px; }
     .disc-list li { font-size:14.5px; color:var(--text2); line-height:1.7; padding-left:22px; position:relative; }
@@ -18,6 +19,8 @@
   </style>
 </head>
 <body>
+  <div class="xera-public-space" aria-hidden="true"><div class="xera-public-stars" id="xeraPublicStars"></div></div>
+
   <nav>
     <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
     <ul class="nav-links">
@@ -65,5 +68,6 @@
   </footer>
 
   <script type="module" src="../../js/nav.js"></script>
+  <script type="module" src="../../js/xera-space.js"></script>
 </body>
 </html>

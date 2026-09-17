@@ -1,0 +1,36 @@
+/* XERA public pages — shared ambient space layer. Decorative only. */
+.xera-public-space{
+  position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;isolation:isolate;
+  background:
+    radial-gradient(55% 45% at 78% 8%,rgba(46,120,255,.10),transparent 72%),
+    radial-gradient(45% 38% at 18% 32%,rgba(38,232,195,.055),transparent 70%),
+    radial-gradient(45% 42% at 58% 100%,rgba(125,82,255,.05),transparent 75%);
+}
+.xera-public-space::before{
+  content:'';position:absolute;width:min(48vw,560px);height:min(48vw,560px);min-width:300px;min-height:300px;
+  right:-90px;top:-120px;border-radius:50%;opacity:.48;
+  background:
+    radial-gradient(circle at 34% 30%,rgba(98,235,255,.18),transparent 13%),
+    radial-gradient(circle at 64% 62%,rgba(36,231,181,.12),transparent 18%),
+    radial-gradient(circle at 48% 48%,rgba(9,35,75,.34),rgba(3,9,22,.72) 67%,rgba(24,128,255,.12) 100%);
+  box-shadow:inset -28px -20px 70px rgba(0,0,0,.65),inset 18px 12px 50px rgba(80,225,255,.06),0 0 90px rgba(41,147,255,.09);
+  transform:rotate(-10deg);
+}
+.xera-public-space::after{
+  content:'';position:absolute;inset:0;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 38px,rgba(85,222,255,.018) 39px 40px),
+    radial-gradient(ellipse at 78% 12%,transparent 0 19%,rgba(92,225,255,.07) 19.1%,transparent 19.3%),
+    repeating-radial-gradient(ellipse at 78% 12%,transparent 0 90px,rgba(92,225,255,.025) 91px 92px);
+  opacity:.55;
+}
+.xera-public-stars{position:absolute;inset:0;overflow:hidden}
+.xera-public-stars .xera-star{position:absolute;border-radius:50%;background:#bffcff;box-shadow:0 0 7px rgba(95,247,229,.55);opacity:0;animation:xera-public-twinkle var(--star-duration,3.8s) ease-in-out var(--star-delay,0s) infinite}
+.xera-public-stars .xera-shooting-star{position:absolute;width:3px;height:3px;border-radius:50%;background:#bffcff;box-shadow:0 0 9px 2px rgba(95,247,229,.75);opacity:0;animation:xera-public-shoot 8s linear var(--shoot-delay,0s) infinite}
+.xera-public-stars .xera-shooting-star::before{content:;position:absolute;right:1px;top:50%;width:120px;height:1px;transform:translateY(-50%);background:linear-gradient(90deg,rgba(95,247,229,.7),transparent)}
+@keyframes xera-public-twinkle{0%,100%{opacity:0;transform:scale(.5)}50%{opacity:var(--star-opacity,.75);transform:scale(1)}}
+@keyframes xera-public-shoot{0%,2%{opacity:0;transform:translate(0,0)}4%{opacity:1}17%{opacity:0;transform:translate(-360px,240px)}100%{opacity:0;transform:translate(-360px,240px)}}
+.xera-public-content{position:relative;z-index:1}
+body > nav,body > main,body > footer{position:relative;z-index:1}
+@media(max-width:760px){.xera-public-space::before{width:360px;height:360px;right:-180px;top:-70px;opacity:.34}}
+@media(prefers-reduced-motion:reduce){.xera-public-stars .xera-star,.xera-public-stars .xera-shooting-star{animation:none}}

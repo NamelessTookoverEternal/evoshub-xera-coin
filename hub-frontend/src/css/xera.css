@@ -409,6 +409,29 @@ button{-webkit-tap-highlight-color:transparent}
     animation:coin-breathe 1.6s ease-in-out infinite;
 }
 
+/* ---- Coin orbit particles: small energy motes circling the core ---- */
+.coin-orbit-particles{position:absolute;inset:0;pointer-events:none;z-index:2}
+.orbit-particle{
+    position:absolute;top:50%;left:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;
+    border-radius:50%;
+    background:radial-gradient(circle,#e9fffb 0%,#5ff7e5 55%,rgba(95,247,229,0) 78%);
+    box-shadow:0 0 8px 2px rgba(95,247,229,.55);
+    opacity:.5;
+    transform-origin:0 0;
+    animation:coin-orbit-spin linear infinite;
+    transition:opacity .4s ease;
+}
+.op1{--r:76px;animation-duration:7s}
+.op2{--r:62px;animation-duration:10s;animation-direction:reverse}
+.op3{--r:92px;animation-duration:14s}
+@keyframes coin-orbit-spin{
+    from{transform:rotate(0deg) translateX(var(--r)) rotate(0deg)}
+    to{transform:rotate(360deg) translateX(var(--r)) rotate(-360deg)}
+}
+.mining-scene[data-state="active"] .orbit-particle{opacity:1}
+.mining-scene[data-state="ready"] .orbit-particle{opacity:.85;background:radial-gradient(circle,#eafff5 0%,#33d6a6 55%,transparent 78%);box-shadow:0 0 8px 2px rgba(51,214,166,.6)}
+@media(prefers-reduced-motion:reduce){.orbit-particle{animation:none;opacity:.35}}
+
 .mining-tool{
     position:absolute;width:34px;height:34px;color:var(--text-dim);
     opacity:.35;transition:opacity .3s ease,color .3s ease;
@@ -721,4 +744,234 @@ button{-webkit-tap-highlight-color:transparent}
         box-shadow:0 40px 80px rgba(0,0,0,.5);
         padding:40px 40px calc(40px + env(safe-area-inset-bottom));
     }
+}
+
+/* ========================================================================
+   XERA VISUAL SYSTEM — space / globe / depth layer
+   Decorative only. It sits behind the existing app and does not change
+   mining, wallet, authentication, blockchain or API behavior.
+   ======================================================================== */
+:root{
+    --xera-cyan:#5ff7e5;
+    --xera-blue:#4c7eff;
+    --xera-green:#33e6c8;
+    --xera-violet:#8d72ff;
+}
+body{
+    position:relative;
+    isolation:isolate;
+}
+.xera-space{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    pointer-events:none;
+    background:
+        radial-gradient(55% 45% at 78% 8%, rgba(46,120,255,.11), transparent 72%),
+        radial-gradient(45% 38% at 18% 32%, rgba(38,232,195,.065), transparent 70%),
+        radial-gradient(45% 42% at 58% 100%, rgba(125,82,255,.055), transparent 75%);
+}
+.xera-nebula{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(70px);
+    opacity:.42;
+    will-change:transform;
+}
+.xera-nebula-a{
+    width:520px;height:300px;right:-140px;top:-80px;
+    background:radial-gradient(ellipse,rgba(54,164,255,.28),transparent 68%);
+    transform:rotate(-16deg);
+}
+.xera-nebula-b{
+    width:460px;height:260px;left:-170px;top:36%;
+    background:radial-gradient(ellipse,rgba(31,226,190,.18),transparent 68%);
+    transform:rotate(22deg);
+}
+.xera-starfield{position:absolute;inset:0;overflow:hidden;opacity:.82}
+.xera-star{
+    position:absolute;
+    border-radius:50%;
+    background:rgba(190,246,255,.95);
+    box-shadow:0 0 7px rgba(95,247,229,.58);
+    opacity:0;
+    animation:xera-star-twinkle var(--star-duration,3s) ease-in-out var(--star-delay,0s) infinite;
+}
+@keyframes xera-star-twinkle{
+    0%,100%{opacity:0;transform:scale(.45)}
+    50%{opacity:var(--star-opacity,.75);transform:scale(1)}
+}
+.xera-shooting-star{
+    position:absolute;
+    width:3px;height:3px;border-radius:50%;
+    background:#bffcff;
+    box-shadow:0 0 9px 2px rgba(95,247,229,.9);
+    opacity:0;
+    animation:xera-shoot 8s linear var(--shoot-delay,0s) infinite;
+}
+.xera-shooting-star::before{
+    content:'';
+    position:absolute;right:1px;top:50%;
+    width:130px;height:1px;
+    transform:translateY(-50%);
+    background:linear-gradient(90deg,rgba(95,247,229,.85),transparent);
+}
+@keyframes xera-shoot{
+    0%,2%{opacity:0;transform:translate(0,0)}
+    4%{opacity:1}
+    17%{opacity:0;transform:translate(-380px,260px)}
+    100%{opacity:0;transform:translate(-380px,260px)}
+}
+
+/* A faint digital planet — intentionally abstract rather than a stock image. */
+.xera-globe{
+    position:absolute;
+    width:min(46vw,560px);
+    height:min(46vw,560px);
+    min-width:330px;min-height:330px;
+    right:-90px;top:-115px;
+    border-radius:50%;
+    opacity:.58;
+    transform:rotate(-10deg);
+    filter:drop-shadow(0 0 45px rgba(49,155,255,.12));
+}
+.xera-globe::before{
+    content:'';
+    position:absolute;inset:3%;border-radius:50%;
+    background:
+        radial-gradient(circle at 34% 30%,rgba(98,235,255,.20),transparent 13%),
+        radial-gradient(circle at 64% 62%,rgba(36,231,181,.13),transparent 18%),
+        radial-gradient(circle at 48% 48%,rgba(9,35,75,.42),rgba(3,9,22,.84) 67%,rgba(24,128,255,.16) 100%);
+    box-shadow:
+        inset -28px -20px 70px rgba(0,0,0,.78),
+        inset 18px 12px 50px rgba(80,225,255,.08),
+        0 0 0 1px rgba(108,225,255,.10),
+        0 0 80px rgba(41,147,255,.10);
+}
+.xera-globe::after{
+    content:'';
+    position:absolute;inset:6%;border-radius:50%;
+    border:1px solid rgba(101,229,255,.13);
+    background:
+        repeating-linear-gradient(0deg,transparent 0 36px,rgba(85,222,255,.055) 37px 38px),
+        repeating-linear-gradient(90deg,transparent 0 42px,rgba(85,222,255,.045) 43px 44px);
+    mask-image:radial-gradient(circle at 50% 50%,black 52%,transparent 76%);
+}
+.xera-globe-core{
+    position:absolute;inset:16%;border-radius:50%;
+    background:
+        radial-gradient(ellipse at 30% 35%,rgba(53,244,198,.25) 0 5%,transparent 7%),
+        radial-gradient(ellipse at 66% 30%,rgba(62,161,255,.25) 0 6%,transparent 8%),
+        radial-gradient(ellipse at 58% 66%,rgba(51,230,200,.20) 0 8%,transparent 11%),
+        radial-gradient(ellipse at 35% 72%,rgba(47,132,255,.16) 0 7%,transparent 10%);
+    filter:blur(1px);
+    animation:xera-globe-pulse 7s ease-in-out infinite;
+}
+@keyframes xera-globe-pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:.9;transform:scale(1.018)}}
+.globe-lat,.globe-lon{
+    position:absolute;left:12%;right:12%;top:50%;height:30%;
+    border:1px solid rgba(92,225,255,.10);
+    border-radius:50%;
+}
+.globe-lat{transform:translateY(-50%) rotateX(68deg)}
+.lat-1{transform:translateY(-50%) rotateX(68deg) scaleY(.55)}
+.lat-2{transform:translateY(-50%) rotateX(68deg) scaleY(1.55)}
+.globe-lon{inset:7% 29%;width:auto;height:auto;border-radius:50%;}
+.lon-1{transform:rotateY(62deg)}
+.lon-2{transform:rotateY(0deg)}
+.lon-3{transform:rotateY(-62deg)}
+.globe-node{
+    position:absolute;width:5px;height:5px;border-radius:50%;
+    background:var(--xera-cyan);
+    box-shadow:0 0 12px 3px rgba(95,247,229,.65);
+    animation:xera-node-pulse 2.8s ease-in-out infinite;
+}
+.node-1{left:30%;top:34%}.node-2{left:63%;top:56%;animation-delay:.8s}.node-3{left:42%;top:72%;animation-delay:1.5s}
+@keyframes xera-node-pulse{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.2)}}
+.xera-orbit{
+    position:absolute;border:1px solid rgba(72,219,255,.08);border-radius:50%;
+    width:620px;height:210px;right:-120px;top:120px;
+    transform:rotate(-18deg);animation:xera-orbit 24s linear infinite;
+}
+.orbit-b{width:560px;height:160px;right:-100px;top:150px;border-color:rgba(51,230,200,.065);animation-duration:34s;animation-direction:reverse;transform:rotate(18deg)}
+@keyframes xera-orbit{to{transform:rotate(342deg)}}
+.xera-scanline{
+    position:absolute;inset:0;
+    background:repeating-linear-gradient(to bottom,rgba(124,205,255,.018) 0,rgba(124,205,255,.018) 1px,transparent 1px,transparent 4px);
+    opacity:.42;
+    mix-blend-mode:screen;
+}
+
+/* Extra depth on the existing XERA cards. */
+.app{position:relative;z-index:1}
+.wallet-shell{position:relative;z-index:1}
+.auth{position:relative;z-index:1}
+.mini-card,.ring-card,.dash-col-right,.balance-block,.wp-stat,.chip,.modal-card{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 22px 55px -38px rgba(36,174,255,.28);
+}
+.mini-card:hover,.ring-card:hover,.wp-stat:hover{
+    border-color:rgba(95,247,229,.18);
+}
+.balance-block .amount{
+    background:linear-gradient(100deg,#fff 0%,#9ffcf0 48%,#5ca9ff 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+.balance-block .amount small{-webkit-text-fill-color:var(--text-dim)}
+
+/* Make the mining centerpiece feel like a small energy reactor, while
+   preserving the existing progress ring and coin image. */
+.mining-scene::before{
+    content:'';
+    position:absolute;width:190px;height:190px;border-radius:50%;
+    background:radial-gradient(circle,rgba(48,225,196,.09) 0 28%,transparent 58%),radial-gradient(circle,rgba(52,124,255,.14),transparent 70%);
+    box-shadow:0 0 70px rgba(46,173,255,.14);
+    animation:xera-reactor 4.5s ease-in-out infinite;
+}
+.mining-scene::after{
+    content:'';
+    position:absolute;width:205px;height:74px;border:1px solid rgba(95,247,229,.16);border-radius:50%;
+    transform:rotate(-20deg);
+    box-shadow:0 0 18px rgba(95,247,229,.07);
+    animation:xera-mini-orbit 9s linear infinite;
+}
+@keyframes xera-reactor{0%,100%{transform:scale(.97);opacity:.72}50%{transform:scale(1.04);opacity:1}}
+@keyframes xera-mini-orbit{to{transform:rotate(340deg)}}
+.mining-scene .ring-wrap{z-index:3}
+.mining-scene .mining-tool{z-index:4;filter:drop-shadow(0 0 8px rgba(95,247,229,.22))}
+.mining-scene .spark{z-index:5;box-shadow:0 0 10px rgba(95,247,229,.72)}
+
+@media(max-width:760px){
+    .xera-globe{width:390px;height:390px;min-width:0;min-height:0;right:-190px;top:-80px;opacity:.38}
+    .xera-orbit{right:-240px;top:100px;opacity:.5}
+    .xera-orbit.orbit-b{right:-210px}
+    .xera-nebula-a{right:-260px;top:-70px}
+    .xera-nebula-b{left:-250px}
+}
+@media(prefers-reduced-motion:reduce){
+    .xera-star,.xera-shooting-star,.xera-globe-core,.globe-node,.xera-orbit,.mining-scene::before,.mining-scene::after{animation:none !important}
+}
+
+/* ---- Interaction glow: buttons, chips, icon buttons ---- */
+.btn{
+    box-shadow:0 0 0 0 rgba(76,126,255,0);
+    transition:transform .1s ease,opacity .15s ease,box-shadow .25s ease;
+}
+.btn:hover:not(:disabled){
+    box-shadow:0 0 22px rgba(76,126,255,.4),0 0 42px rgba(51,230,200,.18);
+}
+.btn:focus-visible{outline:2px solid rgba(95,247,229,.6);outline-offset:2px}
+.icon-btn{transition:box-shadow .2s ease,border-color .2s ease,color .2s ease}
+.icon-btn:hover{color:var(--text);border-color:rgba(95,247,229,.35);box-shadow:0 0 0 4px rgba(95,247,229,.1)}
+.chip{transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.chip:hover{border-color:rgba(95,247,229,.3);box-shadow:0 12px 30px -18px rgba(51,230,200,.55);transform:translateY(-1px)}
+.mini-card,.ring-card,.wp-stat{transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease}
+.mini-card:hover,.ring-card:hover,.wp-stat:hover{
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 22px 50px -30px rgba(36,174,255,.5);
+    transform:translateY(-2px);
+}
+@media(prefers-reduced-motion:reduce){
+    .btn,.icon-btn,.chip,.mini-card,.ring-card,.wp-stat{transition:none}
+    .mini-card:hover,.ring-card:hover,.wp-stat:hover,.chip:hover{transform:none}
 }
