@@ -246,7 +246,7 @@
             <div class="wp-stat"><span>Mining allocation left ecosystem-wide</span><b id="walletRemainingSupply">—</b></div>
           </div>
           <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">Buying, withdrawing and transferring XERA aren't live yet — this wallet currently only reflects what you've mined and claimed.</p>
-          <button type="button" class="info-link" data-goto="chain">Settle a claim on BNB →</button>
+          <button type="button" class="info-link" data-goto="chain">Settle a claim on BNB or TON →</button>
           <div class="section-title">Coming soon</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>
@@ -272,12 +272,12 @@
             </div>
             <button type="button" class="btn btn-sm" id="chainConnectBNB">Connect BNB wallet</button>
           </div>
-          <div class="chain-wallet-row chain-wallet-disabled" data-chain="TON" aria-disabled="true">
+          <div class="chain-wallet-row" data-chain="TON">
             <div class="chain-wallet-info">
               <span class="chain-badge">TON</span>
-              <span class="chain-wallet-addr">Coming Soon</span>
+              <span id="chainWalletAddrTON" class="chain-wallet-addr">Not connected</span>
             </div>
-            <button type="button" class="btn btn-sm" id="chainConnectTON" disabled aria-disabled="true">Coming Soon</button>
+            <button type="button" class="btn btn-sm" id="chainConnectTON">Connect TON wallet</button>
           </div>
           <p class="banner-error" id="chainWalletError"></p>
 
@@ -286,7 +286,7 @@
             <label for="chainSelect">Settle on</label>
             <select id="chainSelect">
               <option value="BNB">BNB Smart Chain</option>
-              <option value="TON" disabled>TON — Coming Soon</option>
+              <option value="TON">TON</option>
             </select>
           </div>
           <div id="chainClaimableList" class="chain-claimable-list"></div>

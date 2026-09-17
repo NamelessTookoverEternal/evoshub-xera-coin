@@ -185,10 +185,6 @@ async function loadClaimables() {
 async function settleClaim(referenceId) {
     const chain = $('chainSelect').value;
     $('chainClaimError').textContent = '';
-    if (chain !== 'BNB') {
-        $('chainClaimError').textContent = 'TON settlement is coming soon — BNB only for now.';
-        return;
-    }
     try {
         const { claim } = await req('/api/xera/claim/sign', {
             method: 'POST',
@@ -312,7 +308,7 @@ async function loadClaimHistory() {
 
 function initChainPanel() {
     $('chainConnectBNB')?.addEventListener('click', connectBnbWallet);
-    // TON remains intentionally disabled until its settlement implementation is production-ready.
+    $('chainConnectTON')?.addEventListener('click', connectTonWallet);
     $('chainSelect')?.addEventListener('change', () => { loadVestingStatus(); });
 
     document.querySelectorAll('[data-tab="chain"], [data-goto="chain"]').forEach((btn) => {

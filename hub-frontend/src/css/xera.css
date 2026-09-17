@@ -294,8 +294,6 @@ button{-webkit-tap-highlight-color:transparent}
 
 /* ---------------- Blockchain (chain) panel ---------------- */
 .chain-wallet-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px}
-.chain-wallet-disabled{opacity:.5;filter:grayscale(.8)}
-.chain-wallet-disabled .btn{cursor:not-allowed}
 .chain-wallet-info{display:flex;align-items:center;gap:10px;min-width:0}
 .chain-badge{font-family:var(--font-display);font-size:.68rem;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:999px;background:var(--accent-soft,rgba(120,120,255,.15));color:var(--accent,#7878ff)}
 .chain-wallet-addr{font-size:.82rem;color:var(--text-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
