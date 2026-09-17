@@ -1,0 +1,79 @@
+/* ==============================================================
+   EVOS ECOSYSTEM — CENTRALIZED DESIGN TOKENS
+   Shared across XERA today; intended to extend to the rest of the
+   EVOS Hub ecosystem as those surfaces adopt it. Product identity
+   (the XERA wordmark, its brand blue) stays fixed regardless of the
+   user's chosen accent — only interactive/accent elements react.
+   ============================================================== */
+:root{
+    /* ---- base surfaces (product-neutral) ---- */
+    --background-primary:#060810;
+    --surface-primary:#0e1220;
+    --surface-secondary:#141a2b;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.14);
+    --text-primary:#f2f5fa;
+    --text-secondary:#838da1;
+    --success:#33d6a6;
+    --success-soft:rgba(51,214,166,.14);
+    --danger:#ff6b6b;
+    --radius-lg:22px;
+    --radius-md:14px;
+    --radius-sm:10px;
+    --font-ui:'Inter',system-ui,sans-serif;
+    --font-display:'Space Grotesk','Inter',system-ui,sans-serif;
+
+    /* ---- XERA's own fixed brand identity — never changes with accent ---- */
+    --xera-brand:#4c7eff;
+    --xera-brand-glow:rgba(76,126,255,.35);
+
+    /* ---- user-selectable accent (default = "XERA Default") ---- */
+    --app-accent:#4c7eff;
+    --app-accent-light:#7aa2ff;
+    --app-accent-glow:rgba(76,126,255,.35);
+    --app-accent-contrast:#ffffff;
+    --app-accent-soft:rgba(76,126,255,.14);
+}
+
+/* Accent presets — applied via data-accent on <html>. Each only
+   redefines the --app-accent-* tokens; everything else inherits
+   from :root so product identity (surfaces, XERA brand) never shifts. */
+html[data-accent="ocean"]{
+    --app-accent:#2fb8e0;
+    --app-accent-light:#6fd6ef;
+    --app-accent-glow:rgba(47,184,224,.35);
+    --app-accent-contrast:#04202a;
+    --app-accent-soft:rgba(47,184,224,.14);
+}
+html[data-accent="emerald"]{
+    --app-accent:#33d6a6;
+    --app-accent-light:#7fe8c8;
+    --app-accent-glow:rgba(51,214,166,.35);
+    --app-accent-contrast:#04231a;
+    --app-accent-soft:rgba(51,214,166,.14);
+}
+html[data-accent="purple"]{
+    --app-accent:#9b6bff;
+    --app-accent-light:#bfa0ff;
+    --app-accent-glow:rgba(155,107,255,.35);
+    --app-accent-contrast:#ffffff;
+    --app-accent-soft:rgba(155,107,255,.14);
+}
+html[data-accent="rose"]{
+    --app-accent:#ff6b9d;
+    --app-accent-light:#ff9dbf;
+    --app-accent-glow:rgba(255,107,157,.35);
+    --app-accent-contrast:#2a0714;
+    --app-accent-soft:rgba(255,107,157,.14);
+}
+html[data-accent="gold"]{
+    --app-accent:#e0b23c;
+    --app-accent-light:#f0cf7a;
+    --app-accent-glow:rgba(224,178,60,.35);
+    --app-accent-contrast:#241a02;
+    --app-accent-soft:rgba(224,178,60,.14);
+}
+
+@media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}

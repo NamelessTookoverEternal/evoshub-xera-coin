@@ -1,0 +1,98 @@
+/* ══════════════════════════════════════════════════════════════
+   EVOSHUB — Light 3D Motion Layer
+   ──────────────────────────────────────────────────────────────
+   Purely additive on top of components.css / animations.css.
+   Three independent enhancements, each safe to drop or keep:
+
+     1. [data-flow-in]        hero heading/subhead "flow in" + parallax
+     2. [data-stagger-cards]  3D staggered card entrance on scroll
+     3. .card --tilt-x/--tilt-y   5deg tilt-on-hover (vars set by JS)
+
+   Everything collapses to a static, instant, zero-animation state
+   when html[data-motion3d="off"] OR prefers-reduced-motion — see
+   the kill-switch block at the bottom. That's the "low-end device"
+   escape hatch: one attribute flips every effect in this file off.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. HERO FLOW-IN + PARALLAX ─────────────────────────────── */
+.hero, .biz-hero { perspective: 1000px; }
+
+[data-flow-in] {
+  opacity: 0;
+  transform: translateY(28px) translateZ(-60px) rotateX(10deg);
+  transition: opacity .7s cubic-bezier(.16,.84,.44,1),
+              transform .7s cubic-bezier(.16,.84,.44,1);
+  will-change: transform, opacity;
+}
+[data-flow-in].flow-in-visible {
+  opacity: 1;
+  transform: translateY(0) translateZ(0) rotateX(0deg);
+}
+/* Once visible, hero-flow.js switches to this faster transition
+   before it starts writing parallax transforms on pointermove, so
+   mouse-follow feels responsive instead of laggy. */
+[data-flow-in].flow-in-parallax-ready {
+  transition: transform .35s cubic-bezier(.22,.7,.3,1);
+}
+
+/* ── 2. STAGGERED 3D CARD ENTRANCE ──────────────────────────── */
+[data-stagger-cards] .card {
+  opacity: 0;
+  transform: perspective(800px) translateY(40px) rotateX(-8deg);
+  transition: opacity .6s cubic-bezier(.16,.84,.44,1),
+              transform .6s cubic-bezier(.16,.84,.44,1),
+              border-color .25s, box-shadow .25s;
+}
+[data-stagger-cards] .card.card-3d-in {
+  opacity: 1;
+  transform: perspective(800px) translateY(0) rotateX(0deg);
+}
+
+/* ── EFFECTS TOGGLE BUTTON (sits next to the existing theme-toggle) ── */
+.motion3d-toggle {
+  width: 38px; height: 38px; border-radius: 9px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; font-size: 16px; line-height: 1;
+  transition: border-color .2s, box-shadow .2s, transform .15s, opacity .2s;
+  color: var(--text2);
+}
+.motion3d-toggle:hover { border-color: var(--violet); color: var(--violet); box-shadow: var(--glow-violet); transform: translateY(-1px); }
+.motion3d-toggle[aria-pressed="false"] { opacity: .45; }
+
+/* ── 3D BACKGROUND CANVAS (bg-particles.js) ─────────────────── */
+#bg3d-canvas {
+  position: fixed; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+#bg3d-canvas.bg3d-ready { opacity: var(--star-op, 1); }
+
+/* ══════════════════════════════════════════════════════════════
+   KILL-SWITCH — user toggle OFF, or prefers-reduced-motion.
+   Collapses every effect above to its resting state instantly,
+   with no transition, no transform, no parallax listeners left
+   doing work (JS also unbinds — this is the CSS half of that).
+   ══════════════════════════════════════════════════════════════ */
+html[data-motion3d="off"] [data-flow-in],
+html[data-motion3d="off"] [data-stagger-cards] .card {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+html[data-motion3d="off"] .card:hover {
+  transform: translateY(-6px) !important;
+}
+html[data-motion3d="off"] #bg3d-canvas { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-flow-in], [data-stagger-cards] .card {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .card:hover { transform: translateY(-6px) !important; }
+  #bg3d-canvas { display: none; }
+}

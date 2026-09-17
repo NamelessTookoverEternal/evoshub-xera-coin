@@ -1,0 +1,133 @@
+/* EVOSHUB — Global Variables & Reset
+   Tech theme: dark-first "console" aesthetic with a full light-mode swap,
+   glass surfaces, and a blue / violet / green accent trio.
+   Toggle by setting [data-theme="light"] or [data-theme="dark"] on <html>. */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:        #05070D;
+  --bg2:       #0A0E17;
+  --surface:   rgba(255,255,255,0.035);
+  --surface-solid: #0D121C;
+  --surface2:  rgba(255,255,255,0.06);
+  --border:    rgba(148,196,255,0.10);
+  --border2:   rgba(148,196,255,0.20);
+
+  --blue:      #3E8BFF;
+  --blue-light:#5FE3FF;
+  --blue-dim:  rgba(62,139,255,0.12);
+  --violet:    #A855F7;
+  --violet-dim:rgba(168,85,247,0.13);
+  --green:     #2CE6A6;
+  --green-dim: rgba(44,230,166,0.12);
+  --amber:     #F5B942;
+  --amber-dim: rgba(245,185,66,0.12);
+
+  --text:      #EAF1FF;
+  --text2:     #93A2C2;
+  --text3:     #5B6684;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.30), 0 1px 10px rgba(0,0,0,.35);
+  --shadow-md: 0 8px 24px rgba(0,0,0,.45);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,.55);
+
+  --glow-blue:  0 0 0 1px rgba(62,139,255,.35), 0 0 24px rgba(62,139,255,.18);
+  --glow-violet:0 0 0 1px rgba(168,85,247,.32), 0 0 24px rgba(168,85,247,.16);
+  --glow-green: 0 0 0 1px rgba(44,230,166,.30), 0 0 24px rgba(44,230,166,.14);
+  --glow-strength: 1;
+  --grid-line: rgba(148,196,255,0.06);
+  --scan-op:   0.5;
+  --star-op:   1;
+  --star-color: 255,255,255;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:        #F7F9FC;
+  --bg2:       #EEF2F8;
+  --surface:   #FFFFFF;
+  --surface-solid: #FFFFFF;
+  --surface2:  #F1F4FA;
+  --border:    rgba(15,23,42,0.09);
+  --border2:   rgba(15,23,42,0.16);
+
+  --blue:      #2158D6;
+  --blue-light:#0EA5C4;
+  --blue-dim:  rgba(33,88,214,0.08);
+  --violet:    #7C3AED;
+  --violet-dim:rgba(124,58,237,0.09);
+  --green:     #0E9F6E;
+  --green-dim: rgba(14,159,110,0.10);
+  --amber:     #B5760A;
+  --amber-dim: rgba(181,118,10,0.10);
+
+  --text:      #0B1220;
+  --text2:     #48526B;
+  --text3:     #8894AC;
+
+  --shadow-sm: 0 1px 2px rgba(15,23,42,.05), 0 1px 8px rgba(15,23,42,.06);
+  --shadow-md: 0 4px 16px rgba(15,23,42,.09);
+  --shadow-lg: 0 12px 40px rgba(15,23,42,.13);
+
+  --glow-blue:  0 0 0 1px rgba(33,88,214,.18), 0 0 20px rgba(33,88,214,.08);
+  --glow-violet:0 0 0 1px rgba(124,58,237,.16), 0 0 20px rgba(124,58,237,.07);
+  --glow-green: 0 0 0 1px rgba(14,159,110,.16), 0 0 20px rgba(14,159,110,.07);
+  --glow-strength: 0.6;
+  --grid-line: rgba(15,23,42,0.045);
+  --scan-op:   0.18;
+  --star-op:   0.45;
+  --star-color: 33,88,214;
+}
+
+:root {
+  --font-display: 'Syne', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --space-section: clamp(48px, 9vw, 96px);
+  --gutter:        clamp(20px, 5vw, 5%);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html  { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body  {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  min-width: 320px;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .35s ease, color .35s ease;
+}
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+table { max-width: 100%; }
+code, .mono { font-family: var(--font-mono); }
+
+::selection { background: var(--blue); color: #fff; }
+
+/* Slim techy scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+a:focus-visible, button:focus-visible, input:focus-visible,
+textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Agent Inbox — EVOS Business Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <style>
+    .form-input, .form-select { width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:9px; padding:9px 12px; font-family:var(--font-body); font-size:13.5px; color:var(--text); outline:none; }
+    .inbox-shell { display:grid; grid-template-columns:320px 1fr; gap:20px; height:calc(100vh - 180px); min-height:480px; }
+    .thread-list { overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); }
+    .thread-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; }
+    .thread-item:hover { background:var(--bg2); }
+    .thread-item.active { background:var(--blue-dim); border-left:3px solid var(--blue); }
+    .thread-item h4 { font-size:14px; margin-bottom:3px; }
+    .thread-item p { font-size:12px; color:var(--text2); }
+    .chat-shell { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
+    .chat-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .chat-log { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px; background:var(--bg2); }
+    .chat-input-row { display:flex; gap:8px; padding:14px; border-top:1px solid var(--border); }
+    .empty-state { display:flex; align-items:center; justify-content:center; height:100%; color:var(--text3); font-size:14px; }
+
+    @media (max-width: 900px) {
+      .inbox-shell { grid-template-columns: 1fr; height:auto; }
+      .thread-list { max-height:260px; }
+      .chat-shell { height:70vh; min-height:420px; }
+    }
+    @media (max-width: 480px) {
+      .chat-input-row { flex-wrap:wrap; }
+      .chat-input-row #status-select { max-width:none !important; flex:1 1 100%; order:1; }
+      .chat-input-row #admin-chat-input { flex:1 1 auto; order:2; }
+      .chat-input-row #admin-chat-send { order:3; }
+    }
+
+    /* ---- Admin tabs ---- */
+    .admin-tabs { display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); }
+    .admin-tab { background:none; border:0; padding:10px 4px; margin-right:16px; font-size:14px; font-weight:600; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; }
+    .admin-tab.active { color:var(--text); border-bottom-color:var(--blue); }
+
+    /* ---- Token dashboard ---- */
+    .td-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:28px; }
+    .td-stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius,12px); padding:14px 16px; }
+    .td-stat span { display:block; font-size:12px; color:var(--text3); margin-bottom:4px; }
+    .td-stat b { font-size:19px; font-family:var(--font-mono); }
+    .td-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg,20px); padding:20px; margin-bottom:24px; }
+    .td-section h3 { font-size:16px; margin:0 0 14px; }
+    .td-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .td-toggle-row:last-child { border-bottom:0; }
+    .td-toggle-row label { font-size:13.5px; color:var(--text2); }
+    .ecosystem-form { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:18px; }
+    .ecosystem-form .field { display:flex; flex-direction:column; gap:4px; }
+    .ecosystem-form .field label { font-size:11.5px; color:var(--text3); }
+    .ecosystem-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .ecosystem-table th { text-align:left; font-size:11.5px; color:var(--text3); padding:6px 8px; border-bottom:1px solid var(--border); }
+    .ecosystem-table td { padding:8px; border-bottom:1px solid var(--border); vertical-align:middle; }
+    .ecosystem-table img { width:32px; height:32px; border-radius:8px; object-fit:cover; background:var(--bg2); }
+    .ecosystem-table .actions { display:flex; gap:6px; }
+    .ecosystem-table .actions button { font-size:12px; padding:5px 10px; }
+    .td-msg { font-size:13px; margin-top:8px; min-height:16px; }
+    .td-msg.error { color:#ff6b6b; }
+    .td-msg.ok { color:#2ce6a6; }
+    @media (max-width: 760px) {
+      .ecosystem-form { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+    <span id="admin-whoami" style="font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
+    <button class="btn btn--ghost" id="admin-signout" style="padding:8px 14px;font-size:13px;flex-shrink:0;">Sign out</button>
+  </nav>
+
+  <main class="section" style="padding-top:120px; max-width:1200px;">
+    <span class="section-label">Agent Console</span>
+    <h1 class="section-title" style="font-size:28px;margin-bottom:14px;">EvosHub admin</h1>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" id="tab-requests" type="button">Website requests</button>
+      <button class="admin-tab" id="tab-token" type="button">Token dashboard</button>
+    </div>
+
+    <div id="panel-requests">
+      <div class="inbox-shell">
+        <div class="thread-list" id="thread-list">
+          <div class="empty-state">Loading…</div>
+        </div>
+
+        <div class="chat-shell">
+          <div class="chat-header" id="chat-header">
+            <span style="color:var(--text3);font-size:13px;">Select a request to open the chat</span>
+          </div>
+          <div class="chat-log" id="admin-chat-log"></div>
+          <div class="chat-input-row">
+            <select id="status-select" class="form-select" style="max-width:150px;" disabled>
+              <option value="new">New</option>
+              <option value="in_review">In review</option>
+              <option value="in_chat">In chat</option>
+              <option value="quoted">Quoted</option>
+              <option value="closed">Closed</option>
+            </select>
+            <input id="admin-chat-input" type="text" class="form-input" placeholder="Type a reply…" maxlength="2000" disabled>
+            <button class="btn btn--primary" id="admin-chat-send" disabled>Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-token" hidden>
+      <div class="td-stats-grid" id="td-stats">
+        <div class="td-stat"><span>Total wallets</span><b id="td-total-users">—</b></div>
+        <div class="td-stat"><span>Active miners</span><b id="td-active-miners">—</b></div>
+        <div class="td-stat"><span>Mining distributed</span><b id="td-mining-distributed">—</b></div>
+        <div class="td-stat"><span>Mining remaining</span><b id="td-mining-remaining">—</b></div>
+      </div>
+
+      <div class="td-section">
+        <h3>Daily claim</h3>
+        <div class="td-toggle-row">
+          <label for="dc-enabled">Daily claim enabled</label>
+          <input type="checkbox" id="dc-enabled">
+        </div>
+        <div class="td-toggle-row">
+          <label for="dc-amount">Reward amount (XERA)</label>
+          <input type="number" id="dc-amount" class="form-input" style="max-width:140px;" min="0.0001" step="0.0001">
+        </div>
+        <button class="btn btn--primary" id="dc-save" style="margin-top:14px;">Save daily claim settings</button>
+        <p class="td-msg" id="dc-msg"></p>
+      </div>
+
+      <div class="td-section">
+        <h3>Ecosystem links</h3>
+        <p style="font-size:13px;color:var(--text2);margin:-6px 0 16px;">
+          Shown to users under the Ecosystem tab in the XERA app. Add the site name, its URL, and a logo image URL.
+        </p>
+        <div class="ecosystem-form">
+          <div class="field"><label for="eco-name">Name</label><input id="eco-name" class="form-input" placeholder="EVOSGPT" maxlength="120"></div>
+          <div class="field"><label for="eco-url">Website URL</label><input id="eco-url" class="form-input" placeholder="https://evosgpt.xyz"></div>
+          <div class="field"><label for="eco-image">Logo image URL</label><input id="eco-image" class="form-input" placeholder="https://…/logo.png"></div>
+          <button class="btn btn--primary" id="eco-add">Add link</button>
+        </div>
+        <p class="td-msg" id="eco-msg"></p>
+        <table class="ecosystem-table">
+          <thead><tr><th></th><th>Name</th><th>URL</th><th>Active</th><th></th></tr></thead>
+          <tbody id="eco-rows"><tr><td colspan="5" style="color:var(--text3);">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="../js/admin-website-chat.js"></script>
+</body>
+</html>

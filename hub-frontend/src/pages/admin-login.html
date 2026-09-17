@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Agent Sign In — EVOS Business Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <style>
+    * { box-sizing: border-box; }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 9px;
+      padding: 11px 14px;
+      font-family: var(--font-body);
+      font-size: 16px; /* 16px, not 14px — prevents iOS Safari auto-zoom on focus */
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-input:focus { border-color: var(--blue); }
+
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 7px; }
+
+    /* Password field + show/hide toggle */
+    .password-field { position: relative; }
+    .password-field .form-input { padding-right: 44px; }
+
+    .password-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text2);
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .password-toggle:hover,
+    .password-toggle:focus-visible { color: var(--text); }
+    .password-toggle svg { width: 19px; height: 19px; pointer-events: none; }
+    .password-toggle .eye-off { display: none; }
+    .password-toggle[data-visible="true"] .eye { display: none; }
+    .password-toggle[data-visible="true"] .eye-off { display: block; }
+
+    #al-error { display: none; color: #c0392b; font-size: 13px; margin-bottom: 12px; }
+
+    #al-submit:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* --- Responsive layout --- */
+    main.section {
+      padding-top: 140px;
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-bottom: 60px;
+      max-width: 420px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 480px) {
+      main.section {
+        padding-top: 96px;
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+      .section-title { font-size: 24px !important; }
+      .card { padding: 20px !important; }
+    }
+
+    @media (max-width: 360px) {
+      main.section { padding-top: 84px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><div class="nav-logo__icon">EH</div><span class="nav-logo__text">EVOSHUB</span></a>
+  </nav>
+  <main class="section">
+    <span class="section-label">Agent Access</span>
+    <h1 class="section-title" style="font-size:28px;">Sign in</h1>
+    <p class="section-desc" style="margin-bottom:28px;">Use your existing EVOXERA agent account.</p>
+    <div class="card">
+      <form id="admin-login-form" novalidate>
+        <div class="field">
+          <label for="al-email">Email</label>
+          <input id="al-email" type="email" class="form-input" placeholder="you@evoxera.com" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="al-password">Password</label>
+          <div class="password-field">
+            <input id="al-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="password-toggle" id="al-password-toggle" aria-label="Show password" aria-controls="al-password" data-visible="false">
+              <svg class="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.3 21.3 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a21.4 21.4 0 0 1-2.34 3.32M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                <path d="M1 1l22 22"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <p id="al-error"></p>
+        <button type="submit" class="btn btn--primary" style="width:100%;" id="al-submit">Sign in</button>
+      </form>
+    </div>
+  </main>
+  <script>
+    // Password show/hide toggle — kept local to this page rather than
+    // added to admin-login.js, so it doesn't touch your existing
+    // submit/auth logic in that file at all.
+    const toggle = document.getElementById('al-password-toggle');
+    const passwordInput = document.getElementById('al-password');
+    toggle.addEventListener('click', () => {
+      const showing = toggle.getAttribute('data-visible') === 'true';
+      toggle.setAttribute('data-visible', String(!showing));
+      toggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      passwordInput.type = showing ? 'password' : 'text';
+    });
+  </script>
+  <script type="module" src="../js/admin-login.js"></script>
+</body>
+</html>
