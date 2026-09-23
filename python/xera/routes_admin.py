@@ -454,6 +454,71 @@ def admin_delete_ecosystem_link(request: Request, link_id: int, authorization: s
 
 
 # ------------------------------------------------------------
+# HASHRATE (section 20 of the hashrate brief)
+# ------------------------------------------------------------
+
+@router.get("/hashrate/stats", include_in_schema=False)
+@limiter.limit("60/minute")
+def admin_hashrate_stats(request: Request, authorization: str = Header(default="")):
+    from xera.hashrate import get_entitlement_state
+
+    _require_admin(request, authorization)
+    state = get_entitlement_state()
+    active = supabase.table("xera_hashrate_sessions").select("id", count="exact").eq("status", "ACTIVE").execute()
+    pending = supabase.table("xera_hashrate_payments").select("id", count="exact").eq("status", "PENDING").execute()
+    failed = supabase.table("xera_hashrate_payments").select("id", count="exact").eq("status", "FAILED").execute()
+    return {
+        "status": "ok",
+        "total_mining_allocation": state["cap"],
+        "total_allocated": state["reserved_amount"],
+        "remaining_allocation": state["remaining"],
+        "free_mining_closed": state["free_mining_closed"],
+        "warning_active": state["warning_active"],
+        "warning_countdown_to_closure": state["warning_countdown"],
+        "active_hashrate_sessions": active.count or 0,
+        "pending_hashrate_payments": pending.count or 0,
+        "failed_hashrate_payments": failed.count or 0,
+    }
+
+
+@router.get("/hashrate/tiers", include_in_schema=False)
+@limiter.limit("60/minute")
+def admin_list_hashrate_tiers(request: Request, authorization: str = Header(default="")):
+    _require_admin(request, authorization)
+    res = supabase.table("xera_hashrate_tiers").select("*").order("price").execute()
+    return {"status": "ok", "tiers": res.data or []}
+
+
+class HashrateTierUpdate(BaseModel):
+    price: float | None = None
+    currency: str | None = None
+    duration_days: int | None = None
+    daily_rate: float | None = None
+    enabled: bool | None = None
+    reason: str | None = None
+
+
+@router.patch("/hashrate/tiers/{tier_id}", include_in_schema=False)
+@limiter.limit("20/minute")
+def admin_update_hashrate_tier(tier_id: int, data: HashrateTierUpdate, request: Request, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    old_res = supabase.table("xera_hashrate_tiers").select("*").eq("id", tier_id).limit(1).execute()
+    if not old_res.data:
+        raise HTTPException(status_code=404, detail="Hashrate tier not found.")
+    old = old_res.data[0]
+
+    patch = {k: v for k, v in data.model_dump(exclude={"reason"}).items() if v is not None}
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update.")
+    patch["updated_by"] = admin_id
+
+    new_res = supabase.table("xera_hashrate_tiers").update(patch).eq("id", tier_id).execute()
+    new = new_res.data[0] if new_res.data else patch
+    _log_admin_action(admin_id, "HASHRATE_TIER_UPDATED", old, new, data.reason)
+    return {"status": "ok", "tier": new}
+
+
+# ------------------------------------------------------------
 # AUDIT / SECURITY
 # ------------------------------------------------------------
 
