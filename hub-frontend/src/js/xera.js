@@ -245,6 +245,7 @@ async function load() {
         walletTotalsLoaded = false;
         renderProfile();
         loadDaily();
+        loadHashrate();
     } catch (err) {
         showLogin('Please sign in again.');
     }
@@ -462,6 +463,150 @@ async function startOrClaim(btn, errEl) {
             $('miningActionDash').disabled = false;
         }
     }
+}
+
+
+// ================= HASHRATE =================
+const HASHRATE_ART = [
+    {name:'Market Watcher', desc:'Tracks trends, finds opportunities, keeps XERA ahead.'},
+    {name:'The Builder', desc:'More computing power. More block rewards.'},
+    {name:'Global Strategist', desc:'Sees the bigger picture. Builds long-term value.'},
+    {name:'The Accelerator', desc:'More speed. More power. More XERA.'},
+    {name:'The Visionary', desc:'Leads today. Builds tomorrow.'},
+];
+
+function hashCurrency(value, currency='GHS') {
+    const n = Number(value || 0);
+    return `${currency === 'GHS' ? 'GHS ' : ''}${n.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+}
+
+function renderHashrateState(state) {
+    const cap = Number(state?.cap || 0);
+    const reserved = Number(state?.reserved_amount || 0);
+    const remaining = Number(state?.remaining ?? Math.max(cap-reserved,0));
+    const pct = cap ? Math.min(100, (reserved/cap)*100) : 0;
+    $('hashrateAllocationText').textContent = `${fmt(reserved)} / ${fmt(cap)} XERA`;
+    $('hashrateAllocationBar').style.width = `${pct}%`;
+    $('hashrateRemaining').textContent = `${fmt(remaining)} XERA`;
+    $('hashrateWarning').textContent = state?.warning_active ? 'ACTIVE' : `${fmt(Math.max(65000000-reserved,0))} left`;
+    $('hashrateClosure').textContent = state?.free_mining_closed ? 'CLOSED' : `${fmt(Math.max(70000000-reserved,0))} left`;
+    if (state?.free_mining_closed) {
+        $('hashrateStatusNote').textContent = 'Free mining is closed. Existing and new hashrate sessions are still checked against the remaining allocation; a purchase is rejected if its full 30-day entitlement will not fit.';
+    } else if (state?.warning_active) {
+        $('hashrateStatusNote').textContent = `Final-phase warning: ${fmt(Math.max(70000000-reserved,0))} XERA remain before free mining closes.`;
+    } else {
+        $('hashrateStatusNote').textContent = 'The reservation engine checks the complete 30-day entitlement before accepting a hashrate purchase.';
+    }
+}
+
+function renderHashrateCards(tiers, state) {
+    const grid = $('hashrateGrid');
+    const byId = Array.isArray(tiers) ? tiers : [];
+    grid.innerHTML = '';
+    const cards = Array.from({length:5}, (_, i) => ({tier: byId[i] || null, art: HASHRATE_ART[i], index:i+1}));
+    cards.forEach(({tier, art, index}) => {
+        const card = document.createElement('article');
+        card.className = `hashrate-card${tier ? '' : ' unavailable'}`;
+        const daily = tier ? Number(tier.daily_rate) : 0;
+        const days = tier ? Number(tier.duration_days || 30) : 30;
+        const maxReward = tier ? Number(tier.maximum_entitlement ?? daily*days) : 0;
+        const supported = !!tier && !!tier.enabled && maxReward <= Number(state?.remaining || 0);
+        const price = tier ? hashCurrency(tier.price, tier.currency) : 'Unavailable';
+        card.innerHTML = `
+          <div class="hashrate-card-art">
+            <span class="hashrate-badge">0${index}</span>
+            <img src="/assets/images/hashrate/hashrate-${index}.jpg" alt="XERA — ${art.name}" loading="lazy">
+            <img class="hashrate-logo" src="/assets/images/xeracoin.jpg" alt="XERA logo">
+          </div>
+          <div class="hashrate-card-body">
+            <h3>${art.name}</h3>
+            <p class="desc">${art.desc}</p>
+            <div class="hashrate-stats">
+              <div class="hashrate-stat"><span>Daily rate</span><b>${tier ? fmt(daily)+' XERA' : '—'}</b></div>
+              <div class="hashrate-stat"><span>Duration</span><b>${days} Days</b></div>
+              <div class="hashrate-stat"><span>Max reward</span><b>${tier ? fmt(maxReward)+' XERA' : '—'}</b></div>
+            </div>
+            <div class="hashrate-price">
+              <div><small>Total price</small><strong>${price}</strong></div>
+              <button class="hashrate-buy" type="button" ${(!tier || !supported) ? 'disabled' : ''}>${!tier ? 'Coming soon' : (supported ? 'Buy Hashrate →' : 'Allocation full')}</button>
+            </div>
+          </div>`;
+        if (tier && supported) {
+            card.querySelector('.hashrate-buy').addEventListener('click', () => openHashratePurchase(tier));
+        }
+        grid.appendChild(card);
+    });
+}
+
+async function loadHashrate() {
+    if (!$('hashrateGrid')) return;
+    $('hashrateError').textContent = '';
+    try {
+        const [catalog, sessions] = await Promise.all([
+            req('/api/xera/hashrate/tiers'),
+            req('/api/xera/hashrate/sessions'),
+        ]);
+        renderHashrateState(catalog.entitlement || {});
+        renderHashrateCards(catalog.tiers || [], catalog.entitlement || {});
+        renderHashrateSessions(sessions.sessions || []);
+    } catch (err) {
+        $('hashrateGrid').innerHTML = '<div class="hashrate-loading">Hashrate service is not available yet. The rest of XERA remains online.</div>';
+        $('hashrateError').textContent = err.message || 'Could not load hashrate plans.';
+    }
+}
+
+async function openHashratePurchase(tier) {
+    $('hashrateError').textContent = '';
+    const methods = window.confirm(`Buy ${tier.name} hashrate for ${hashCurrency(tier.price, tier.currency)}?\n\nOK = Paystack\nCancel = close`);
+    if (!methods) return;
+    try {
+        const d = await req('/api/xera/hashrate/purchase', {
+            method:'POST',
+            body:JSON.stringify({tier_id:tier.id, payment_method:'PAYSTACK'})
+        });
+        if (d?.payment?.authorization_url) {
+            window.location.href = d.payment.authorization_url;
+        } else {
+            throw new Error('Payment session was not created.');
+        }
+    } catch (err) {
+        $('hashrateError').textContent = err.message || 'Could not start the purchase.';
+    }
+}
+
+function renderHashrateSessions(sessions) {
+    const el = $('hashrateSessions');
+    if (!el) return;
+    if (!sessions.length) {
+        el.innerHTML = '<div class="empty"><p>No active hashrate sessions yet.</p></div>';
+        return;
+    }
+    el.innerHTML = sessions.map((s) => {
+        const start = new Date(s.started_at || s.created_at);
+        const end = new Date(s.expires_at);
+        const now = Date.now();
+        const total = Math.max(end - start, 1);
+        const elapsed = Math.max(0, Math.min(total, now-start));
+        const pct = Math.round((elapsed/total)*100);
+        const daily = Number(s.daily_rate || 0);
+        const accrued = Number(s.accrued_amount || s.claimed_amount || 0);
+        const claimable = !!s.can_claim || (daily > 0 && elapsed >= 86400000 && s.status === 'ACTIVE');
+        return `<div class="hashrate-session">
+          <div class="hashrate-session-head"><b>${(s.tier_name || 'XERA Hashrate').replaceAll('<','&lt;')}</b><span class="hashrate-session-status">${s.status || 'ACTIVE'}</span></div>
+          <div class="hashrate-session-bar"><span style="width:${pct}%"></span></div>
+          <div class="hashrate-session-meta">
+            <div><span>Daily</span><b>${fmt(daily)} XERA</b></div>
+            <div><span>Accrued</span><b>${fmt(accrued)} XERA</b></div>
+            <div><span>Ends</span><b>${end.toLocaleDateString()}</b></div>
+          </div>
+          <div class="hashrate-session-actions">${claimable && s.id ? `<button type="button" data-claim-hashrate="${s.id}">Claim reward</button>` : ''}</div>
+        </div>`;
+    }).join('');
+    el.querySelectorAll('[data-claim-hashrate]').forEach((btn) => btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try { await req(`/api/xera/hashrate/sessions/${btn.dataset.claimHashrate}/claim`, {method:'POST',body:'{}'}); await load(); }
+        catch (e) { $('hashrateError').textContent = e.message; btn.disabled = false; }
+    }));
 }
 
 // ================= EVENTS =================

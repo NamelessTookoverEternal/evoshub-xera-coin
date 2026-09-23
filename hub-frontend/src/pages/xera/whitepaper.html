@@ -83,8 +83,42 @@
     .wp-toc{position:static;flex-direction:row;flex-wrap:wrap;top:auto}
     .wp-cols{grid-template-columns:1fr}
   }
+
+  /* XERA whitepaper visual refresh */
+  .wp-visual-intro{
+    margin:0 0 28px;
+    border:1px solid rgba(91,231,255,.16);
+    border-radius:24px;
+    overflow:hidden;
+    background:rgba(3,8,20,.72);
+    box-shadow:0 20px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .wp-visual-intro img{
+    width:100%;display:block;aspect-ratio:16/8;object-fit:cover;
+  }
+  .wp-visual-intro-copy{padding:18px 20px 20px}
+  .wp-visual-intro-copy strong{
+    display:block;font:700 1.05rem/1.25 'Space Grotesk',Inter,sans-serif;
+    color:#ecfffb;letter-spacing:.01em
+  }
+  .wp-visual-intro-copy span{
+    display:block;margin-top:6px;color:rgba(220,245,242,.68);
+    font-size:.82rem;line-height:1.55
+  }
+  .wp-main .xera-gallery{
+    margin:28px 0 0;
+  }
+  .wp-main .xera-gallery-card img{
+    object-position:center;
+  }
+  @media(max-width:760px){
+    .wp-visual-intro img{aspect-ratio:4/3}
+    .wp-visual-intro-copy{padding:15px 16px 17px}
+  }
+
 </style>
   <link rel="stylesheet" href="../../css/xera-space.css">
+  <link rel="stylesheet" href="../../css/xera-gallery.css">
 </head>
 <body>
   <div class="xera-public-space" aria-hidden="true"><div class="xera-public-stars" id="xeraPublicStars"></div></div>
@@ -278,6 +312,25 @@
           <p style="font-size:.8rem;margin-top:16px">If anything on this site reads as a guarantee of profit, price increase, investment return, or exchange listing, that isn't our intent — please <a href="/contact.html">let us know</a> so we can correct it.</p>
         </section>
 
+      <section class="xera-gallery" aria-label="XERA by EVOXERA futuristic technology visuals">
+  <article class="xera-gallery-card feature">
+    <img src="/assets/images/xera-gallery/xera-global-network.jpg" alt="XERA coin over a futuristic global digital network" loading="lazy">
+    <div class="xera-gallery-caption"><strong>Global Digital Network</strong><span>XERA visualized as part of a connected digital ecosystem.</span></div>
+  </article>
+  <article class="xera-gallery-card">
+    <img src="/assets/images/xera-gallery/xera-ai-data-core.jpg" alt="XERA coin inside a futuristic AI and data center" loading="lazy">
+    <div class="xera-gallery-caption"><strong>AI &amp; Data</strong><span>Technology, data and intelligent infrastructure.</span></div>
+  </article>
+  <article class="xera-gallery-card">
+    <img src="/assets/images/xera-gallery/xera-digital-mining.jpg" alt="XERA coin in a futuristic digital mining environment" loading="lazy">
+    <div class="xera-gallery-caption"><strong>Digital Mining</strong><span>Participation in the early XERA ecosystem.</span></div>
+  </article>
+  <article class="xera-gallery-card">
+    <img src="/assets/images/xera-gallery/xera-future-city.jpg" alt="XERA coin above a futuristic technology city" loading="lazy">
+    <div class="xera-gallery-caption"><strong>Future Infrastructure</strong><span>EVOXERA technology built for an evolving digital future.</span></div>
+  </article>
+</section>
+
       </div>
     </div>
   </div>
@@ -338,5 +391,10 @@
   sections.forEach((s) => io.observe(s));
 </script>
   <script type="module" src="../../js/xera-space.js"></script>
+
+
+
+
+
 </body>
 </html>

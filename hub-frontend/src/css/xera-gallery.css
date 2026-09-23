@@ -1,0 +1,14 @@
+/* XERA by EVOXERA — visual gallery layer. Decorative only; no app logic. */
+.xera-gallery{display:grid;grid-template-columns:repeat(12,1fr);gap:18px;margin:54px 0;position:relative}
+.xera-gallery-card{grid-column:span 4;position:relative;min-height:190px;border:1px solid rgba(93,234,214,.16);border-radius:22px;overflow:hidden;background:rgba(7,13,27,.64);box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 18px 55px rgba(0,0,0,.24);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.xera-gallery-card.feature{grid-column:span 8;min-height:270px}
+.xera-gallery-card:hover{transform:translateY(-5px);border-color:rgba(91,239,218,.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 24px 70px rgba(0,0,0,.34)}
+.xera-gallery-card img{width:100%;height:100%;min-height:inherit;display:block;object-fit:cover;opacity:.82;transition:transform .5s ease,opacity .3s ease}
+.xera-gallery-card:hover img{transform:scale(1.035);opacity:1}
+.xera-gallery-card::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(2,6,15,.88) 100%);pointer-events:none}
+.xera-gallery-caption{position:absolute;left:20px;right:20px;bottom:17px;z-index:2}
+.xera-gallery-caption strong{display:block;color:#ecfffb;font:700 1rem/1.2 'Space Grotesk',Inter,sans-serif;letter-spacing:.02em}
+.xera-gallery-caption span{display:block;color:rgba(220,245,242,.68);font-size:.78rem;margin-top:5px}
+.xera-brand-lockup{display:inline-flex;align-items:center;gap:9px;color:rgba(220,245,242,.65);font-size:.76rem;letter-spacing:.18em;text-transform:uppercase;margin-bottom:10px}
+.xera-brand-lockup::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,#51efd0,transparent)}
+@media(max-width:760px){.xera-gallery{grid-template-columns:1fr 1fr;gap:12px;margin:36px 0}.xera-gallery-card,.xera-gallery-card.feature{grid-column:span 1;min-height:145px}.xera-gallery-card.feature{grid-column:span 2;min-height:210px}.xera-gallery-caption{left:14px;right:14px;bottom:13px}.xera-gallery-caption strong{font-size:.88rem}.xera-gallery-caption span{font-size:.7rem}}
