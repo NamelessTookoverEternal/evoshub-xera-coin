@@ -49,8 +49,8 @@ def new_reference() -> str:
     return f"{_REFERENCE_PREFIX}{uuid.uuid4().hex}"
 
 
-def is_xera_hashrate_reference(reference: str) -> bool:
-    return reference.startswith(_REFERENCE_PREFIX)
+def is_xera_hashrate_reference(reference) -> bool:
+    return isinstance(reference, str) and reference.startswith(_REFERENCE_PREFIX)
 
 
 def verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
@@ -63,23 +63,36 @@ def verify_webhook_signature(raw_body: bytes, signature_header: str) -> bool:
 class PaystackHashrateProvider(HashratePaymentProvider):
     name = "PAYSTACK"
 
-    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict) -> dict:
+    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict, email: str | None = None) -> dict:
+        # Paystack rejects /transaction/initialize without a customer email,
+        # so without this every checkout failed with "Invalid Email Address".
+        if not email:
+            raise PaymentProviderError("customer_email_required")
+
         # Paystack amounts are in the currency's smallest unit (pesewas/kobo).
         amount_minor = int(round(float(amount) * 100))
+        body = {
+            "reference": reference,
+            "email": email,
+            "amount": amount_minor,
+            "currency": currency,
+            "metadata": {**metadata, "user_id": user_id, "product": "xera_hashrate"},
+        }
+        # Where Paystack sends the customer after checkout. The frontend reads
+        # ?reference= on that page to switch to the Hashrate tab and wait for
+        # the webhook to activate the session.
+        callback_url = os.getenv("XERA_HASHRATE_CALLBACK_URL", "").strip()
+        if callback_url:
+            body["callback_url"] = callback_url
         try:
             resp = httpx.post(
                 f"{_PAYSTACK_BASE_URL}/transaction/initialize",
                 headers={"Authorization": f"Bearer {_secret_key()}"},
-                json={
-                    "reference": reference,
-                    "amount": amount_minor,
-                    "currency": currency,
-                    "metadata": {**metadata, "user_id": user_id, "product": "xera_hashrate"},
-                },
+                json=body,
                 timeout=15,
             )
             data = resp.json()
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise PaymentProviderError("paystack_unreachable") from e
 
         if not data.get("status"):
@@ -99,7 +112,7 @@ class PaystackHashrateProvider(HashratePaymentProvider):
                 timeout=15,
             )
             data = resp.json()
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, ValueError) as e:
             raise PaymentProviderError("paystack_unreachable") from e
 
         if not data.get("status"):

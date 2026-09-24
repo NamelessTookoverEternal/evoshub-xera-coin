@@ -12,6 +12,7 @@ XERA session token.
 import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 from main import supabase, limiter
@@ -53,6 +54,8 @@ _HASHRATE_ERROR_HTTP = {
     "wallet_not_found":                  (404, "Wallet not found."),
     "wallet_not_active":                 (403, "This wallet is suspended."),
     "allocation_exhausted":              (409, "The mining allocation is exhausted."),
+    "customer_email_required":           (400, "Add an email address to your account before paying."),
+    "late_payment_no_capacity":          (409, "Payment received after the checkout window and the allocation is now full — contact support for a refund."),
 }
 
 
@@ -69,7 +72,11 @@ class PurchaseRequest(BaseModel):
 @router.get("/tiers")
 @limiter.limit("30/minute")
 def list_tiers(request: Request):
-    return {"tiers": hashrate.get_tiers(), "entitlement": hashrate.get_entitlement_state()}
+    return {
+        "tiers": hashrate.get_tiers(),
+        "entitlement": hashrate.get_entitlement_state(),
+        "payments": hashrate.payment_availability(),
+    }
 
 
 @router.get("/tiers/{tier_id}/preview")
@@ -83,19 +90,22 @@ def preview_tier(tier_id: int, request: Request):
 
 @router.post("/purchase")
 @limiter.limit("10/minute")
-def purchase_hashrate(body: PurchaseRequest, request: Request, authorization: str = Header(...)):
+def purchase_hashrate(body: PurchaseRequest, request: Request, authorization: str = Header(default="")):
     user_id = _current_user_id(request, authorization)
     try:
         return hashrate.purchase(user_id, body.tier_id, body.payment_method)
     except HashrateError as e:
         _raise_hashrate_error(e)
     except PaymentProviderError as e:
-        raise HTTPException(status_code=502, detail=f"Payment provider error: {e}")
+        # Log the provider's detail server-side; don't leak raw provider
+        # messages (or internal codes) to the browser.
+        logger.error("XERA hashrate payment provider error for user %s: %s", user_id, e)
+        raise HTTPException(status_code=502, detail="Payment provider is unavailable right now. Please try again shortly.")
 
 
 @router.get("/sessions")
 @limiter.limit("30/minute")
-def my_sessions(request: Request, authorization: str = Header(...)):
+def my_sessions(request: Request, authorization: str = Header(default="")):
     user_id = _current_user_id(request, authorization)
     hashrate.reconcile_pending_payments()
     return {"sessions": hashrate.list_sessions(user_id)}
@@ -103,7 +113,7 @@ def my_sessions(request: Request, authorization: str = Header(...)):
 
 @router.get("/sessions/{session_id}")
 @limiter.limit("30/minute")
-def session_status(session_id: int, request: Request, authorization: str = Header(...)):
+def session_status(session_id: int, request: Request, authorization: str = Header(default="")):
     user_id = _current_user_id(request, authorization)
     try:
         hashrate.reconcile_pending_payments()
@@ -114,7 +124,7 @@ def session_status(session_id: int, request: Request, authorization: str = Heade
 
 @router.post("/sessions/{session_id}/claim")
 @limiter.limit("10/minute")
-def claim_hashrate(session_id: int, request: Request, authorization: str = Header(...)):
+def claim_hashrate(session_id: int, request: Request, authorization: str = Header(default="")):
     user_id = _current_user_id(request, authorization)
     try:
         return hashrate.claim_reward(user_id, session_id)
@@ -132,7 +142,10 @@ async def paystack_webhook(request: Request, x_paystack_signature: str = Header(
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
     try:
-        result = hashrate.handle_paystack_webhook(raw_body, x_paystack_signature, payload)
+        # handle_paystack_webhook makes blocking HTTP (Paystack verify) and DB
+        # calls; run it in the threadpool so a slow Paystack response can't
+        # stall every other request on the event loop.
+        result = await run_in_threadpool(hashrate.handle_paystack_webhook, raw_body, x_paystack_signature, payload)
     except HashrateError as e:
         # Paystack retries on non-2xx, which is what we want for a
         # transient/verification failure — but an invalid signature should

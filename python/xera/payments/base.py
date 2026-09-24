@@ -20,7 +20,7 @@ class HashratePaymentProvider(ABC):
     name: str
 
     @abstractmethod
-    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict) -> dict:
+    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict, email: str | None = None) -> dict:
         """Start the payment on the provider's side. Returns whatever the
         client needs to complete payment (e.g. a Paystack authorization_url,
         or a crypto deposit address + expected amount)."""

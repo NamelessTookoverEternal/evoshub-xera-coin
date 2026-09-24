@@ -30,7 +30,7 @@ def crypto_payments_enabled() -> bool:
 class CryptoHashrateProvider(HashratePaymentProvider):
     name = "CRYPTO"
 
-    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict) -> dict:
+    def initialize(self, *, reference: str, amount, currency: str, user_id: int, metadata: dict, email: str | None = None) -> dict:
         raise PaymentProviderError("crypto_payments_not_yet_configured")
 
     def verify(self, *, reference: str) -> dict:

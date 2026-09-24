@@ -110,8 +110,17 @@ def _install_hashrate_rpcs(fake_supabase):
 
         if payment["status"] == "CONFIRMED":
             return types.SimpleNamespace(data=[dict(session)])  # idempotent replay
-        if payment["status"] != "PENDING":
+        if payment["status"] not in ("PENDING", "EXPIRED"):
             raise RuntimeError("payment_already_finalized")
+
+        if payment["status"] == "EXPIRED":
+            # Late payment: re-take the reservation the sweep released.
+            if session["status"] != "EXPIRED":
+                raise RuntimeError("payment_already_finalized")
+            row = _entitlement_row(fake_supabase)
+            if row["reserved_amount"] + session["reserved_entitlement"] > row["cap"]:
+                raise RuntimeError("entitlement_cap_exceeded")
+            row["reserved_amount"] += session["reserved_entitlement"]
 
         tx_hash = params.get("p_tx_hash")
         if tx_hash and any(p.get("tx_hash") == tx_hash and p["status"] == "CONFIRMED" for p in payments):
@@ -166,8 +175,9 @@ class _FakeProvider:
         self.name = name
         self.init_calls = []
 
-    def initialize(self, *, reference, amount, currency, user_id, metadata):
+    def initialize(self, *, reference, amount, currency, user_id, metadata, email=None):
         self.init_calls.append(reference)
+        self.last_email = email
         return {"authorization_url": f"https://paystack.test/{reference}", "reference": reference}
 
     def verify(self, *, reference):
@@ -187,6 +197,11 @@ def hr(fake_supabase, monkeypatch):
     import xera.hashrate as hashrate_module
 
     _install_hashrate_rpcs(fake_supabase)
+    fake_supabase.store["users"] = [
+        {"id": 1, "email": "one@example.com"},
+        {"id": 2, "email": "two@example.com"},
+        {"id": 3, "email": None},
+    ]
     fake_provider = _FakeProvider()
     monkeypatch.setitem(hashrate_module._PROVIDERS, "PAYSTACK", fake_provider)
     hashrate_module._test_provider = fake_provider
@@ -371,3 +386,123 @@ def test_crypto_payment_disabled_by_default(hr, fake_supabase, monkeypatch):
     with pytest.raises(hr.HashrateError) as exc:
         hr.purchase(user_id=1, tier_id=1, payment_method="CRYPTO")
     assert str(exc.value) == "crypto_payments_not_yet_configured"
+
+
+# ------------------------------------------------------------
+# Regression tests for bugs fixed in the hashrate review
+# ------------------------------------------------------------
+
+def test_purchase_sends_customer_email_to_paystack(hr, fake_supabase):
+    # Paystack's /transaction/initialize requires an email; it used to be omitted.
+    _seed_tier(fake_supabase, tier_id=1, daily_rate=5, duration_days=30)
+    hr.purchase(user_id=2, tier_id=1, payment_method="PAYSTACK")
+    assert hr._test_provider.last_email == "two@example.com"
+
+
+def test_purchase_without_account_email_reserves_nothing(hr, fake_supabase):
+    _seed_tier(fake_supabase, tier_id=1, daily_rate=5, duration_days=30)
+    with pytest.raises(hr.HashrateError) as exc:
+        hr.purchase(user_id=3, tier_id=1, payment_method="PAYSTACK")  # user 3 has no email
+    assert str(exc.value) == "customer_email_required"
+    assert _entitlement_row(fake_supabase)["reserved_amount"] == 0
+    assert fake_supabase.store.get("xera_hashrate_sessions", []) == []
+
+
+def test_paystack_provider_requires_email_and_sends_it(monkeypatch):
+    from xera.payments import paystack_provider as pp
+    from xera.payments.base import PaymentProviderError
+
+    monkeypatch.setenv("XERA_PAYSTACK_SECRET_KEY", "sk_test_x")
+    monkeypatch.setenv("XERA_HASHRATE_CALLBACK_URL", "https://evoshub.xyz/xera")
+    sent = {}
+
+    class _Resp:
+        def json(self):
+            return {"status": True, "data": {"authorization_url": "https://pay.test/x", "access_code": "ac"}}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        sent.update(json)
+        return _Resp()
+
+    monkeypatch.setattr(pp.httpx, "post", fake_post)
+    provider = pp.PaystackHashrateProvider()
+
+    with pytest.raises(PaymentProviderError):
+        provider.initialize(reference="xera-hr-1", amount=1, currency="GHS", user_id=1, metadata={})
+
+    out = provider.initialize(reference="xera-hr-1", amount=1.5, currency="GHS", user_id=1, metadata={}, email="a@b.com")
+    assert out["authorization_url"] == "https://pay.test/x"
+    assert sent["email"] == "a@b.com"
+    assert sent["amount"] == 150
+    assert sent["callback_url"] == "https://evoshub.xyz/xera"
+
+
+def test_amount_mismatch_from_rpc_maps_to_hashrate_error(hr, fake_supabase):
+    def boom(params):
+        raise RuntimeError("payment_verification_failed")
+    fake_supabase.rpc_handlers["xera_confirm_hashrate_payment"] = boom
+    with pytest.raises(hr.HashrateError) as exc:
+        hr.confirm_payment("xera-hr-x", tx_hash="t", verified_amount_minor=1, verified_currency="GHS")
+    assert str(exc.value) == "payment_verification_failed"  # used to escape as a raw 500
+
+
+def test_late_payment_after_expiry_reactivates_session(hr, fake_supabase):
+    _seed_tier(fake_supabase, tier_id=1, daily_rate=5, duration_days=30)
+    purchase = hr.purchase(user_id=1, tier_id=1, payment_method="PAYSTACK")
+    hr.expire_payment(purchase["reference"])
+    assert _entitlement_row(fake_supabase)["reserved_amount"] == 0
+
+    session = hr.confirm_payment(purchase["reference"], tx_hash="late-tx")
+    assert session["status"] == "ACTIVE"
+    assert _entitlement_row(fake_supabase)["reserved_amount"] == 150  # re-reserved
+
+
+def test_late_payment_with_full_pool_is_flagged_for_refund_not_retried(hr, fake_supabase, monkeypatch):
+    _seed_tier(fake_supabase, tier_id=1, daily_rate=5, duration_days=30)
+    purchase = hr.purchase(user_id=1, tier_id=1, payment_method="PAYSTACK")
+    hr.expire_payment(purchase["reference"])
+    row = _entitlement_row(fake_supabase)
+    row["reserved_amount"] = row["cap"] - 10  # pool filled up while they were paying
+
+    with pytest.raises(hr.HashrateError) as exc:
+        hr.confirm_payment(purchase["reference"], tx_hash="late-tx")
+    assert str(exc.value) == "late_payment_no_capacity"
+
+    # Through the webhook it must be acked (200), not raised — Paystack would
+    # otherwise retry a payment that can never activate.
+    from xera.payments import paystack_provider as pp
+    monkeypatch.setattr(pp, "verify_webhook_signature", lambda raw, sig: True)
+    monkeypatch.setattr(hr._test_provider, "verify",
+                        lambda reference: {"confirmed": True, "tx_hash": "late-tx", "amount_minor": 100, "currency": "GHS", "raw": {}})
+    out = hr.handle_paystack_webhook(b"{}", "sig", {"event": "charge.success", "data": {"reference": purchase["reference"]}})
+    assert out == {"handled": True, "needs_refund": True}
+
+
+def test_entitlement_state_exposes_thresholds(hr, fake_supabase):
+    _entitlement_row(fake_supabase)  # seeds the singleton row
+    state = hr.get_entitlement_state()
+    assert state["warning_threshold"] == 65_000_000
+    assert state["closure_threshold"] == 70_000_000
+
+
+def test_payment_availability_reflects_env(hr, monkeypatch):
+    monkeypatch.setenv("XERA_HASHRATE_PAYMENTS_ENABLED", "false")
+    monkeypatch.delenv("XERA_HASHRATE_CRYPTO_ENABLED", raising=False)
+    assert hr.payment_availability() == {"paystack": False, "crypto": False}
+    monkeypatch.setenv("XERA_HASHRATE_PAYMENTS_ENABLED", "true")
+    assert hr.payment_availability()["paystack"] is True
+
+
+def test_free_mining_closed_error_is_mapped_not_a_500(fake_supabase):
+    from xera import routes
+    status, _msg = routes._MINING_ERROR_HTTP["free_mining_closed"]
+    assert status == 403
+
+
+def test_admin_tier_update_rejects_values_the_db_would_refuse():
+    from pydantic import ValidationError
+    from xera.routes_admin import HashrateTierUpdate
+    for bad in ({"price": 0}, {"price": -1}, {"daily_rate": 0}, {"duration_days": 0}, {"currency": "GH"}):
+        with pytest.raises(ValidationError):
+            HashrateTierUpdate(**bad)
+    assert HashrateTierUpdate(price=2.5, currency="ghs").price == 2.5

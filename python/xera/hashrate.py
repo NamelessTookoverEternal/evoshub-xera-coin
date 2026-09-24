@@ -1,4 +1,3 @@
-import os
 """
 XERA hashrate service.
 
@@ -24,10 +23,16 @@ check-then-write across two separate .execute() calls for anything that
 affects the canonical allocation.
 """
 
+import logging
+import os
+
 from main import supabase
 from xera.payments.paystack_provider import PaystackHashrateProvider, new_reference
 from xera.payments.crypto_provider import CryptoHashrateProvider, crypto_payments_enabled
 from xera.payments.base import PaymentProviderError
+
+
+logger = logging.getLogger(__name__)
 
 
 class HashrateError(Exception):
@@ -47,6 +52,21 @@ _RESERVATION_ERROR_MAP = {
     "reference_already_used": "reference_already_used",
     "payment_verification_failed": "payment_verification_failed",
 }
+
+
+def paystack_payments_enabled() -> bool:
+    return os.getenv("XERA_HASHRATE_PAYMENTS_ENABLED", "false").strip().lower() == "true"
+
+
+def payment_availability() -> dict:
+    """Which rails the purchase endpoint will currently accept — lets the UI
+    disable Buy instead of letting the person hit a 403."""
+    return {"paystack": paystack_payments_enabled(), "crypto": crypto_payments_enabled()}
+
+
+def _user_email(user_id: int) -> str | None:
+    res = supabase.table("users").select("email").eq("id", user_id).limit(1).execute()
+    return (res.data[0].get("email") if res.data else None) or None
 
 
 def get_tiers(include_disabled: bool = False) -> list[dict]:
@@ -69,6 +89,8 @@ def get_entitlement_state() -> dict:
         "reserved_amount": reserved,
         "cap": cap,
         "remaining": max(cap - reserved, 0),
+        "warning_threshold": warning_threshold,
+        "closure_threshold": closure_threshold,
         "warning_active": reserved >= warning_threshold,
         "warning_countdown": max(closure_threshold - reserved, 0),
         "free_mining_closed": bool(state["free_mining_closed"]) or reserved >= closure_threshold,
@@ -95,7 +117,7 @@ def preview_tier(tier_id: int) -> dict:
 
 def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
     payment_method = payment_method.upper()
-    if payment_method == "PAYSTACK" and os.getenv("XERA_HASHRATE_PAYMENTS_ENABLED", "false").strip().lower() != "true":
+    if payment_method == "PAYSTACK" and not paystack_payments_enabled():
         raise HashrateError("hashrate_payments_not_enabled")
     if payment_method not in _PROVIDERS:
         raise HashrateError("invalid_payment_method")
@@ -103,6 +125,13 @@ def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
         raise HashrateError("crypto_payments_not_yet_configured")
 
     provider = _PROVIDERS[payment_method]
+
+    # Resolve the customer email up front: failing after the reservation
+    # would just park allocation in PENDING_PAYMENT until the sweep runs.
+    email = _user_email(user_id) if payment_method == "PAYSTACK" else None
+    if payment_method == "PAYSTACK" and not email:
+        raise HashrateError("customer_email_required")
+
     reference = new_reference()
 
     try:
@@ -128,6 +157,7 @@ def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
             currency=row["currency"],
             user_id=user_id,
             metadata={"session_id": row["session_id"], "tier_id": tier_id},
+            email=email,
         )
     except PaymentProviderError:
         # Payment could not even be initialized — release the reservation
@@ -168,9 +198,14 @@ def confirm_payment(reference: str, tx_hash: str | None = None, raw_webhook: dic
         }).execute()
     except Exception as e:
         msg = str(e)
-        for code in ("payment_not_found", "payment_already_finalized", "tx_hash_already_used"):
+        # payment_verification_failed = amount/currency Paystack reported
+        # doesn't match the payment row. entitlement_cap_exceeded = a LATE
+        # payment (reservation already swept) that the pool can no longer back.
+        for code in ("payment_not_found", "payment_already_finalized", "tx_hash_already_used", "payment_verification_failed"):
             if code in msg:
                 raise HashrateError(code)
+        if "entitlement_cap_exceeded" in msg:
+            raise HashrateError("late_payment_no_capacity")
         raise
     return res.data[0] if isinstance(res.data, list) else res.data
 
@@ -210,13 +245,22 @@ def handle_paystack_webhook(raw_body: bytes, signature_header: str, payload: dic
         verified = provider.verify(reference=reference)
         if not verified["confirmed"]:
             raise HashrateError("payment_verification_failed")
-        result = confirm_payment(
-            reference,
-            tx_hash=verified.get("tx_hash"),
-            raw_webhook=payload,
-            verified_amount_minor=verified.get("amount_minor"),
-            verified_currency=verified.get("currency"),
-        )
+        try:
+            result = confirm_payment(
+                reference,
+                tx_hash=verified.get("tx_hash"),
+                raw_webhook=payload,
+                verified_amount_minor=verified.get("amount_minor"),
+                verified_currency=verified.get("currency"),
+            )
+        except HashrateError as e:
+            if str(e) == "late_payment_no_capacity":
+                # The customer really paid, but the allocation filled up after
+                # their checkout window lapsed. Retrying can't fix that, so ack
+                # the webhook (200) and leave a loud trail for a manual refund.
+                logger.critical("XERA hashrate: PAID but cannot activate (allocation full) — refund required. reference=%s", reference)
+                return {"handled": True, "needs_refund": True}
+            raise
         return {"handled": True, "session": result}
 
     if event in ("charge.failed",):

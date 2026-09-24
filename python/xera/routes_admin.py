@@ -20,6 +20,7 @@ existing internal-admin convention used elsewhere in the ecosystem.
 
 import re
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
@@ -490,12 +491,14 @@ def admin_list_hashrate_tiers(request: Request, authorization: str = Header(defa
 
 
 class HashrateTierUpdate(BaseModel):
-    price: float | None = None
-    currency: str | None = None
-    duration_days: int | None = None
-    daily_rate: float | None = None
+    # Bounds mirror the CHECK constraints on xera_hashrate_tiers, so a bad
+    # value is a clean 422 here instead of a Postgres error surfacing as a 500.
+    price: float | None = Field(default=None, gt=0, le=1_000_000)
+    currency: str | None = Field(default=None, min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")
+    duration_days: int | None = Field(default=None, gt=0, le=365)
+    daily_rate: float | None = Field(default=None, gt=0, le=1_000_000_000)
     enabled: bool | None = None
-    reason: str | None = None
+    reason: str | None = Field(default=None, max_length=500)
 
 
 @router.patch("/hashrate/tiers/{tier_id}", include_in_schema=False)
@@ -510,7 +513,10 @@ def admin_update_hashrate_tier(tier_id: int, data: HashrateTierUpdate, request: 
     patch = {k: v for k, v in data.model_dump(exclude={"reason"}).items() if v is not None}
     if not patch:
         raise HTTPException(status_code=400, detail="No fields to update.")
+    if "currency" in patch:
+        patch["currency"] = patch["currency"].upper()
     patch["updated_by"] = admin_id
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     new_res = supabase.table("xera_hashrate_tiers").update(patch).eq("id", tier_id).execute()
     new = new_res.data[0] if new_res.data else patch

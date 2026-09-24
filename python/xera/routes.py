@@ -55,6 +55,7 @@ _MINING_ERROR_HTTP = {
     "not_yet_expired":        (400, "This mining session hasn't finished yet."),
     "allocation_exhausted":   (409, "The mining allocation for this phase has been fully distributed."),
     "wallet_not_found":       (404, "Wallet not found."),
+    "free_mining_closed":     (403, "Free mining has closed — the mining allocation is nearly fully distributed. XERA hashrate is still available."),
 }
 
 

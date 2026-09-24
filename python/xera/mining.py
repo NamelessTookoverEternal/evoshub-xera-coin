@@ -92,6 +92,8 @@ def start_session(user_id: int) -> dict:
             raise MiningError("active_session_exists")
         if "wallet_not_active" in msg:
             raise MiningError("wallet_not_active")
+        if "free_mining_closed" in msg:
+            raise MiningError("free_mining_closed")
         raise
 
     return res.data
