@@ -15,7 +15,7 @@ async function req(path, opts = {}) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(opts.headers || {}) }
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.detail || 'Request failed');
+    if (!r.ok) throw new Error(typeof d.detail === 'string' && d.detail ? d.detail : 'Request failed');
     return d;
 }
 
@@ -104,6 +104,7 @@ function switchTab(name) {
     document.querySelectorAll('.bottom-tab-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     $('walletView').querySelector('.scroll').scrollTop = 0;
     if (name === 'wallet') loadWalletTotals();
+    if (name === 'hashrate' && token()) loadHashrate();
 }
 
 document.querySelectorAll('[data-tab]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -245,7 +246,7 @@ async function load() {
         walletTotalsLoaded = false;
         renderProfile();
         loadDaily();
-        loadHashrate();
+        if (!handlePaystackReturn()) loadHashrate();
     } catch (err) {
         showLogin('Please sign in again.');
     }
@@ -474,26 +475,56 @@ const HASHRATE_ART = [
     {name:'The Accelerator', desc:'More speed. More power. More XERA.'},
     {name:'The Visionary', desc:'Leads today. Builds tomorrow.'},
 ];
+const DAY_MS = 86400000;
 
-function hashCurrency(value, currency='GHS') {
+let hashrateTiers = [];
+let hashrateSessions = [];
+let hashratePayments = { paystack: false, crypto: false };
+let hashratePurchasing = false;
+let hashrateLoading = null;
+let hashratePollTimer = null;
+
+// Escape anything that lands in innerHTML. Tier/session fields come from the
+// API (admin-editable), so never interpolate them raw.
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function hashCurrency(value, currency = 'GHS') {
     const n = Number(value || 0);
-    return `${currency === 'GHS' ? 'GHS ' : ''}${n.toLocaleString('en-US', {maximumFractionDigits: 2})}`;
+    return `${currency || 'GHS'} ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+}
+
+function setHashrateNotice(message) {
+    const el = $('hashrateNotice');
+    if (!el) return;
+    el.textContent = message || '';
+    el.hidden = !message;
+}
+
+function hashrateTierLabel(tierId) {
+    const i = hashrateTiers.findIndex((t) => t.id === tierId);
+    return (i >= 0 && HASHRATE_ART[i]) ? HASHRATE_ART[i].name : 'XERA Hashrate';
 }
 
 function renderHashrateState(state) {
     const cap = Number(state?.cap || 0);
     const reserved = Number(state?.reserved_amount || 0);
-    const remaining = Number(state?.remaining ?? Math.max(cap-reserved,0));
-    const pct = cap ? Math.min(100, (reserved/cap)*100) : 0;
+    const remaining = Number(state?.remaining ?? Math.max(cap - reserved, 0));
+    const pct = cap ? Math.min(100, (reserved / cap) * 100) : 0;
+    // Thresholds are admin-configurable in the DB — use the API's values and
+    // only fall back to the documented defaults if an older backend omits them.
+    const warnAt = Number(state?.warning_threshold || 65000000);
+    const closeAt = Number(state?.closure_threshold || 70000000);
+
     $('hashrateAllocationText').textContent = `${fmt(reserved)} / ${fmt(cap)} XERA`;
     $('hashrateAllocationBar').style.width = `${pct}%`;
     $('hashrateRemaining').textContent = `${fmt(remaining)} XERA`;
-    $('hashrateWarning').textContent = state?.warning_active ? 'ACTIVE' : `${fmt(Math.max(65000000-reserved,0))} left`;
-    $('hashrateClosure').textContent = state?.free_mining_closed ? 'CLOSED' : `${fmt(Math.max(70000000-reserved,0))} left`;
+    $('hashrateWarning').textContent = state?.warning_active ? 'ACTIVE' : `${fmt(Math.max(warnAt - reserved, 0))} left`;
+    $('hashrateClosure').textContent = state?.free_mining_closed ? 'CLOSED' : `${fmt(Math.max(closeAt - reserved, 0))} left`;
+
     if (state?.free_mining_closed) {
-        $('hashrateStatusNote').textContent = 'Free mining is closed. Existing and new hashrate sessions are still checked against the remaining allocation; a purchase is rejected if its full 30-day entitlement will not fit.';
+        $('hashrateStatusNote').textContent = 'Free mining is closed. Hashrate purchases are still checked against the remaining allocation; a purchase is rejected if its full 30-day entitlement will not fit.';
     } else if (state?.warning_active) {
-        $('hashrateStatusNote').textContent = `Final-phase warning: ${fmt(Math.max(70000000-reserved,0))} XERA remain before free mining closes.`;
+        $('hashrateStatusNote').textContent = `Final-phase warning: ${fmt(Math.max(closeAt - reserved, 0))} XERA remain before free mining closes.`;
     } else {
         $('hashrateStatusNote').textContent = 'The reservation engine checks the complete 30-day entitlement before accepting a hashrate purchase.';
     }
@@ -501,112 +532,214 @@ function renderHashrateState(state) {
 
 function renderHashrateCards(tiers, state) {
     const grid = $('hashrateGrid');
-    const byId = Array.isArray(tiers) ? tiers : [];
+    const list = Array.isArray(tiers) ? tiers : [];
     grid.innerHTML = '';
-    const cards = Array.from({length:5}, (_, i) => ({tier: byId[i] || null, art: HASHRATE_ART[i], index:i+1}));
-    cards.forEach(({tier, art, index}) => {
+    const remainingAlloc = Number(state?.remaining || 0);
+
+    Array.from({ length: 5 }, (_, i) => i).forEach((i) => {
+        const tier = list[i] || null;
+        const art = HASHRATE_ART[i];
+        const index = i + 1;
         const card = document.createElement('article');
         card.className = `hashrate-card${tier ? '' : ' unavailable'}`;
+
         const daily = tier ? Number(tier.daily_rate) : 0;
         const days = tier ? Number(tier.duration_days || 30) : 30;
-        const maxReward = tier ? Number(tier.maximum_entitlement ?? daily*days) : 0;
-        const supported = !!tier && !!tier.enabled && maxReward <= Number(state?.remaining || 0);
+        const maxReward = tier ? Number(tier.maximum_entitlement ?? daily * days) : 0;
+        const fits = !!tier && !!tier.enabled && maxReward <= remainingAlloc;
+        const canBuy = fits && hashratePayments.paystack;
         const price = tier ? hashCurrency(tier.price, tier.currency) : 'Unavailable';
+
+        let label = 'Buy Hashrate →';
+        if (!tier) label = 'Coming soon';
+        else if (!tier.enabled) label = 'Unavailable';
+        else if (!fits) label = 'Allocation full';
+        else if (!hashratePayments.paystack) label = 'Opening soon';
+
         card.innerHTML = `
           <div class="hashrate-card-art">
             <span class="hashrate-badge">0${index}</span>
-            <img src="/assets/images/hashrate/hashrate-${index}.jpg" alt="XERA — ${art.name}" loading="lazy">
+            <img src="/assets/images/hashrate/hashrate-${index}.jpg" alt="XERA — ${esc(art.name)}" loading="lazy">
             <img class="hashrate-logo" src="/assets/images/xeracoin.jpg" alt="XERA logo">
           </div>
           <div class="hashrate-card-body">
-            <h3>${art.name}</h3>
-            <p class="desc">${art.desc}</p>
+            <h3>${esc(art.name)}</h3>
+            <p class="desc">${esc(art.desc)}</p>
             <div class="hashrate-stats">
-              <div class="hashrate-stat"><span>Daily rate</span><b>${tier ? fmt(daily)+' XERA' : '—'}</b></div>
-              <div class="hashrate-stat"><span>Duration</span><b>${days} Days</b></div>
-              <div class="hashrate-stat"><span>Max reward</span><b>${tier ? fmt(maxReward)+' XERA' : '—'}</b></div>
+              <div class="hashrate-stat"><span>Daily rate</span><b>${tier ? esc(fmt(daily)) + ' XERA' : '—'}</b></div>
+              <div class="hashrate-stat"><span>Duration</span><b>${esc(days)} Days</b></div>
+              <div class="hashrate-stat"><span>Max reward</span><b>${tier ? esc(fmt(maxReward)) + ' XERA' : '—'}</b></div>
             </div>
             <div class="hashrate-price">
-              <div><small>Total price</small><strong>${price}</strong></div>
-              <button class="hashrate-buy" type="button" ${(!tier || !supported) ? 'disabled' : ''}>${!tier ? 'Coming soon' : (supported ? 'Buy Hashrate →' : 'Allocation full')}</button>
+              <div><small>Total price</small><strong>${esc(price)}</strong></div>
+              <button class="hashrate-buy" type="button" ${canBuy ? '' : 'disabled'}>${esc(label)}</button>
             </div>
           </div>`;
-        if (tier && supported) {
-            card.querySelector('.hashrate-buy').addEventListener('click', () => openHashratePurchase(tier));
+        if (canBuy) {
+            card.querySelector('.hashrate-buy').addEventListener('click', () => openHashratePurchase(tier, hashrateTierLabel(tier.id)));
         }
         grid.appendChild(card);
     });
 }
 
-async function loadHashrate() {
+function loadHashrate() {
+    // Share one in-flight request so tab switches, load() and the post-payment
+    // poll can't stack duplicate fetches (the endpoints are rate limited).
+    if (!hashrateLoading) hashrateLoading = doLoadHashrate().finally(() => { hashrateLoading = null; });
+    return hashrateLoading;
+}
+
+async function doLoadHashrate() {
     if (!$('hashrateGrid')) return;
     $('hashrateError').textContent = '';
-    try {
-        const [catalog, sessions] = await Promise.all([
-            req('/api/xera/hashrate/tiers'),
-            req('/api/xera/hashrate/sessions'),
-        ]);
+
+    // allSettled: a failure loading the person's sessions must not hide the
+    // plan cards (and vice versa).
+    const [catalogRes, sessionsRes] = await Promise.allSettled([
+        req('/api/xera/hashrate/tiers'),
+        req('/api/xera/hashrate/sessions'),
+    ]);
+
+    if (catalogRes.status === 'fulfilled') {
+        const catalog = catalogRes.value;
+        hashrateTiers = catalog.tiers || [];
+        hashratePayments = { paystack: !!catalog.payments?.paystack, crypto: !!catalog.payments?.crypto };
         renderHashrateState(catalog.entitlement || {});
-        renderHashrateCards(catalog.tiers || [], catalog.entitlement || {});
-        renderHashrateSessions(sessions.sessions || []);
-    } catch (err) {
-        $('hashrateGrid').innerHTML = '<div class="hashrate-loading">Hashrate service is not available yet. The rest of XERA remains online.</div>';
-        $('hashrateError').textContent = err.message || 'Could not load hashrate plans.';
+        renderHashrateCards(hashrateTiers, catalog.entitlement || {});
+    } else {
+        $('hashrateGrid').innerHTML = '<div class="hashrate-loading">Hashrate plans are not available right now. The rest of XERA remains online.</div>';
+        $('hashrateError').textContent = catalogRes.reason?.message || 'Could not load hashrate plans.';
+    }
+
+    if (sessionsRes.status === 'fulfilled') {
+        hashrateSessions = sessionsRes.value.sessions || [];
+        renderHashrateSessions(hashrateSessions);
+    } else if (catalogRes.status === 'fulfilled') {
+        $('hashrateError').textContent = sessionsRes.reason?.message || 'Could not load your hashrate sessions.';
     }
 }
 
-async function openHashratePurchase(tier) {
+async function openHashratePurchase(tier, label) {
+    if (hashratePurchasing) return;
     $('hashrateError').textContent = '';
-    const methods = window.confirm(`Buy ${tier.name} hashrate for ${hashCurrency(tier.price, tier.currency)}?\n\nOK = Paystack\nCancel = close`);
-    if (!methods) return;
+    const ok = window.confirm(`Buy ${label} hashrate for ${hashCurrency(tier.price, tier.currency)}?\n\nYou'll be taken to Paystack to complete the payment.`);
+    if (!ok) return;
+
+    // One purchase at a time: every request reserves the full 30-day
+    // entitlement server-side, so a double-click would park allocation twice.
+    hashratePurchasing = true;
+    document.querySelectorAll('.hashrate-buy').forEach((b) => { b.disabled = true; });
+    setHashrateNotice('Starting secure checkout…');
+
     try {
         const d = await req('/api/xera/hashrate/purchase', {
-            method:'POST',
-            body:JSON.stringify({tier_id:tier.id, payment_method:'PAYSTACK'})
+            method: 'POST',
+            body: JSON.stringify({ tier_id: tier.id, payment_method: 'PAYSTACK' })
         });
-        if (d?.payment?.authorization_url) {
-            window.location.href = d.payment.authorization_url;
-        } else {
-            throw new Error('Payment session was not created.');
-        }
+        const url = d?.payment?.authorization_url;
+        if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('Payment session was not created.');
+        window.location.href = url; // leave the buttons disabled while the browser navigates away
     } catch (err) {
+        hashratePurchasing = false;
+        setHashrateNotice('');
+        await loadHashrate(); // re-render cards (re-enables Buy, refreshes allocation)
         $('hashrateError').textContent = err.message || 'Could not start the purchase.';
     }
+}
+
+// Mirrors xera_claim_hashrate_reward: rewards accrue in whole 24h periods
+// from started_at, and the full amount unlocks once the session has expired.
+function hashrateAccrual(s, now = Date.now()) {
+    const start = new Date(s.started_at).getTime();
+    const end = new Date(s.expires_at).getTime();
+    const days = Number(s.duration_days || 30);
+    const daily = Number(s.daily_rate || 0);
+    const maxE = Number(s.maximum_entitlement || 0);
+    const rewarded = Number(s.rewarded_amount || 0);
+    const total = Math.max(end - start, 1);
+    const elapsed = Math.max(0, Math.min(total, now - start));
+    const elapsedDays = now >= end ? days : Math.floor(elapsed / DAY_MS);
+    const accrued = Math.min(maxE, elapsedDays * daily);
+    return { end, daily, rewarded, pct: Math.round((elapsed / total) * 100), claimable: Math.max(accrued - rewarded, 0) };
 }
 
 function renderHashrateSessions(sessions) {
     const el = $('hashrateSessions');
     if (!el) return;
-    if (!sessions.length) {
+
+    // Only sessions the person can act on: paid & running, or awaiting payment.
+    // Failed / expired / cancelled / fully-claimed ones have nothing to show
+    // (and a never-started session has no dates to render).
+    const visible = sessions.filter((s) => s.status === 'ACTIVE' || s.status === 'PENDING_PAYMENT');
+    if (!visible.length) {
         el.innerHTML = '<div class="empty"><p>No active hashrate sessions yet.</p></div>';
         return;
     }
-    el.innerHTML = sessions.map((s) => {
-        const start = new Date(s.started_at || s.created_at);
-        const end = new Date(s.expires_at);
-        const now = Date.now();
-        const total = Math.max(end - start, 1);
-        const elapsed = Math.max(0, Math.min(total, now-start));
-        const pct = Math.round((elapsed/total)*100);
-        const daily = Number(s.daily_rate || 0);
-        const accrued = Number(s.accrued_amount || s.claimed_amount || 0);
-        const claimable = !!s.can_claim || (daily > 0 && elapsed >= 86400000 && s.status === 'ACTIVE');
+
+    el.innerHTML = visible.map((s) => {
+        const name = esc(hashrateTierLabel(s.tier_id));
+        if (s.status === 'PENDING_PAYMENT') {
+            return `<div class="hashrate-session">
+              <div class="hashrate-session-head"><b>${name}</b><span class="hashrate-session-status pending">Awaiting payment</span></div>
+              <p class="hashrate-session-note">Paid already? Activation follows Paystack's confirmation and usually takes under a minute.</p>
+            </div>`;
+        }
+        const a = hashrateAccrual(s);
         return `<div class="hashrate-session">
-          <div class="hashrate-session-head"><b>${(s.tier_name || 'XERA Hashrate').replaceAll('<','&lt;')}</b><span class="hashrate-session-status">${s.status || 'ACTIVE'}</span></div>
-          <div class="hashrate-session-bar"><span style="width:${pct}%"></span></div>
+          <div class="hashrate-session-head"><b>${name}</b><span class="hashrate-session-status">Active</span></div>
+          <div class="hashrate-session-bar"><span style="width:${a.pct}%"></span></div>
           <div class="hashrate-session-meta">
-            <div><span>Daily</span><b>${fmt(daily)} XERA</b></div>
-            <div><span>Accrued</span><b>${fmt(accrued)} XERA</b></div>
-            <div><span>Ends</span><b>${end.toLocaleDateString()}</b></div>
+            <div><span>Daily</span><b>${esc(fmt(a.daily))} XERA</b></div>
+            <div><span>Claimed</span><b>${esc(fmt(a.rewarded))} XERA</b></div>
+            <div><span>Ready to claim</span><b>${esc(fmt(a.claimable))} XERA</b></div>
           </div>
-          <div class="hashrate-session-actions">${claimable && s.id ? `<button type="button" data-claim-hashrate="${s.id}">Claim reward</button>` : ''}</div>
+          <div class="hashrate-session-actions">
+            <span class="hashrate-session-ends">Ends ${esc(new Date(a.end).toLocaleDateString())}</span>
+            ${a.claimable > 0 ? `<button type="button" data-claim-hashrate="${esc(s.id)}">Claim ${esc(fmt(a.claimable))} XERA</button>` : ''}
+          </div>
         </div>`;
     }).join('');
+
     el.querySelectorAll('[data-claim-hashrate]').forEach((btn) => btn.addEventListener('click', async () => {
         btn.disabled = true;
-        try { await req(`/api/xera/hashrate/sessions/${btn.dataset.claimHashrate}/claim`, {method:'POST',body:'{}'}); await load(); }
-        catch (e) { $('hashrateError').textContent = e.message; btn.disabled = false; }
+        $('hashrateError').textContent = '';
+        try {
+            await req(`/api/xera/hashrate/sessions/${encodeURIComponent(btn.dataset.claimHashrate)}/claim`, { method: 'POST', body: '{}' });
+            await load(); // refreshes balance, activity and hashrate together
+        } catch (e) {
+            $('hashrateError').textContent = e.message;
+            btn.disabled = false;
+        }
     }));
+}
+
+// Paystack sends the customer back with ?reference=xera-hr-… (see
+// XERA_HASHRATE_CALLBACK_URL on the backend). Activation happens via the
+// webhook, so wait for it here instead of showing a stale "nothing yet" tab.
+function handlePaystackReturn() {
+    const params = new URLSearchParams(location.search);
+    const ref = params.get('reference') || params.get('trxref') || '';
+    if (!ref.startsWith('xera-hr-')) return false;
+
+    history.replaceState({}, '', location.pathname + location.hash);
+    switchTab('hashrate');
+    setHashrateNotice('Confirming your payment…');
+    pollHashrateActivation(0);
+    return true;
+}
+
+async function pollHashrateActivation(attempt) {
+    clearTimeout(hashratePollTimer);
+    await loadHashrate();
+    if (!hashrateSessions.some((s) => s.status === 'PENDING_PAYMENT')) {
+        setHashrateNotice(hashrateSessions.some((s) => s.status === 'ACTIVE') ? 'Payment confirmed — your hashrate is active.' : '');
+        return;
+    }
+    if (attempt >= 12) {
+        setHashrateNotice("Still waiting for Paystack to confirm. Your hashrate activates automatically once it does — check back in a minute.");
+        return;
+    }
+    hashratePollTimer = setTimeout(() => pollHashrateActivation(attempt + 1), 5000);
 }
 
 // ================= EVENTS =================
@@ -622,6 +755,8 @@ $('goLogin').onclick = () => showAuthTab('login');
 function doLogout() {
     clearInterval(tickHandle);
     tickHandle = null;
+    clearTimeout(hashratePollTimer);
+    hashrateSessions = [];
     mining = null;
     dailyData = null;
     walletTotalsLoaded = false;
