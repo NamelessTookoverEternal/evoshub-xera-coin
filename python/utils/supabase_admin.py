@@ -115,6 +115,7 @@ async def create_public_user(
     email: str,
     full_name: str,
     password_hash: str,
+    referral_code: str | None = None,
 ) -> dict:
     """
     Creates a new row in the shared public.users table using the
@@ -145,6 +146,8 @@ async def create_public_user(
         "full_name": full_name,
         "password": password_hash,
     }
+    if referral_code:
+        row["referral_code"] = referral_code
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
@@ -377,3 +380,57 @@ async def insert_admin_chat_message(request_id: str, body: str, admin_user_id: i
 
     data = resp.json()
     return data[0] if isinstance(data, list) else data
+
+
+# ------------------------------------------------------------
+# REFERRALS (shared users.referral_code / users.referred_by)
+# ------------------------------------------------------------
+
+def _service_headers() -> dict:
+    return {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+async def get_public_user_by_referral_code(code: str) -> dict | None:
+    """
+    Exact, case-insensitive lookup of the user who owns a referral code, via
+    the xera_resolve_referral_code Postgres function (no LIKE wildcards —
+    EVOS Data codes contain "_"). Returns only the fields needed to greet an
+    invitee, never the password hash.
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.")
+
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/rpc/xera_resolve_referral_code",
+            headers=_service_headers(),
+            json={"p_code": code},
+        )
+    if resp.status_code != 200:
+        raise RuntimeError(f"Supabase referral lookup failed: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data[0] if data else None
+
+
+async def link_referral(user_id: int, code: str | None, source: str = "xera") -> int | None:
+    """
+    Calls the xera_link_referral Postgres function (see
+    20260930_xera_referrals_v1.sql). First touch wins inside the function, so
+    this is safe to call repeatedly. Returns the referrer's user id or None.
+    """
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.")
+
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/rpc/xera_link_referral",
+            headers=_service_headers(),
+            json={"p_user_id": user_id, "p_code": code, "p_source": source},
+        )
+    if resp.status_code != 200:
+        raise RuntimeError(f"xera_link_referral failed: {resp.status_code} {resp.text}")
+    return resp.json()

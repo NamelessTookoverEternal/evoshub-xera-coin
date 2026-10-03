@@ -28,6 +28,14 @@
 # not a catch-all SPA fallback. Mirrors hub-frontend/vercel.json exactly so
 # the two hosts behave identically during side-by-side testing.
 [[redirects]]
+  from = "/appevoxera"
+  to = "/appevoxera.html"
+  status = 200
+[[redirects]]
+  from = "/home"
+  to = "/home.html"
+  status = 200
+[[redirects]]
   from = "/about"
   to = "/about.html"
   status = 200
@@ -118,3 +126,13 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.evoshub.xyz https://*.fly.dev https://*.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+# Service worker + manifest must always revalidate so installs pick up updates.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache"

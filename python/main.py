@@ -27,6 +27,7 @@ from xera.routes_admin import router as xera_admin_router
 from xera.routes_auth import router as xera_auth_router
 from xera.routes_chain import router as xera_chain_router
 from xera.routes_hashrate import router as xera_hashrate_router
+from xera.routes_referral import router as xera_referral_router
 _IS_PROD = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
 app = FastAPI(
     title="EVOS Business Hub API",
@@ -108,6 +109,7 @@ app.include_router(xera_router, prefix="/api/xera", tags=["xera"])
 app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admin"])
 app.include_router(xera_chain_router, prefix="/api/xera", tags=["xera-chain"])
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
+app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
 @app.get("/")
 @app.head("/")
 def root():

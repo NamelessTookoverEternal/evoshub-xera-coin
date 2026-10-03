@@ -138,6 +138,14 @@ def mining_claim(request: Request, data: ClaimRequest, authorization: str = Head
         result = claim(user_id, data.session_id)
     except MiningError as e:
         _raise_mining_error(e, request, user_id)
+
+    # First completed claim qualifies the referral (and pays rewards if
+    # enabled). Idempotent; bookkeeping failure must never fail the claim.
+    try:
+        supabase.rpc("xera_qualify_referral", {"p_referred_user_id": user_id}).execute()
+    except Exception as e:
+        logger.error("XERA REFERRAL QUALIFY FAILED: %s", str(e))
+
     return {"status": "ok", **result}
 
 
