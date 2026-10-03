@@ -116,6 +116,7 @@ async def create_public_user(
     full_name: str,
     password_hash: str,
     referral_code: str | None = None,
+    phone: str = "",
 ) -> dict:
     """
     Creates a new row in the shared public.users table using the
@@ -145,6 +146,9 @@ async def create_public_user(
         "email": email,
         "full_name": full_name,
         "password": password_hash,
+        # public.users.phone is NOT NULL and shared with EVOSGPT / EVOS Data.
+        # EVOSGPT stores "" when no phone is given, so we do the same.
+        "phone": phone or "",
     }
     if referral_code:
         row["referral_code"] = referral_code

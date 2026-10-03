@@ -152,3 +152,101 @@ def test_validate_known_unknown_and_malformed(client, monkeypatch):
 def test_me_requires_session(client):
     assert client.get("/api/xera/referral/me").status_code == 401
     assert client.get("/api/xera/referral/me", headers={"Authorization": "Bearer nope"}).status_code == 401
+
+
+def test_register_survives_missing_referral_migration(client, auth_stubs, monkeypatch):
+    """Code deployed before the SQL migration: RPC missing + column missing."""
+    async def rpc_missing(_code):
+        raise RuntimeError("Supabase referral lookup failed: 404 function not found")
+
+    created = []
+
+    async def create(**kw):
+        if kw.get("referral_code"):
+            raise RuntimeError("Supabase user insert failed: 400 column users.referral_code does not exist")
+        created.append(kw)
+        return {"id": 42, "username": kw["username"], "email": kw["email"], "full_name": kw["full_name"]}
+
+    monkeypatch.setattr(referrals, "get_public_user_by_referral_code", rpc_missing)
+    monkeypatch.setattr(routes_auth, "create_public_user", create)
+    r = client.post("/api/xera/auth/register", json=_body(ref="EVOS-ABCD-1F3A9C"))
+    assert r.status_code == 200, r.text
+    assert r.json()["token"] and r.json()["referral_code"] is None
+    assert len(created) == 1 and not created[0].get("referral_code")
+
+
+def test_register_retries_without_code_when_insert_rejects_it(client, auth_stubs, monkeypatch):
+    calls = []
+
+    async def create(**kw):
+        calls.append(kw.get("referral_code"))
+        if kw.get("referral_code"):
+            raise RuntimeError("Supabase user insert failed: 400 column users.referral_code does not exist")
+        return {"id": 5, "username": kw["username"], "email": kw["email"], "full_name": kw["full_name"]}
+
+    monkeypatch.setattr(routes_auth, "create_public_user", create)
+    r = client.post("/api/xera/auth/register", json=_body())
+    assert r.status_code == 200
+    assert calls[0] and calls[1] is None   # first with a code, then without
+
+
+def test_unhandled_500_still_carries_cors_headers():
+    """Regression: a crashing route used to reach the browser with no CORS header."""
+    import importlib
+    from fastapi import FastAPI
+    from fastapi.middleware.cors import CORSMiddleware
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from fastapi.responses import JSONResponse
+
+    # Mirror main.py's ordering using the real middleware class source.
+    src = open(os.path.join(os.path.dirname(__file__), "..", "main.py")).read()
+    assert src.index("add_middleware(CatchAllErrorsMiddleware)") < src.index("app.add_middleware(\n    CORSMiddleware")
+
+    class CatchAll(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            try:
+                return await call_next(request)
+            except Exception:
+                return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+    app = FastAPI()
+    app.add_middleware(CatchAll)
+    app.add_middleware(CORSMiddleware, allow_origins=["https://evoshub.xyz"], allow_methods=["POST"], allow_headers=["Content-Type"])
+
+    @app.post("/boom")
+    def boom():
+        raise RuntimeError("x")
+
+    r = TestClient(app, raise_server_exceptions=False).post("/boom", headers={"Origin": "https://evoshub.xyz"})
+    assert r.status_code == 500
+    assert r.headers.get("access-control-allow-origin") == "https://evoshub.xyz"
+
+
+def test_register_always_sends_phone_because_users_phone_is_not_null(client, auth_stubs):
+    """Production bug: XERA signup never sent `phone`; users.phone is NOT NULL -> 500."""
+    r = client.post("/api/xera/auth/register", json=_body())
+    assert r.status_code == 200
+    assert auth_stubs["created"][0]["phone"] == ""          # never None
+
+    r = client.post("/api/xera/auth/register", json=_body(username="ama_b", email="ama@example.com", phone="024 123-4567"))
+    assert r.status_code == 200
+    assert auth_stubs["created"][1]["phone"] == "0241234567"
+
+
+@pytest.mark.parametrize("bad", ["abc", "123", "024123456789012345"])
+def test_register_rejects_malformed_phone(client, auth_stubs, bad):
+    assert client.post("/api/xera/auth/register", json=_body(phone=bad)).status_code == 422
+    assert auth_stubs["created"] == []
+
+
+def test_non_referral_insert_errors_are_not_retried(client, auth_stubs, monkeypatch):
+    calls = []
+
+    async def create(**kw):
+        calls.append(kw)
+        raise RuntimeError("Supabase user insert failed: 400 some other not-null violation")
+
+    monkeypatch.setattr(routes_auth, "create_public_user", create)
+    with pytest.raises(RuntimeError):
+        client.post("/api/xera/auth/register", json=_body())
+    assert len(calls) == 1   # no pointless second attempt

@@ -127,6 +127,7 @@ async function register(e) {
                 full_name: $('regFullName').value,
                 username: $('regUsername').value,
                 email: $('regEmail').value,
+                phone: $('regPhone').value.trim() || undefined,
                 password,
                 ref: $('regRef').value.trim() || undefined,
             })

@@ -51,6 +51,21 @@ async def global_exception_handler(request: Request, exc: Exception):
     # this is exactly what happened with the missing Supabase env vars.
     print(f"Unhandled error on {request.url.path}: {exc!r}")
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+class CatchAllErrorsMiddleware(BaseHTTPMiddleware):
+    """
+    Must be added BEFORE CORSMiddleware so it sits inside it. An unhandled
+    exception otherwise surfaces in Starlette's outermost ServerErrorMiddleware
+    — past CORS — so the 500 has no Access-Control-Allow-Origin header and the
+    browser reports a misleading "blocked by CORS policy" instead of the real
+    error. @app.exception_handler(Exception) alone does NOT fix this.
+    """
+    async def dispatch(self, request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            print(f"Unhandled error on {request.url.path}: {exc!r}")
+            return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+app.add_middleware(CatchAllErrorsMiddleware)
 _allowed_origins = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", "https://evoshub.xyz,http://localhost:5173").split(",")

@@ -101,6 +101,20 @@ class XeraRegisterRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=512)
+    # Optional phone, stored on the shared users row (EVOS Data uses it).
+    phone: str | None = Field(default=None, max_length=20)
+
+    @field_validator("phone")
+    @classmethod
+    def _validate_phone(cls, v: str | None) -> str:
+        v = (v or "").strip()
+        if not v:
+            return ""
+        cleaned = re.sub(r"[\s\-()]", "", v)
+        if not re.match(r"^\+?[0-9]{9,15}$", cleaned):
+            raise ValueError("Enter a valid phone number, e.g. 0241234567.")
+        return cleaned
+
     # Invite code from a referral link. Optional; an unknown/malformed code is
     # ignored rather than blocking signup (the invite page validates it first).
     ref: str | None = Field(default=None, max_length=64)
@@ -144,8 +158,14 @@ async def xera_register(
 
     password_hash = pwd_context.hash(data.password)
 
-    # Every new account gets its own invite code at creation.
-    my_code = await new_unique_code(username)
+    # Every new account gets its own invite code at creation. Referral
+    # plumbing is best-effort: if it isn't set up yet (migration not run) or
+    # hiccups, the account is still created — /referral/me issues the code later.
+    try:
+        my_code = await new_unique_code(username)
+    except Exception as e:
+        logger.error("XERA REFERRAL CODE GENERATION FAILED: %s", str(e))
+        my_code = None
 
     try:
         user = await create_public_user(
@@ -154,9 +174,26 @@ async def xera_register(
             full_name=data.full_name,
             password_hash=password_hash,
             referral_code=my_code,
+            phone=data.phone or "",
         )
     except PublicUserConflict:
         raise HTTPException(status_code=409, detail="Username or email is already taken.")
+    except RuntimeError as e:
+        if not my_code or "referral_code" not in str(e):
+            raise
+        # Most likely users.referral_code doesn't exist yet. Retry without it.
+        logger.error("XERA REGISTER WITH REFERRAL CODE FAILED, RETRYING WITHOUT: %s", str(e))
+        my_code = None
+        try:
+            user = await create_public_user(
+                username=username,
+                email=email,
+                full_name=data.full_name,
+                password_hash=password_hash,
+                phone=data.phone or "",
+            )
+        except PublicUserConflict:
+            raise HTTPException(status_code=409, detail="Username or email is already taken.")
 
     # Attribute to whoever invited them. Sets users.referred_by (shared by
     # every EVOS product) and records the XERA referral. Must never fail the
