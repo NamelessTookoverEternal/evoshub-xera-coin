@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/appevoxera", "destination": "/appevoxera.html" },
+    { "source": "/home", "destination": "/home.html" },
     { "source": "/about", "destination": "/about.html" },
     { "source": "/services", "destination": "/services.html" },
     { "source": "/contact", "destination": "/contact.html" },
@@ -11,6 +13,8 @@
     { "source": "/xera/", "destination": "/xera/index.html" },
     { "source": "/xera/dashboard", "destination": "/xera/app.html" },
     { "source": "/xera/dashboard/", "destination": "/xera/app.html" },
+    { "source": "/xera/invite", "destination": "/xera/invite.html" },
+    { "source": "/xera/invite/", "destination": "/xera/invite.html" },
     { "source": "/xera/whitepaper", "destination": "/xera/whitepaper.html" },
     { "source": "/xera/whitepaper/", "destination": "/xera/whitepaper.html" },
     { "source": "/xera/stats", "destination": "/xera/stats.html" },

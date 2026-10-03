@@ -19,6 +19,49 @@ async function req(path, opts = {}) {
     return d;
 }
 
+// ================= REFERRALS =================
+// The invite code comes from /xera/invite?ref=CODE (or /xera?ref=CODE). It is kept in
+// localStorage so it survives the "install the app" step, then pre-fills sign-up.
+
+const REF_KEY = 'xera_ref';
+const REF_RE = /^[A-Za-z0-9_-]{3,64}$/;
+const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
+const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) { /* storage blocked */ } };
+
+function captureRefFromUrl() {
+    const params = new URLSearchParams(location.search);
+    const fromUrl = (params.get('ref') || '').trim();
+    if (REF_RE.test(fromUrl)) lsSet(REF_KEY, fromUrl);
+    if (params.has('ref')) {
+        params.delete('ref');
+        const qs = params.toString();
+        history.replaceState({}, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    }
+    const saved = lsGet(REF_KEY);
+    return REF_RE.test(saved) ? saved : '';
+}
+
+let refCheckTimer = null;
+async function checkRefInput() {
+    const code = $('regRef').value.trim();
+    const hint = $('regRefHint');
+    hint.textContent = '';
+    if (!code) return;
+    if (!REF_RE.test(code)) { hint.textContent = 'Codes use letters, numbers, dashes and underscores.'; return; }
+    try {
+        const d = await fetch(API + '/api/xera/referral/validate?code=' + encodeURIComponent(code)).then((r) => r.json());
+        if ($('regRef').value.trim() !== code) return; // typed on since
+        hint.textContent = d.valid ? `Invited by ${d.inviter} ✓` : "We don't recognise that code — you can still sign up without it.";
+    } catch (e) { /* offline: stay quiet, signup still works */ }
+}
+
+function prefillRef(code) {
+    if (!code) return;
+    $('regRef').value = code;
+    checkRefInput();
+}
+
 // ================= AUTH VIEW (login / register tabs) =================
 
 function showAuthTab(tab) {
@@ -53,6 +96,7 @@ async function login(e) {
             method: 'POST',
             body: JSON.stringify({ identifier: $('identifier').value, password: $('password').value })
         });
+        lsDel(REF_KEY); // already has an account — a stale invite code shouldn't linger
         localStorage.setItem('xera_evos_token', d.token);
         localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
         await load();
@@ -84,8 +128,10 @@ async function register(e) {
                 username: $('regUsername').value,
                 email: $('regEmail').value,
                 password,
+                ref: $('regRef').value.trim() || undefined,
             })
         });
+        lsDel(REF_KEY); // used — don't re-apply it to anyone else on this device
         localStorage.setItem('xera_evos_token', d.token);
         localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
         await load();
@@ -105,6 +151,7 @@ function switchTab(name) {
     $('walletView').querySelector('.scroll').scrollTop = 0;
     if (name === 'wallet') loadWalletTotals();
     if (name === 'hashrate' && token()) loadHashrate();
+    if (name === 'rewards' && token()) loadReferral();
 }
 
 document.querySelectorAll('[data-tab]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -560,7 +607,6 @@ function renderHashrateCards(tiers, state) {
           <div class="hashrate-card-art">
             <span class="hashrate-badge">0${index}</span>
             <img src="/assets/images/hashrate/hashrate-${index}.jpg" alt="XERA — ${esc(art.name)}" loading="lazy">
-            <img class="hashrate-logo" src="/assets/images/xeracoin.jpg" alt="XERA logo">
           </div>
           <div class="hashrate-card-body">
             <h3>${esc(art.name)}</h3>
@@ -742,10 +788,91 @@ async function pollHashrateActivation(attempt) {
     hashratePollTimer = setTimeout(() => pollHashrateActivation(attempt + 1), 5000);
 }
 
+// ================= REFERRAL CARD (Rewards tab) =================
+
+let referral = null;
+
+function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy') ? resolve() : reject(new Error('copy failed')); }
+        catch (e) { reject(e); } finally { document.body.removeChild(ta); }
+    });
+}
+
+function inviteMessage(link) {
+    return `Join me on XERA — free 24-hour mining and a wallet, by EVOXERA. Install the app and sign up with my invite: ${link}`;
+}
+
+function renderReferral() {
+    if (!referral) return;
+    $('refCode').textContent = referral.code;
+    $('refShare').disabled = false;
+    $('refWhatsApp').hidden = false;
+    $('refWhatsApp').href = 'https://wa.me/?text=' + encodeURIComponent(inviteMessage(referral.link));
+
+    $('refTotal').textContent = fmt(referral.stats.total);
+    $('refQualified').textContent = fmt(referral.stats.qualified);
+    $('refEarned').textContent = fmt(referral.stats.earned);
+
+    const r = referral.rewards || {};
+    $('refBlurb').textContent = (r.enabled && r.referrer_reward > 0)
+        ? `Earn ${fmt(r.referrer_reward)} XERA when a friend you invite completes their first mining session` +
+          (r.referee_reward > 0 ? ` — they get ${fmt(r.referee_reward)} XERA too.` : '.')
+        : "Referral rewards aren't active yet. Friends who join through your link are still linked to you across the EVOS ecosystem.";
+
+    const by = $('refInvitedBy');
+    by.hidden = !referral.invited_by;
+    if (referral.invited_by) by.textContent = `You joined through ${referral.invited_by}'s invite.`;
+
+    const list = $('refRecent');
+    list.replaceChildren();
+    (referral.recent || []).forEach((p) => {
+        const row = document.createElement('div');
+        row.className = 'ref-row';
+        const name = document.createElement('span');
+        name.textContent = p.name;
+        const st = document.createElement('small');
+        st.textContent = (p.status === 'rewarded' || p.status === 'qualified') ? 'Active' : 'Joined';
+        row.append(name, st);
+        list.appendChild(row);
+    });
+}
+
+async function loadReferral() {
+    $('refError').textContent = '';
+    try {
+        referral = await req('/api/xera/referral/me');
+        renderReferral();
+    } catch (e) {
+        $('refError').textContent = e.message;
+    }
+}
+
+$('refCopyCode').onclick = async () => {
+    if (!referral) return;
+    try { await copyText(referral.code); $('refCopyCode').textContent = 'Copied'; }
+    catch (e) { $('refCopyCode').textContent = 'Copy failed'; }
+    setTimeout(() => { $('refCopyCode').textContent = 'Copy'; }, 1800);
+};
+
+$('refShare').onclick = async () => {
+    if (!referral) return;
+    const text = inviteMessage(referral.link);
+    try {
+        if (navigator.share) await navigator.share({ title: 'Join me on XERA', text });
+        else { await copyText(text); $('refError').textContent = ''; $('refShare').textContent = 'Link copied'; setTimeout(() => { $('refShare').textContent = 'Share invite link'; }, 1800); }
+    } catch (e) { /* share sheet dismissed */ }
+};
+
 // ================= EVENTS =================
 
 $('loginForm').addEventListener('submit', login);
 $('registerForm').addEventListener('submit', register);
+$('regRef').addEventListener('input', () => { clearTimeout(refCheckTimer); refCheckTimer = setTimeout(checkRefInput, 400); });
 
 $('tabLogin').onclick = () => showAuthTab('login');
 $('tabRegister').onclick = () => showAuthTab('register');
@@ -777,4 +904,10 @@ $('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecos
 $('miningAction').onclick = () => startOrClaim($('miningAction'), $('error'));
 $('miningActionDash').onclick = () => startOrClaim($('miningActionDash'), $('errorDash'));
 
-if (token()) load();
+const incomingRef = captureRefFromUrl();
+if (token()) {
+    load();
+} else if (incomingRef) {
+    showAuthTab('register');   // invited visitor: land on "Create account" with the code filled in
+    prefillRef(incomingRef);
+}

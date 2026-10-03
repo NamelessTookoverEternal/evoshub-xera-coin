@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#060810"/>
+<meta name="description" content="You've been invited to XERA (EVOXERA) — install the app and create your account."/>
+<meta name="robots" content="noindex"/>
+<title>You're invited to XERA | EVOXERA TECHNOLOGY</title>
+<link rel="manifest" href="/manifest-xera.json"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/xera-icon-192.png"/>
+<link rel="apple-touch-icon" href="/assets/icons/xera-apple-touch-icon.png"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="XERA"/>
+<link href="../../css/xera.css" rel="stylesheet"/>
+<link href="../../css/xera-space.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="xera-space" aria-hidden="true">
+  <div class="xera-nebula xera-nebula-a"></div>
+  <div class="xera-nebula xera-nebula-b"></div>
+  <div class="xera-starfield" id="xeraStarfield"></div>
+</div>
+
+<main class="auth invite">
+  <div class="xera-brand-lockup">XERA (EVOXERA)</div>
+  <div class="brand-mark">
+    <img src="/assets/images/xeracoin.jpg" alt="XERA (EVOXERA)" onerror="this.style.display='none'"/>
+  </div>
+
+  <div class="invite-card">
+    <h1 id="inviteTitle">You're invited to XERA</h1>
+    <p class="sub" id="inviteLine">Install the app, then create your account to start mining.</p>
+
+    <div class="invite-code" id="inviteCodeBox" hidden>
+      <span>Invite code</span>
+      <code id="inviteCode"></code>
+      <button type="button" class="linklike" id="copyInviteCode">Copy</button>
+    </div>
+
+    <ol class="invite-steps">
+      <li class="invite-step" id="stepInstall">
+        <div class="invite-step-head"><span class="invite-num">1</span><b>Download the app</b></div>
+        <button type="button" class="btn" id="installBtn" hidden>Install XERA</button>
+        <p class="invite-note" id="installNote"></p>
+      </li>
+      <li class="invite-step">
+        <div class="invite-step-head"><span class="invite-num">2</span><b>Create your account</b></div>
+        <a class="btn invite-cta" id="createLink" href="/xera">Create account</a>
+        <p class="invite-note" id="createNote">Your invite code is filled in for you.</p>
+      </li>
+    </ol>
+
+    <p class="auth-foot">Already have an EVOS account? <a class="linklike" href="/xera">Sign in</a></p>
+  </div>
+</main>
+
+<script src="../../js/xera-space.js" type="module"></script>
+<script src="../../js/xera-invite.js" type="module"></script>
+</body>
+</html>

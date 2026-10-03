@@ -1,0 +1,421 @@
+/* EVOXERA TECHNOLOGY — launch screen (/) and product hub (/appevoxera)
+   Visual layer only. Self-contained: it does not depend on the shared light/dark
+   theme tokens, so these two pages always render as the dark Evoxera environment.
+   Brand accent is sampled from the logo (core blue #085CDD, highlight #37C1FC). */
+
+@property --lit { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+:root {
+  color-scheme: dark;
+  --ex-void:   #04060A;
+  --ex-ink:    #080B11;
+  --ex-panel:  #0D121B;
+  --ex-line:   rgba(168, 190, 226, .12);
+  --ex-text:   #EDF1F8;
+  --ex-dim:    #8E99AD;
+  --ex-faint:  #5A6578;
+  --ex-blue:   #2F7BFF;      /* logo core blue, lifted for dark surfaces */
+  --ex-cyan:   #4CC3FF;      /* logo highlight */
+  --ex-silver: #C9D4E6;      /* logo chrome */
+  --ex-display: 'Syne', 'Segoe UI', system-ui, sans-serif;
+  --ex-label:   'Michroma', 'Syne', 'Segoe UI', system-ui, sans-serif;
+  --ex-body:    'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ex-ease:    cubic-bezier(.16, 1, .3, 1);
+}
+
+html, body { background: var(--ex-void); color: var(--ex-text); }
+body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+
+/* Shared ambient particle layer */
+.fx-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+
+/* ═════════════ LAUNCH SCREEN ═════════════ */
+.launch {
+  position: fixed; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(70vmax 52vmax at 50% 42%, rgba(8, 92, 221, .10), transparent 62%),
+    var(--ex-void);
+  color: var(--ex-text); text-align: center; overflow: hidden;
+  transition: opacity .45s ease;
+}
+.launch > * { position: relative; z-index: 1; }
+.launch > .fx-canvas { position: absolute; z-index: 0; }
+
+.launch__stage {
+  position: relative; display: grid; place-items: center;
+  width: clamp(270px, 76vw, 460px); aspect-ratio: 1;
+  margin-bottom: clamp(18px, 4vh, 38px);
+  transition: transform .45s var(--ex-ease);
+}
+.launch__aura {
+  position: absolute; inset: -34%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(47, 123, 255, .40), rgba(8, 92, 221, .15) 45%, rgba(8, 92, 221, .05) 66%, transparent 78%);
+  opacity: 0; animation: ex-aura 1.8s ease .1s forwards, ex-breathe 7s ease-in-out 1.9s infinite;
+}
+.launch__orbit {
+  position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none;
+}
+.launch__orbit .ring { fill: none; stroke: url(#ex-ring-grad); stroke-width: 1.2; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: ex-draw 1.7s var(--ex-ease) .45s forwards; }
+.launch__orbit .ring--b { stroke-width: .8; opacity: .55; animation-delay: .65s; }
+.launch__orbit .spin { transform-origin: 200px 200px; animation: ex-spin 28s linear infinite; }
+.launch__orbit .node { fill: var(--ex-cyan); opacity: 0; animation: ex-fade .6s ease 1.6s forwards;
+  filter: drop-shadow(0 0 6px rgba(76, 195, 255, .9)); }
+
+/* The ET emblem presented as a metallic app tile */
+.launch__tile {
+  position: relative; width: 56%; aspect-ratio: 1; border-radius: 27%; overflow: hidden; isolation: isolate;
+  background: linear-gradient(150deg, #F2F6FC 0%, #CBD7EB 55%, #AFC0DE 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .28) inset,
+    0 2px 0 rgba(255, 255, 255, .5) inset,
+    0 40px 90px -24px rgba(47, 123, 255, .65),
+    0 0 0 1px rgba(168, 190, 226, .18);
+  opacity: 0; transform: scale(.84) translateY(14px); filter: blur(10px);
+  animation: ex-arrive 1.15s var(--ex-ease) .15s forwards;
+}
+.launch__logo { display: block; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: multiply; transform: scale(1.04); }
+.launch__tile::after {   /* one pass of light across the metal */
+  content: ''; position: absolute; inset: -20% -60%; z-index: 2; pointer-events: none;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, .75) 50%, transparent 58%);
+  transform: translateX(-70%); animation: ex-sweep 1.2s ease 1.05s forwards;
+}
+
+.launch__title { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.6vh, 14px); font-weight: 400; }
+.launch__welcome {
+  font: 400 clamp(10px, 2.6vw, 12px)/1 var(--ex-label); letter-spacing: .5em; text-indent: .5em;
+  text-transform: uppercase; color: var(--ex-dim);
+  opacity: 0; animation: ex-track 1.1s var(--ex-ease) .95s forwards;
+}
+.launch__name {
+  display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.2vh, 10px);
+  opacity: 0; transform: translateY(12px); animation: ex-rise .9s var(--ex-ease) 1.15s forwards;
+}
+.launch__name b {
+  font: 800 clamp(30px, 10.2vw, 76px)/.95 var(--ex-display); letter-spacing: -.01em; text-transform: uppercase;
+  background: linear-gradient(180deg, #FFFFFF 10%, #A9B8D2 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.launch__name i {
+  font: 400 clamp(10px, 3vw, 15px)/1 var(--ex-label); font-style: normal; letter-spacing: .62em; text-indent: .62em;
+  text-transform: uppercase; color: var(--ex-silver);
+}
+.launch__tag {
+  margin-top: clamp(14px, 2.6vh, 24px);
+  font: 300 clamp(13px, 3.4vw, 16px)/1.5 var(--ex-body); letter-spacing: .08em; color: var(--ex-dim);
+  opacity: 0; animation: ex-fade .9s ease 1.6s forwards;
+}
+.launch__bar {
+  position: absolute !important; left: 50%; bottom: max(34px, env(safe-area-inset-bottom)); width: 96px; height: 1px;
+  margin-left: -48px; background: rgba(168, 190, 226, .14); overflow: hidden;
+}
+.launch__bar::after {
+  content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--ex-cyan));
+  transform: translateX(-100%); animation: ex-bar 2.5s cubic-bezier(.4, 0, .2, 1) .25s forwards;
+}
+.launch__skip {
+  position: absolute !important; top: max(14px, env(safe-area-inset-top)); right: 14px;
+  font: 400 10px/1 var(--ex-label); letter-spacing: .24em; text-transform: uppercase; color: var(--ex-faint);
+  padding: 14px 12px; border-radius: 999px; opacity: 0; animation: ex-fade .5s ease 1s forwards; transition: color .2s;
+}
+.launch__skip:hover { color: var(--ex-text); }
+.launch__skip:focus-visible { color: var(--ex-text); outline: 1px solid var(--ex-cyan); outline-offset: 2px; }
+
+/* Hand-off to the hub: the mark blooms, type lifts, everything fades into the hub's own void */
+.launch.is-leaving { opacity: 0; }
+.launch.is-leaving .launch__stage { transform: scale(1.1); }
+.launch.is-leaving .launch__title, .launch.is-leaving .launch__tag { transform: translateY(-8px); transition: transform .45s ease; }
+
+@keyframes ex-arrive { to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes ex-aura   { to { opacity: 1; } }
+@keyframes ex-breathe { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.06); opacity: .78; } }
+@keyframes ex-draw   { to { stroke-dashoffset: 0; } }
+@keyframes ex-spin   { to { transform: rotate(360deg); } }
+@keyframes ex-sweep  { to { transform: translateX(70%); } }
+@keyframes ex-track  { from { opacity: 0; letter-spacing: .9em; } to { opacity: 1; letter-spacing: .5em; } }
+@keyframes ex-rise   { to { opacity: 1; transform: none; } }
+@keyframes ex-fade   { to { opacity: 1; } }
+@keyframes ex-bar    { to { transform: translateX(0); } }
+
+/* ═════════════ PRODUCT HUB (/appevoxera) ═════════════ */
+.ehub {
+  --pad: clamp(20px, 5vw, 56px);
+  position: relative; min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
+  padding: 0 var(--pad) max(22px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(60vmax 46vmax at 14% -12%, rgba(8, 92, 221, .20), transparent 62%),
+    radial-gradient(46vmax 36vmax at 108% 104%, rgba(47, 123, 255, .08), transparent 64%),
+    var(--ex-void);
+}
+.ehub::before {   /* quiet structural frame: four hairline columns fading toward the base */
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: linear-gradient(90deg, rgba(168, 190, 226, .055) 1px, transparent 1px);
+  background-size: 25% 100%;
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 78%); mask-image: linear-gradient(180deg, #000, transparent 78%);
+}
+.ehub > * { position: relative; z-index: 1; }
+.ehub > .fx-canvas { position: absolute; z-index: 0; }
+
+/* Header */
+.ehub__top {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: calc(100% + var(--pad) * 2); margin: 0 calc(var(--pad) * -1);
+  padding: max(14px, env(safe-area-inset-top)) var(--pad) 14px;
+  background: linear-gradient(180deg, rgba(4, 6, 10, .88), rgba(4, 6, 10, 0));
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent); mask-image: linear-gradient(180deg, #000 70%, transparent);
+}
+.ehub__brand { display: flex; align-items: center; gap: 14px; min-width: 0; border-radius: 12px; }
+.ehub__brand:focus-visible { outline: 1px solid var(--ex-cyan); outline-offset: 6px; }
+.ehub__mark {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: 27%;
+  background: url('/assets/icons/icon-192.png') center / 112% no-repeat, linear-gradient(150deg, #F2F6FC, #AFC0DE);
+  background-blend-mode: multiply;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .22) inset, 0 8px 26px -6px rgba(47, 123, 255, .6);
+}
+.ehub__brand-name { display: flex; flex-direction: column; gap: 5px; color: var(--ex-text); font: 400 14px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase; }
+.ehub__brand-name small { font: 400 9px/1 var(--ex-label); letter-spacing: .42em; color: var(--ex-dim); }
+.ehub__actions { display: flex; align-items: center; gap: 18px; }
+.ehub__status { display: none; align-items: center; gap: 10px; font: 400 9px/1 var(--ex-label); letter-spacing: .34em; text-transform: uppercase; color: var(--ex-faint); }
+.ehub__status i { width: 5px; height: 5px; border-radius: 50%; background: var(--ex-cyan); box-shadow: 0 0 10px var(--ex-cyan); animation: ex-pulse 3.2s ease-in-out infinite; }
+.ehub__install {
+  display: none; align-items: center; gap: 8px; cursor: pointer;
+  font: 400 10px/1 var(--ex-label); letter-spacing: .18em; text-transform: uppercase; color: var(--ex-text);
+  padding: 12px 16px; border-radius: 999px; background: rgba(168, 190, 226, .06); border: 1px solid var(--ex-line);
+  transition: border-color .25s, background .25s;
+}
+.ehub__install.is-available { display: inline-flex; }
+.ehub__install:hover { border-color: rgba(76, 195, 255, .55); background: rgba(47, 123, 255, .12); }
+.ehub__install:focus-visible { outline: 1px solid var(--ex-cyan); outline-offset: 3px; }
+
+/* Hero */
+.ehub__main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: clamp(28px, 7vh, 84px) 0 clamp(28px, 5vh, 48px); }
+.ehub__hero { margin-bottom: clamp(32px, 6vh, 64px); }
+.ehub__title {
+  font: 800 clamp(28px, 8.7vw, 56px)/.94 var(--ex-display); letter-spacing: -.025em; text-transform: uppercase;
+  color: var(--ex-text);
+}
+.ehub__title .ln { display: block; overflow: hidden; padding-bottom: .06em; }
+.ehub__title .ln > span {   /* gradient lives on the element that owns the text, so the reveal animation can't break the clip */
+  display: block; animation: ex-line 1.1s var(--ex-ease) both;
+  background: linear-gradient(180deg, #FFFFFF 25%, #93A3BF 130%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+}
+.ehub__title .ln:nth-child(2) > span { animation-delay: .09s; }
+.ehub__sub { margin-top: clamp(18px, 3vh, 28px); max-width: 34ch; font: 300 clamp(15px, 2vw, 18px)/1.55 var(--ex-body); color: var(--ex-dim); animation: ex-up .9s var(--ex-ease) .3s both; }
+
+/* Product deck */
+.ehub__deck { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+
+.ptile {
+  --cut: 30px; --rgb: 47, 123, 255; --mx: 50%; --my: 28%; --px: .5; --py: .3;
+  position: relative; display: block; padding: 1px; isolation: isolate; cursor: pointer;
+  color: inherit; text-decoration: none;
+  background:
+    radial-gradient(380px circle at var(--mx) var(--my), rgba(var(--rgb), calc(var(--lit) * .95)), transparent 62%),
+    linear-gradient(160deg, rgba(190, 210, 245, .24), rgba(190, 210, 245, .05) 40%, rgba(190, 210, 245, .12));
+  clip-path: polygon(0 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% 100%, var(--cut) 100%, 0 calc(100% - var(--cut)));
+  transition: --lit .6s ease, transform .6s var(--ex-ease);
+  animation: ex-up .9s var(--ex-ease) both;
+}
+.ptile:nth-child(1) { animation-delay: .35s; }
+.ptile:nth-child(2) { animation-delay: .43s; }
+.ptile:nth-child(3) { animation-delay: .51s; }
+.ptile:nth-child(4) { animation-delay: .57s; }
+.ptile--data { --rgb: 51, 224, 174; }
+.ptile--xera { --rgb: 124, 139, 255; }
+.ptile--gpt  { --rgb: 255, 176, 72; }
+.ptile:hover, .ptile:focus-visible { --lit: 1; transform: translateY(-3px); }
+.ptile:focus-visible { outline: none; }
+.ptile:focus-visible .ptile__face { box-shadow: inset 0 0 0 1px rgba(var(--rgb), .7); }
+.ptile:active { transform: scale(.988); transition-duration: .15s; }
+
+.ptile__face {
+  min-width: 0; position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 28px;
+  height: 100%; min-height: var(--h, 260px); padding: clamp(22px, 2.6vw, 34px); overflow: hidden;
+  background:
+    radial-gradient(520px circle at var(--mx) var(--my), rgba(var(--rgb), calc(var(--lit) * .13)), transparent 62%),
+    radial-gradient(90% 70% at 100% 0%, rgba(var(--rgb), .07), transparent 60%),
+    linear-gradient(180deg, #0E141F, #090D14);
+  clip-path: polygon(0 0, calc(100% - var(--cut) + .6px) 0, 100% calc(var(--cut) - .6px), 100% 100%, calc(var(--cut) - .6px) 100%, 0 calc(100% - var(--cut) + .6px));
+}
+.ptile__art {
+  position: absolute; z-index: 0; right: -6%; top: 6%; width: min(78%, 460px); height: auto; pointer-events: none;
+  color: rgb(var(--rgb)); opacity: .55;
+  transform: translate(calc((var(--px) - .5) * -16px), calc((var(--py) - .5) * -12px)) scale(calc(1 + var(--lit) * .035));
+  transition: opacity .6s ease, transform .9s var(--ex-ease);
+}
+.ptile:hover .ptile__art, .ptile:focus-visible .ptile__art { opacity: .95; }
+.ptile__face > :not(.ptile__art) { position: relative; z-index: 1; }
+
+/* Glass logo plate: the product mark sits submerged in frosted glass, and clears on hover */
+.ptile__face > .ptile__glass {
+  position: absolute; z-index: 1; top: clamp(18px, 2.4vw, 30px); right: clamp(18px, 2.4vw, 30px);
+  width: clamp(76px, 20vw, 112px); aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; pointer-events: none;
+  border-radius: 24px; color: rgb(var(--rgb));
+  background: linear-gradient(145deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .03) 55%, rgba(255, 255, 255, .08));
+  -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -10px 24px rgba(var(--rgb), .08), 0 14px 34px rgba(0, 0, 0, .35), 0 0 calc(var(--lit) * 36px) rgba(var(--rgb), .25);
+  transition: box-shadow .6s ease, border-color .5s ease;
+}
+.ptile__glass::before { /* frost grain + soft top-left glare */
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(120% 80% at 18% 0%, rgba(255, 255, 255, .28), transparent 55%);
+}
+.ptile__glass::after { /* specular sweep on hover */
+  content: ''; position: absolute; inset: -20% auto -20% -60%; width: 45%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .35), transparent); transform: skewX(-18deg) translateX(0);
+  transition: transform 1s var(--ex-ease); opacity: .8;
+}
+.ptile__logo {
+  position: relative; width: 56%; height: 56%; opacity: .38; filter: blur(2.2px) drop-shadow(0 0 8px rgba(var(--rgb), .5));
+  transform: scale(.94); transition: opacity .6s ease, filter .6s ease, transform .8s var(--ex-ease);
+}
+.ptile:hover .ptile__logo, .ptile:focus-visible .ptile__logo { opacity: 1; filter: blur(0) drop-shadow(0 0 10px rgba(var(--rgb), .7)); transform: scale(1); }
+.ptile:hover .ptile__glass, .ptile:focus-visible .ptile__glass { border-color: rgba(var(--rgb), .55); }
+.ptile:hover .ptile__glass::after, .ptile:focus-visible .ptile__glass::after { transform: skewX(-18deg) translateX(520%); }
+/* Real logo image inside the glass (shown once it has loaded; the glyph above is the fallback) */
+.ptile__img {
+  position: absolute; inset: 20%; width: 60%; height: 60%; object-fit: cover; border-radius: 22%; display: none; user-select: none;
+  opacity: .42; filter: blur(2.4px) saturate(.9); transform: scale(.94);
+  transition: opacity .6s ease, filter .6s ease, transform .8s var(--ex-ease);
+}
+.ptile--xera .ptile__img { border-radius: 50%; transform: scale(.94); }
+.ptile__glass.has-img .ptile__img { display: block; }
+.ptile__glass.has-img .ptile__logo { display: none; }
+.ptile:hover .ptile__img, .ptile:focus-visible .ptile__img { opacity: 1; filter: blur(0) saturate(1.05); transform: scale(1); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ptile__face > .ptile__glass { background: rgba(20, 28, 42, .78); }
+}
+
+.ptile__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ptile__tag {
+  display: inline-flex; align-items: center; gap: 9px; font: 400 9px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase;
+  color: var(--ex-silver); padding: 9px 12px 9px 11px; border: 1px solid var(--ex-line); border-radius: 999px; background: rgba(4, 6, 10, .45);
+}
+.ptile__tag i { width: 5px; height: 5px; border-radius: 50%; background: rgb(var(--rgb)); box-shadow: 0 0 10px rgb(var(--rgb)); }
+
+.ptile__body { display: flex; flex-direction: column; gap: 10px; }
+.ptile__name { font: 800 clamp(24px, 8vw, 56px)/.92 var(--ex-display); letter-spacing: -.02em; text-transform: uppercase; color: var(--ex-text); }
+.ptile__desc { font: 300 clamp(15px, 1.7vw, 17px)/1.4 var(--ex-body); color: var(--ex-dim); }
+.ptile__open {
+  display: flex; align-items: center; gap: 16px; margin-top: 18px;
+  font: 400 10px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase; color: var(--ex-text);
+}
+.ptile__open::before {
+  content: ''; order: 2; flex: 1; height: 1px; max-width: 120px; transform-origin: left; transform: scaleX(.3);
+  background: linear-gradient(90deg, rgba(var(--rgb), .9), transparent); transition: transform .7s var(--ex-ease);
+}
+.ptile__open svg {
+  order: 3; width: 38px; height: 38px; padding: 11px; border-radius: 50%; border: 1px solid var(--ex-line);
+  color: var(--ex-text); transition: background .35s, border-color .35s, transform .5s var(--ex-ease), color .35s;
+}
+.ptile:hover .ptile__open::before, .ptile:focus-visible .ptile__open::before { transform: scaleX(1); }
+.ptile:hover .ptile__open svg, .ptile:focus-visible .ptile__open svg { background: rgb(var(--rgb)); border-color: transparent; color: #04060A; transform: translateX(4px); }
+
+/* Product art animation (ambient, slow) */
+.art-orbit { transform-origin: 200px 150px; animation: ex-spin 46s linear infinite; }
+.art-arc--drift { stroke-dasharray: 3 9; animation: ex-drift 22s linear infinite; }
+
+/* Coming-soon modules */
+.ptile--soon { --cut: 16px; --h: 84px; cursor: default; background: linear-gradient(160deg, rgba(190, 210, 245, .12), rgba(190, 210, 245, .03)); animation-name: ex-up; }
+.ptile--soon:hover { --lit: 0; transform: none; }
+.ptile--soon .ptile__face {
+  --rgb: 150, 170, 205; min-height: var(--h); flex-direction: row; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 22px;
+  background: repeating-linear-gradient(135deg, rgba(168, 190, 226, .028) 0 2px, transparent 2px 9px), #090D14;
+}
+.ptile--soon .ptile__label { font: 400 10px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase; color: var(--ex-faint); }
+.ptile--soon .ptile__slot { width: 22px; height: 22px; border-radius: 50%; border: 1px dashed rgba(168, 190, 226, .3); position: relative; flex-shrink: 0; }
+.ptile--soon .ptile__slot::after { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: rgba(168, 190, 226, .35); }
+
+/* Footer */
+.ehub__foot {
+  width: 100%; max-width: 1280px; margin: 0 auto; padding-top: 18px; border-top: 1px solid var(--ex-line);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-size: 12.5px; color: var(--ex-faint);
+}
+.ehub__foot a { transition: color .2s; }
+.ehub__foot a:hover { color: var(--ex-text); }
+.ehub__foot a:focus-visible { outline: 1px solid var(--ex-cyan); outline-offset: 3px; color: var(--ex-text); }
+
+/* EvosData availability dialog */
+.edlg { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(2, 4, 8, .72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.edlg.is-open { display: flex; animation: ex-fade-in .3s ease both; }
+.edlg__panel {
+  width: 100%; max-width: 400px; padding: 30px 26px 26px; text-align: center; color: var(--ex-text);
+  background: linear-gradient(180deg, #0F1520, #0A0E16); border: 1px solid var(--ex-line); border-radius: 24px;
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .9), 0 0 80px -30px rgba(47, 123, 255, .35);
+}
+.edlg__panel h2 { font: 800 21px/1.2 var(--ex-display); letter-spacing: -.01em; margin-bottom: 12px; }
+.edlg__panel p { font: 300 15px/1.55 var(--ex-body); color: var(--ex-dim); }
+.edlg__btns { display: flex; margin-top: 24px; }
+.edlg__ok {
+  flex: 1; cursor: pointer; padding: 15px 20px; border: 0; border-radius: 999px; color: #04060A;
+  font: 400 10px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--ex-cyan), var(--ex-blue)); transition: transform .2s, box-shadow .3s;
+}
+.edlg__ok:hover { box-shadow: 0 10px 30px -8px rgba(47, 123, 255, .8); }
+.edlg__ok:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+@keyframes ex-line  { from { transform: translateY(105%); } to { transform: none; } }
+@keyframes ex-up    { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes ex-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ex-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes ex-drift { to { stroke-dashoffset: -240; } }
+
+/* ─── Mobile (recomposed, not shrunk): full-bleed tactile panels, thumb-height actions ─── */
+@media (max-width: 639px) {
+  .ehub__main { padding-top: 20px; }
+  .ehub__hero { margin-bottom: 30px; }
+  .ehub__deck { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .ptile--data, .ptile--xera, .ptile--gpt { grid-column: 1 / -1; --cut: 26px; --h: 268px; }
+  .ptile__art { right: -14%; top: 3%; width: 88%; }
+  .ptile__open { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--ex-line); justify-content: space-between; }
+  .ptile__open::before { display: none; }
+  .ptile__open svg { order: 0; width: 44px; height: 44px; padding: 13px; }
+  .ptile--soon { --h: 72px; grid-column: 1 / -1; }
+  .ptile--soon .ptile__face { padding: 14px 16px; }
+  .ptile--soon .ptile__label { font-size: 8.5px; letter-spacing: .2em; white-space: nowrap; }
+  .ptile--soon .ptile__slot { display: none; }
+  .ehub__foot { flex-direction: column; gap: 6px; }
+}
+
+/* Tablet and up */
+@media (min-width: 640px) {
+  .ehub__deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ptile--data, .ptile--xera, .ptile--gpt { grid-column: 1 / -1; --h: 280px; }
+  .ptile--soon { grid-column: 1 / -1; }
+  .ehub__status { display: inline-flex; }
+  .ehub__title { font-size: clamp(40px, 7.4vw, 100px); }
+}
+
+/* Desktop: an asymmetric operating-surface layout */
+@media (min-width: 980px) {
+  .ehub__deck { grid-template-columns: repeat(24, minmax(0, 1fr)); grid-template-rows: 300px 300px auto; gap: 16px; }
+  .ptile--data { grid-column: 1 / 15; grid-row: 1 / 3; --h: 100%; --cut: 40px; }
+  .ptile--xera { grid-column: 15 / 25; grid-row: 1; --h: 100%; --cut: 34px; }
+  .ptile--gpt  { grid-column: 15 / 25; grid-row: 2; --h: 100%; --cut: 34px; }
+  .ptile--soon { grid-column: 1 / 25; grid-row: 3; }
+  .ptile--data .ptile__name { font-size: clamp(40px, 4.3vw, 66px); }
+  .ptile--data .ptile__art { width: min(70%, 520px); top: 4%; right: -4%; }
+  .ptile--xera .ptile__name { font-size: clamp(40px, 4.2vw, 64px); }
+  .ptile--xera .ptile__art { width: 86%; right: -16%; top: 4%; }
+  .ptile--gpt .ptile__name { font-size: clamp(36px, 3.8vw, 58px); }
+  .ptile--gpt .ptile__art { width: 72%; right: -10%; top: 2%; }
+}
+
+/* Reduced motion: present everything immediately, nothing drifts */
+@media (prefers-reduced-motion: reduce) {
+  .launch__aura, .launch__tile, .launch__welcome, .launch__name, .launch__tag, .launch__skip, .launch__orbit .node,
+  .ptile, .ehub__title .ln > span, .ehub__sub { animation: none; opacity: 1; transform: none; filter: none; }
+  .launch__orbit .ring { animation: none; stroke-dashoffset: 0; }
+  .launch__orbit .spin, .art-orbit, .art-arc--drift, .ehub__status i { animation: none; }
+  .launch__tile::after, .launch__bar { display: none; }
+  .launch, .launch.is-leaving .launch__stage { transition: none; transform: none; }
+  .ptile, .ptile__art, .ptile__logo, .ptile__glass, .ptile__glass::after, .ptile__img { transition: none; }
+  .ptile:hover, .ptile:focus-visible { transform: none; }
+}
