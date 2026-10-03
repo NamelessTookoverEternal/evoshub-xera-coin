@@ -1,0 +1,20 @@
+{
+  "id": "/xera",
+  "name": "XERA (EVOXERA) Token",
+  "short_name": "XERA",
+  "description": "XERA (EVOXERA) Token — wallet and 24-hour mining by Evoxera Technology.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/xera",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#060810",
+  "theme_color": "#060810",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    { "src": "/assets/icons/xera-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/xera-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icons/xera-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
