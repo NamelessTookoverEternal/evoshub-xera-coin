@@ -29,6 +29,7 @@ from xera.chain.addresses import (
 from xera.chain.nonces import issue_nonce, consume_nonce, NonceError
 from xera.chain.bnb_verify import build_link_message, verify_bnb_signature
 from xera.chain.ton_verify import verify_ton_ownership
+from xera.chain.rpc import first_row
 
 _WALLET_CHANGE_COOLDOWN_SECONDS = int(os.getenv("XERA_WALLET_CHANGE_COOLDOWN_SECONDS", str(24 * 60 * 60)))
 
@@ -115,7 +116,8 @@ def verify_and_link(user_id: int, chain: str, address: str, nonce: str, **proof)
                 raise WalletLinkError(code)
         raise
 
-    return _shape(res.data[0]) if res.data else {}
+    row = first_row(res.data)
+    return _shape(row) if row else {}
 
 
 # ------------------------------------------------------------
@@ -139,7 +141,8 @@ def set_manual_wallet(user_id: int, chain: str, address: str) -> dict:
                 raise WalletLinkError(code)
         raise
 
-    return _shape(res.data[0]) if res.data else {}
+    row = first_row(res.data)
+    return _shape(row) if row else {}
 
 
 def remove_wallet(user_id: int, chain: str) -> dict:
@@ -155,7 +158,8 @@ def remove_wallet(user_id: int, chain: str) -> dict:
             if code in msg:
                 raise WalletLinkError(code)
         raise
-    return _shape(res.data[0]) if res.data else {}
+    row = first_row(res.data)
+    return _shape(row) if row else {}
 
 
 # ------------------------------------------------------------

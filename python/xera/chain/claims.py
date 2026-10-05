@@ -14,6 +14,7 @@ import time
 from eth_utils import keccak
 
 from main import supabase
+from xera.chain.rpc import first_row
 from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_chain_id, ChainConfigError
 from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
@@ -271,7 +272,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
             "p_transaction_hash": transaction_hash,
             "p_block_number": result["block_number"],
         }).execute()
-        return confirmed.data[0] if confirmed.data else row
+        return first_row(confirmed.data) or row
 
     if row["chain"] == "TON":
         expected_total_wei = _to_wei(row["claimed_amount"])
@@ -292,7 +293,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
             "p_transaction_hash": transaction_hash,
             "p_block_number": result["block_number"],
         }).execute()
-        return confirmed.data[0] if confirmed.data else row
+        return first_row(confirmed.data) or row
 
     raise ClaimError("unsupported_chain")
 

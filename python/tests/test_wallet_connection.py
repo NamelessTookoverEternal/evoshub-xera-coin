@@ -152,3 +152,33 @@ def test_chain_config_is_public_and_exposes_no_secrets(api, monkeypatch):
 
     monkeypatch.setenv("XERA_BNB_CHAIN_ID", "56")
     assert api.client.get("/api/xera/chain/config").json()["bnb"]["chain_id"] == 56
+
+
+# ---- regression: PostgREST returns a single-composite RPC result as ONE OBJECT ----
+# `RETURNS xera_external_wallets` (not SETOF) -> res.data is a dict, not a list.
+# `res.data[0]` on it raised KeyError(0) AFTER the DB write had committed, so the
+# user saw a 500 for an operation that actually succeeded (and a retry then hit
+# the wallet-change cooldown -> 429).
+
+def test_wallet_rpcs_that_return_a_single_object_do_not_500(api):
+    def as_object(handler):
+        def wrapped(p):
+            res = handler(p)
+            res.data = res.data[0]          # list -> bare dict, like real PostgREST
+            return res
+        return wrapped
+
+    api.fake.rpc_handlers["xera_set_manual_wallet"] = as_object(api.fake.rpc_handlers["xera_set_manual_wallet"])
+    api.fake.rpc_handlers["xera_remove_external_wallet"] = as_object(api.fake.rpc_handlers["xera_remove_external_wallet"])
+
+    addr = Account.create().address
+    r = api.client.post("/api/xera/wallet/manual", headers=api.h(1), json={"chain": "BNB", "address": addr})
+    assert r.status_code == 200 and r.json()["wallet"]["address"] == addr
+    assert api.client.delete("/api/xera/wallet/BNB", headers=api.h(1)).status_code == 200
+
+
+def test_first_row_accepts_list_dict_and_empty():
+    from xera.chain.rpc import first_row
+    assert first_row([{"a": 1}]) == {"a": 1}
+    assert first_row({"a": 1}) == {"a": 1}
+    assert first_row([]) is None and first_row(None) is None

@@ -45,6 +45,7 @@ an indication that TON is currently supported.
 """
 
 from main import supabase
+from xera.chain.rpc import first_row
 from xera.chain.config import get_chain_config, ChainConfigError
 from xera.chain.onchain_indexer import verify_bnb_legacy_claim_tx, IndexerError
 
@@ -166,4 +167,4 @@ def confirm_claim(user_id: int, transaction_hash: str, chain: str) -> dict:
         "p_chain": chain,
         "p_tx_hash": transaction_hash,
     }).execute()
-    return result.data[0] if result.data else row
+    return first_row(result.data) or row
