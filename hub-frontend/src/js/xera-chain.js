@@ -268,27 +268,32 @@ function addressRow(w) {
             setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
         },
     });
-    return h('div', { class: 'chain-addr-row' }, h('span', { class: 'chain-wallet-addr', title: full, text: shorten(full) }), copyBtn);
+    return h('div', { class: 'chain-addr-row' }, h('span', { class: 'chain-wallet-addr', title: full, text: full }), copyBtn);
 }
 
 function manualForm(chain, w) {
     const isBnb = chain === 'BNB';
-    const input = h('input', {
-        type: 'text', id: `chainManualInput${chain}`, class: 'chain-manual-input',
-        placeholder: isBnb ? '0x…' : 'UQ… or EQ…',
-        autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', inputmode: 'text',
+    const existing = w && w.connection_method === 'manual' ? (w.display_address || w.address) : '';
+    // A textarea (not a one-line input) so the WHOLE pasted address is visible —
+    // it wraps onto a second line instead of scrolling out of sight, on any screen.
+    const input = h('textarea', {
+        id: `chainManualInput${chain}`, class: 'chain-manual-input', rows: '2',
+        placeholder: isBnb ? 'Paste your BNB address (0x…)' : 'Paste your TON address (UQ… or EQ…)',
+        autocomplete: 'off', autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
+        enterkeyhint: 'done',
         'aria-label': `${chain} wallet address (public address only)`,
-        value: w && w.connection_method === 'manual' ? (w.display_address || w.address) : '',
     });
+    input.value = existing; // textarea content is a property, not an attribute
+    const grow = () => { input.style.height = 'auto'; input.style.height = `${Math.min(input.scrollHeight + 2, 160)}px`; };
+    input.addEventListener('input', grow);
+    requestAnimationFrame(grow);
     const submit = () => addManualWallet(chain, input);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } });
     return h('div', { class: 'chain-manual' },
         h('div', { class: 'chain-or', text: 'or' }),
-        h('label', { class: 'chain-manual-label', for: `chainManualInput${chain}`, text: `Manual ${chain} wallet address` }),
-        h('div', { class: 'chain-manual-row' },
-            input,
-            h('button', { type: 'button', class: 'btn btn-sm', text: w && w.connection_method === 'manual' ? 'Update address' : 'Add wallet', onclick: submit }),
-        ),
+        h('label', { class: 'chain-manual-label', for: `chainManualInput${chain}`, text: `Add ${chain} wallet address manually` }),
+        input,
+        h('button', { type: 'button', class: 'btn btn-sm chain-manual-submit', text: w && w.connection_method === 'manual' ? 'Update address' : 'Add wallet', onclick: submit }),
         h('p', { class: 'chain-manual-hint', text: 'Public address only — never a seed phrase or private key. A typed address is saved as unverified.' }),
     );
 }
