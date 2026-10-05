@@ -21,7 +21,7 @@ class IndexerError(Exception):
 
 
 def _bnb_rpc_url() -> str:
-    url = os.getenv("BNB_RPC_URL", "")
+    url = os.getenv("XERA_BNB_RPC_URL") or os.getenv("BNB_RPC_URL", "")
     if not url:
         raise IndexerError("bnb_rpc_not_configured")
     return url

@@ -14,7 +14,7 @@ import time
 from eth_utils import keccak
 
 from main import supabase
-from xera.chain.config import get_chain_config, require_onchain_enabled, ChainConfigError
+from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_chain_id, ChainConfigError
 from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
 from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, IndexerError
@@ -62,8 +62,35 @@ def _get_verified_wallet(user_id: int, chain: str) -> dict:
         .execute()
     )
     if not res.data:
-        raise ClaimError("no_verified_wallet")
+        # A manually-entered address (status PENDING) is stored and displayed
+        # but is NOT proof of ownership, so it can never satisfy a claim.
+        # Report that precisely instead of a generic "no wallet".
+        try:
+            manual = (
+                supabase.table("xera_external_wallets").select("id")
+                .eq("user_id", user_id).eq("chain", chain.upper()).eq("status", "PENDING")
+                .limit(1).execute()
+            )
+        except Exception:
+            manual = None
+        raise ClaimError("wallet_not_verified" if manual is not None and manual.data else "no_verified_wallet")
     return res.data[0]
+
+
+def _sweep_expired_claims() -> None:
+    """
+    Runs the (already-existing) deadline sweep: SIGNED claims whose signature
+    deadline has passed become EXPIRED and release their slice of the global
+    allocation. The migration documents this as a periodic job, but nothing
+    schedules it — without this a user who rejects the wallet popup would be
+    stuck behind their own un-submitted signature forever. An expired
+    signature can no longer be executed on-chain, so flipping the row is safe.
+    Non-fatal: if it fails the caller just sees the claim as still in progress.
+    """
+    try:
+        supabase.rpc("xera_expire_stale_onchain_claims", {}).execute()
+    except Exception:
+        pass
 
 
 def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
@@ -76,8 +103,29 @@ def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
     tx = _get_confirmed_mining_tx(user_id, reference_id)
     amount_decimal = tx["amount"]
 
-    existing = supabase.table("xera_onchain_claims").select("id,chain,status").eq("reference_id", reference_id).limit(1).execute()
+    existing = supabase.table("xera_onchain_claims").select("id,user_id,chain,status").eq("reference_id", reference_id).limit(1).execute()
     if existing.data:
+        row = existing.data[0]
+        status = row["status"]
+        if status == "CONFIRMED":
+            raise ClaimError("claim_already_settled")
+        if row["user_id"] != user_id:
+            raise ClaimError("already_claimed_or_reserved")
+
+        if status in ("SIGNED", "SUBMITTED"):
+            _sweep_expired_claims()
+            refreshed = supabase.table("xera_onchain_claims").select("status").eq("reference_id", reference_id).limit(1).execute()
+            status = refreshed.data[0]["status"] if refreshed.data else status
+
+        if status in ("SIGNED", "SUBMITTED"):
+            raise ClaimError("claim_in_progress")
+        if status in ("FAILED", "EXPIRED"):
+            # Same single reservation row, re-signed — never a second claim.
+            # Only auto-resumed on the SAME chain; switching chain stays an
+            # explicit /claim/retry decision.
+            if row["chain"] != chain:
+                raise ClaimError("claim_on_other_chain")
+            return retry_claim(user_id, reference_id, chain)
         raise ClaimError("already_claimed_or_reserved")
 
     # 6: valid linked wallet for the requested chain.
@@ -126,7 +174,7 @@ def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
         raise
 
     if chain == "BNB":
-        chain_id = int(os.getenv("BNB_CHAIN_ID", "97"))  # 97 = testnet, 56 = mainnet
+        chain_id = bnb_chain_id()  # XERA_BNB_CHAIN_ID: 97 = testnet, 56 = mainnet
         signature = eip712_signer.sign_bnb_claim(
             user_address=wallet["address"],
             amount_wei=amount_wei,
@@ -295,7 +343,7 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
     reference_id_bytes32 = _reference_id_to_bytes32(reference_id)
 
     if chain == "BNB":
-        chain_id = int(os.getenv("BNB_CHAIN_ID", "97"))
+        chain_id = bnb_chain_id()
         signature = eip712_signer.sign_bnb_claim(
             user_address=wallet["address"], amount_wei=amount_wei,
             reference_id_bytes32=reference_id_bytes32, deadline_unix=deadline_unix,

@@ -112,3 +112,50 @@ fixed real bugs beyond just adding config files:
 - `main.py` now calls `load_dotenv()` so a local `.env` file actually
   gets picked up (the dependency was already in `requirements.txt` but
   never invoked).
+
+---
+
+## Wallet connection + claim flow (BNB / TON) — setup and diagnostics
+
+### 1. Apply the new migration
+Run `supabase/migrations/20261003_xera_wallet_connection_methods.sql` (after 20260912 and 20260914).
+It is additive and safe to re-run. It adds `connection_method` (`wallet` | `manual`) to the existing
+`xera_external_wallets` table — no new wallet table. Until it is applied, reads keep working but
+"add manual address" / "remove wallet" will fail.
+
+### 2. New / changed environment variables (backend)
+| Variable | Purpose |
+|---|---|
+| `XERA_BNB_CHAIN_ID` | Expected BNB chain: `97` testnet, `56` mainnet. One source of truth for both the claim signature's EIP-712 domain **and** the network the UI asks the wallet to be on. Legacy `BNB_CHAIN_ID` is still honoured. Default `97`. |
+| `XERA_BNB_RPC_URL` | Server-side RPC used to verify a claim transaction. Legacy `BNB_RPC_URL` still honoured. **Never sent to the browser.** |
+| `XERA_BNB_PUBLIC_RPC_URL` | Optional. Public RPC offered to the wallet's "add network" prompt (defaults to the standard public BSC endpoint for the chain). |
+| `XERA_TON_PROOF_DOMAINS` | Optional, comma-separated. Domains a TON ownership proof may be issued for. Defaults to the hosts in `ALLOWED_ORIGINS`. |
+| `XERA_TON_PROOF_MAX_AGE_SECONDS` | Optional, default `900`. |
+| `XERA_TON_TESTNET` | `true` to render TON display addresses in testnet form. |
+
+### 3. Frontend
+* New npm deps: `@tonconnect/ui` (TON connect modal) and `ethers` (claim transaction; lazy-loaded, not in the initial bundle).
+* `hub-frontend/public/tonconnect-manifest.json` — change `url`/`iconUrl` to the real site origin if it is not `https://evoshub.xyz`.
+* CSP `connect-src` (netlify.toml ×2, vercel.json) now allows the TonConnect wallet list/bridges. If a particular TON wallet fails to connect, check the browser console for a blocked `connect-src` host and add it.
+
+### 4. Why might `POST /api/xera/claim/sign` return 404 in production?
+The route is defined in `python/xera/routes_chain.py` and registered in `python/main.py`; booting the source
+and sending `OPTIONS`/`POST` reaches the handler (401 without a token). A 404 therefore means the **running**
+service isn't this code, or the browser is calling a different host. Check, in order:
+
+```bash
+# 1. Does the running build contain the route? (new fields on GET /)
+curl -s https://<api-host>/ | python3 -m json.tool
+#    -> "xera_claim_sign_registered": true   and   "build": "<commit sha>"
+#    field missing  => the service is running an OLDER build than this repo.
+#    false          => wrong code/root directory deployed.
+
+# 2. Preflight + POST reach the handler (expect 200 and 401, never 404)
+curl -si -X OPTIONS https://<api-host>/api/xera/claim/sign \
+  -H 'Origin: https://evoshub.xyz' -H 'Access-Control-Request-Method: POST' | head -5
+curl -si -X POST https://<api-host>/api/xera/claim/sign -H 'Content-Type: application/json' \
+  -d '{"reference_id":"x","chain":"BNB"}' | head -3
+```
+Then confirm the host the frontend actually calls (`VITE_API_BASE_URL` at build time) is the same service you just
+checked, and — on Render — that the service's **Root Directory** is `python/` (or that it builds the root `Dockerfile`),
+that it tracks the right branch, and that the latest deploy actually finished (trigger "Clear build cache & deploy").

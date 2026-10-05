@@ -35,6 +35,11 @@ class FakeTable:
         self._filters.append((key, None if value in ("null", None) else value))
         return self
 
+    def in_(self, key, values):
+        allowed = list(values)
+        self._filters.append((key, lambda v, _a=allowed: v in _a))
+        return self
+
     def order(self, *_a, **_kw):
         return self
 
@@ -46,7 +51,7 @@ class FakeTable:
         return self
 
     def _matches(self, row):
-        return all(row.get(k) == v for k, v in self._filters)
+        return all((v(row.get(k)) if callable(v) else row.get(k) == v) for k, v in self._filters)
 
     def execute(self):
         rows = [r for r in self.store.setdefault(self.name, []) if self._matches(r)]

@@ -89,7 +89,10 @@ def test_sign_claim_rejects_a_reference_id_already_reserved_on_another_chain(fak
 
     with pytest.raises(ClaimError) as exc:
         sign_claim(1, "session-200", "BNB")  # same reference_id again -> must fail
-    assert str(exc.value) == "already_claimed_or_reserved"
+    # Same user, signature still live: reported precisely as in-progress
+    # (HTTP 409, same as before). A DIFFERENT user/chain hitting the same
+    # reference still gets already_claimed_or_reserved — see test_claim_flow.py.
+    assert str(exc.value) == "claim_in_progress"
 
 
 def test_sign_claim_requires_a_verified_wallet(fake_supabase, _signer_key):

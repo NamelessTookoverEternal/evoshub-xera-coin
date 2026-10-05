@@ -16,11 +16,13 @@ from pydantic import BaseModel, Field
 
 from main import limiter
 from xera.user_auth import verify_user_token, XeraTokenInvalid
-from xera.chain.wallet_link import start_link, verify_and_link, get_linked_wallets, WalletLinkError
+from xera.chain.wallet_link import (
+    start_link, verify_and_link, get_linked_wallets, get_wallets, set_manual_wallet, remove_wallet, WalletLinkError,
+)
 from xera.chain.claims import sign_claim, confirm_claim, retry_claim, ClaimError
 from xera.chain import migration as legacy_migration
 from xera.chain.migration import MigrationClaimError
-from xera.chain.config import get_chain_config, ChainConfigError
+from xera.chain.config import get_chain_config, bnb_network_public, ChainConfigError
 from xera.chain.onchain_indexer import get_vesting_status, IndexerError
 
 logger = logging.getLogger(__name__)
@@ -37,6 +39,14 @@ def _current_user_id(authorization: str) -> int:
 
 _WALLET_ERROR_HTTP = {
     "invalid_chain":               (400, "Unsupported chain."),
+    # --- address validation (never echo the raw input back) ---
+    "address_required":            (400, "Please enter a wallet address."),
+    "invalid_bnb_address":         (400, "That doesn't look like a valid BNB wallet address. It should start with 0x followed by 40 characters."),
+    "bnb_checksum_mismatch":       (400, "This address has a typo — its capitalisation checksum doesn't match. Please re-copy it from your wallet."),
+    "zero_address":                (400, "That address can't be used. Please enter your own wallet address."),
+    "invalid_ton_address":         (400, "That doesn't look like a valid TON wallet address."),
+    "unsupported_ton_workchain":   (400, "Only standard TON wallet addresses are supported."),
+    # --- ownership proof ---
     "nonce_not_found":              (400, "Link request not found or already used."),
     "nonce_already_consumed":       (400, "This link request has already been used — please start again."),
     "nonce_address_mismatch":       (400, "Signed address does not match the requested wallet."),
@@ -45,12 +55,20 @@ _WALLET_ERROR_HTTP = {
     "invalid_proof":                (400, "Wallet proof could not be verified."),
     "wallet_change_cooldown_active": (429, "You recently changed this wallet — please try again later."),
     "address_already_linked":       (409, "This address is already linked to another account."),
+    # --- manual wallet / removal ---
+    "verified_wallet_exists":       (409, "A verified wallet is already connected for this chain. Disconnect it first to use a different address."),
+    "manual_wallet_conflict":       (409, "Another update to this wallet is in progress — please try again."),
+    "wallet_not_found":             (404, "No wallet found for this chain."),
 }
 
 _CLAIM_ERROR_HTTP = {
-    "entitlement_not_found":            (404, "No matching mining entitlement found."),
-    "already_claimed_or_reserved":      (409, "This entitlement has already been claimed."),
-    "no_verified_wallet":               (400, "Link and verify a wallet for this chain first."),
+    "entitlement_not_found":            (404, "No eligible mining entitlement was found."),
+    "already_claimed_or_reserved":      (409, "This mining entitlement has already been claimed."),
+    "claim_already_settled":            (409, "This mining entitlement has already been claimed."),
+    "claim_in_progress":                (409, "A claim for this entitlement is already in progress. If you didn't complete the wallet transaction, you can try again once the signature expires (about 15 minutes after it was issued)."),
+    "claim_on_other_chain":             (409, "An earlier attempt for this entitlement was made on the other network. Use Retry to move it to this network."),
+    "no_verified_wallet":               (400, "Your {chain} wallet must be connected before this entitlement can be settled."),
+    "wallet_not_verified":              (400, "Your {chain} wallet address was added manually and hasn't been verified. Connect the wallet and sign the ownership request before settling."),
     "onchain_disabled":                 (403, "On-chain claims are currently disabled."),
     "distributor_not_configured":       (503, "This chain isn't fully configured yet."),
     "claim_signer_not_configured":      (503, "Claim signing is temporarily unavailable."),
@@ -94,7 +112,10 @@ _MIGRATION_ERROR_HTTP = {
 
 class WalletLinkNonceRequest(BaseModel):
     chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
-    address: str = Field(..., min_length=3, max_length=128)
+    # BNB: the address the wallet just exposed. TON: ignored — the nonce is
+    # issued before the wallet connects, and the address is bound by the
+    # ton_proof itself (see xera.chain.wallet_link).
+    address: str = Field(default="", max_length=128)
 
 
 @router.post("/wallet/link/nonce")
@@ -129,6 +150,9 @@ class WalletLinkVerifyRequest(BaseModel):
     domain: str | None = Field(default=None, max_length=256)
     timestamp: int | None = Field(default=None, gt=0)
     public_key: str | None = Field(default=None, max_length=128)
+    # base64 BOC of the wallet's StateInit (TonConnect `account.walletStateInit`):
+    # what binds the signing key to the claimed address.
+    state_init: str | None = Field(default=None, max_length=8192)
 
 
 @router.post("/wallet/link/verify")
@@ -147,8 +171,72 @@ def wallet_link_verify(request: Request, data: WalletLinkVerifyRequest, authoriz
 @router.get("/wallet/linked")
 @limiter.limit("30/minute")
 def wallet_linked(request: Request, authorization: str = Header(default="")):
+    """
+    The authenticated user's active wallets (both connected/verified and
+    manual/unverified), each with `connection_method` and `verified`.
+    The user id comes ONLY from the session token — there is no way to ask
+    for someone else's wallets.
+    """
     user_id = _current_user_id(authorization)
-    return {"status": "ok", "wallets": get_linked_wallets(user_id)}
+    return {"status": "ok", "wallets": get_wallets(user_id)}
+
+
+class ManualWalletRequest(BaseModel):
+    chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
+    # PUBLIC address only. There is deliberately no field for anything else.
+    address: str = Field(..., max_length=128)
+
+
+@router.post("/wallet/manual")
+@limiter.limit("10/minute")
+def wallet_manual(request: Request, data: ManualWalletRequest, authorization: str = Header(default="")):
+    """
+    Attach a typed public address to the account, marked manual/unverified.
+    This does NOT prove ownership and does not make the wallet eligible for
+    claims — only the signature-verified link flow does.
+    """
+    user_id = _current_user_id(authorization)
+    try:
+        wallet = set_manual_wallet(user_id, data.chain, data.address)
+    except WalletLinkError as e:
+        status, message = _WALLET_ERROR_HTTP.get(str(e), (400, "Could not save this wallet address."))
+        raise HTTPException(status_code=status, detail=message)
+    return {
+        "status": "ok",
+        "wallet": wallet,
+        "notice": "Wallet address added. This address has not been cryptographically verified as wallet ownership.",
+    }
+
+
+@router.delete("/wallet/{chain}")
+@limiter.limit("10/minute")
+def wallet_remove(request: Request, chain: str, authorization: str = Header(default="")):
+    """Remove a manual address, or disconnect a verified wallet (own wallets only)."""
+    user_id = _current_user_id(authorization)
+    if chain.upper() not in ("BNB", "TON"):
+        raise HTTPException(status_code=400, detail="Unsupported chain.")
+    try:
+        remove_wallet(user_id, chain)
+    except WalletLinkError as e:
+        status, message = _WALLET_ERROR_HTTP.get(str(e), (400, "Could not remove this wallet."))
+        raise HTTPException(status_code=status, detail=message)
+    return {"status": "ok"}
+
+
+@router.get("/chain/config")
+@limiter.limit("60/minute")
+def chain_public_config(request: Request):
+    """
+    Public, non-secret network settings so the wallet UI knows which BNB
+    network this deployment expects (testnet 97 vs mainnet 56) without the
+    frontend hard-coding it. Never includes RPC keys, signer keys or contract
+    owner data.
+    """
+    try:
+        bnb = bnb_network_public()
+    except ChainConfigError:
+        raise HTTPException(status_code=503, detail="Chain configuration is temporarily unavailable.")
+    return {"status": "ok", "bnb": bnb}
 
 
 # ------------------------------------------------------------
@@ -168,7 +256,7 @@ def claim_sign(request: Request, data: ClaimSignRequest, authorization: str = He
         result = sign_claim(user_id, data.reference_id, data.chain)
     except ClaimError as e:
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not sign claim."))
-        raise HTTPException(status_code=status, detail=message)
+        raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
     return {"status": "ok", "claim": result}
 
 
@@ -210,7 +298,7 @@ def claim_retry(request: Request, data: ClaimRetryRequest, authorization: str = 
         result = retry_claim(user_id, data.reference_id, data.chain)
     except ClaimError as e:
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not retry claim."))
-        raise HTTPException(status_code=status, detail=message)
+        raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
     return {"status": "ok", "claim": result}
 
 @router.get("/onchain/status")

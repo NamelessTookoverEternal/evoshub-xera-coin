@@ -150,3 +150,75 @@ def test_wallet_change_cooldown_blocks_a_second_link_too_soon(fake_supabase):
         assert False, "expected cooldown to block immediate wallet replacement"
     except WalletLinkError as e:
         assert str(e) == "wallet_change_cooldown_active"
+
+
+# ---------------------------------------------------------------- TON + BNB-normalisation (added with the wallet-connection work)
+
+def test_bnb_link_normalises_the_address_it_asks_the_wallet_to_sign(fake_supabase):
+    """A lower-case address from the browser (eth_requestAccounts returns lower-case) is
+    checksummed server-side, and the SAME form is what ends up stored."""
+    _install_consume_nonce_rpc(fake_supabase)
+    _install_link_wallet_rpc(fake_supabase)
+    from xera.chain.wallet_link import start_link, verify_and_link
+
+    acct = Account.create()
+    started = start_link(7, "BNB", acct.address.lower())
+    assert acct.address in started["message_to_sign"] and started["address"] == acct.address
+
+    signature = acct.sign_message(encode_defunct(text=started["message_to_sign"])).signature.hex()
+    linked = verify_and_link(7, "BNB", acct.address.lower(), started["nonce"], signature=signature)
+    assert linked["address"] == acct.address and linked["verified"] is True and linked["connection_method"] == "wallet"
+
+
+def test_ton_link_succeeds_with_a_genuine_proof_and_stores_the_canonical_raw_address(fake_supabase, monkeypatch):
+    import base64
+    from nacl.signing import SigningKey
+    from pytoniq_core import StateInit, begin_cell
+    from xera.chain.ton_verify import build_ton_proof_message
+
+    monkeypatch.setenv("XERA_TON_PROOF_DOMAINS", "evoshub.xyz")
+    _install_consume_nonce_rpc(fake_supabase)
+    _install_link_wallet_rpc(fake_supabase)
+    from xera.chain.wallet_link import start_link, verify_and_link, WalletLinkError
+    import pytest
+
+    key = SigningKey.generate()
+    pub = key.verify_key.encode()
+    data = begin_cell().store_uint(0, 32).store_uint(698983191, 32).store_bytes(pub).store_bit(0).end_cell()
+    si = StateInit(code=begin_cell().store_uint(1, 8).end_cell(), data=data).serialize()
+    raw_address = "0:" + si.hash.hex()
+
+    # nonce is issued BEFORE any address is known (client sends nothing / a placeholder)
+    started = start_link(9, "TON", "")
+    nonce = started["ton_proof_payload"]
+    assert nonce == started["nonce"] and "message_to_sign" not in started
+
+    import time
+    ts = int(time.time())
+    digest = build_ton_proof_message(workchain=0, address_hash=si.hash, domain="evoshub.xyz", timestamp=ts, payload=nonce)
+    proof = dict(
+        signature=base64.b64encode(key.sign(digest).signature).decode(), domain="evoshub.xyz", timestamp=ts,
+        public_key=pub.hex(), state_init=base64.b64encode(si.to_boc()).decode(),
+    )
+
+    # an attacker presenting the same proof for a DIFFERENT (victim) address is refused
+    started_b = start_link(10, "TON", "")
+    with pytest.raises(WalletLinkError, match="invalid_proof"):
+        verify_and_link(10, "TON", "0:" + "ab" * 32, started_b["nonce"], **proof)
+
+    # the genuine owner succeeds; friendly input form is canonicalised to raw
+    friendly = __import__("pytoniq_core").Address(raw_address).to_str(is_bounceable=False)
+    linked = verify_and_link(9, "TON", friendly, nonce, **proof)
+    assert linked["address"] == raw_address and linked["display_address"].startswith("UQ")
+    assert linked["verified"] is True and linked["connection_method"] == "wallet"
+
+
+def test_ton_link_without_a_wallet_state_init_is_refused(fake_supabase):
+    import pytest
+    _install_consume_nonce_rpc(fake_supabase)
+    _install_link_wallet_rpc(fake_supabase)
+    from xera.chain.wallet_link import start_link, verify_and_link, WalletLinkError
+    started = start_link(11, "TON", "")
+    with pytest.raises(WalletLinkError, match="invalid_proof"):
+        verify_and_link(11, "TON", "0:" + "ab" * 32, started["nonce"],
+                        signature="AAAA", domain="evoshub.xyz", timestamp=1, public_key="00" * 32)

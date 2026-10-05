@@ -125,6 +125,19 @@ app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admi
 app.include_router(xera_chain_router, prefix="/api/xera", tags=["xera-chain"])
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
+def _route_registered(path: str, method: str) -> bool:
+    return any(getattr(r, "path", None) == path and method in (getattr(r, "methods", None) or set()) for r in app.routes)
+
+
+def _build_id() -> str | None:
+    # Whichever of these the host injects: Render, Fly, Railway, or a manual GIT_SHA.
+    for key in ("RENDER_GIT_COMMIT", "GIT_SHA", "RAILWAY_GIT_COMMIT_SHA", "FLY_IMAGE_REF"):
+        value = os.getenv(key)
+        if value:
+            return value[-12:] if key == "FLY_IMAGE_REF" else value[:12]
+    return None
+
+
 @app.get("/")
 @app.head("/")
 def root():
@@ -133,5 +146,9 @@ def root():
         "platform": "EVOS Business Hub",
         "powered_by": "EVOXERA TECHNOLOGY",
         "docs": None if _IS_PROD else "/docs",
+        # Deployment diagnostics (no secrets): lets you tell, with one GET, whether
+        # the RUNNING build contains the XERA claim routes and which commit it is.
+        "build": _build_id(),
+        "xera_claim_sign_registered": _route_registered("/api/xera/claim/sign", "POST"),
     }
 

@@ -28,12 +28,48 @@ def get_or_create_wallet(user_id: int) -> dict:
 
 
 def get_transactions(user_id: int, limit: int = 50, offset: int = 0) -> list[dict]:
+    """
+    The user's ledger rows. `id` is the row's own primary key (kept — other
+    parts of the app rely on it). `reference_id` is the business key the
+    on-chain claim layer looks entitlements up by (for MINING_REWARD rows it
+    is the mining session id) — the frontend MUST send reference_id, not id,
+    to /api/xera/claim/sign.
+
+    MINING_REWARD rows additionally carry `onchain_claim_status`
+    (None | SIGNED | SUBMITTED | CONFIRMED | FAILED | EXPIRED) and
+    `onchain_claim_chain`, so the UI can show "settled" / "in progress"
+    instead of offering a claim that would be rejected. Display-only: the
+    backend re-checks everything when a claim is actually requested.
+    """
     res = (
         supabase.table("xera_transactions")
-        .select("id, type, amount, direction, status, created_at, metadata")
+        .select("id, reference_id, type, amount, direction, status, created_at, metadata")
         .eq("user_id", user_id)
         .order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
-    return res.data or []
+    rows = res.data or []
+
+    refs = [r["reference_id"] for r in rows if r.get("type") == "MINING_REWARD" and r.get("reference_id")]
+    claims_by_ref: dict = {}
+    if refs:
+        try:
+            claim_res = (
+                supabase.table("xera_onchain_claims")
+                .select("reference_id, status, chain, signature_deadline")
+                .eq("user_id", user_id)
+                .in_("reference_id", refs)
+                .execute()
+            )
+            claims_by_ref = {c["reference_id"]: c for c in (claim_res.data or [])}
+        except Exception:
+            claims_by_ref = {}  # chain tables not migrated yet / transient error — status is cosmetic
+
+    for r in rows:
+        if r.get("type") == "MINING_REWARD":
+            claim = claims_by_ref.get(r.get("reference_id"))
+            r["onchain_claim_status"] = claim["status"] if claim else None
+            r["onchain_claim_chain"] = claim["chain"] if claim else None
+            r["onchain_claim_deadline"] = claim.get("signature_deadline") if claim else None
+    return rows
