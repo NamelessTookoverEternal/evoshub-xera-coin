@@ -1337,3 +1337,40 @@ body{
 .invite-step.done .invite-num{background:var(--success-soft);color:var(--success)}
 .invite-cta{display:block;text-align:center;text-decoration:none}
 .invite-note{margin:10px 0 0;font-size:.78rem;line-height:1.5;color:var(--text-dim)}
+
+/* ---------------- Blockchain tab: wallet cards (connect / manual) ---------------- */
+.chain-wallet-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.chain-wallet-card.is-busy{opacity:.75}
+.chain-wallet-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chain-wallet-status{font-size:.82rem;color:var(--text-dim)}
+.chain-wallet-status.ok{color:var(--success,#3ecf8e)}
+.chain-wallet-status.warn{color:var(--warning,#f0b429)}
+.chain-addr-row{display:flex;align-items:center;gap:10px;min-width:0}
+.chain-copy{background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);font-size:.7rem;padding:2px 10px;cursor:pointer}
+.chain-copy:hover{color:inherit;border-color:var(--accent)}
+.chain-actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:inherit}
+.chain-or{display:flex;align-items:center;gap:10px;font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+.chain-or::before,.chain-or::after{content:"";flex:1;height:1px;background:var(--border)}
+.chain-manual{display:flex;flex-direction:column;gap:6px}
+.chain-manual-label{font-size:.78rem;color:var(--text-dim)}
+.chain-manual-row{display:flex;gap:8px}
+.chain-manual-input{flex:1;min-width:0;background:var(--bg,transparent);border:1px solid var(--border);border-radius:var(--radius-md);padding:8px 10px;color:inherit;font-size:.82rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.chain-manual-input:focus{outline:none;border-color:var(--accent)}
+.chain-manual-hint,.chain-safety-note,.chain-empty{font-size:.74rem;color:var(--text-secondary);margin:0}
+.chain-safety-note{margin:0 0 10px}
+.chain-network{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.78rem;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:12px}
+.chain-network[hidden]{display:none}
+.chain-network.ok{border-color:var(--success,#3ecf8e)}
+.chain-network.warn{border-color:var(--warning,#f0b429)}
+.chain-network-expected{color:var(--text-dim)}
+.chain-picker{display:flex;flex-direction:column;gap:6px}
+.chain-picker[hidden]{display:none}
+.chain-picker-title{font-size:.78rem;color:var(--text-dim)}
+.chain-picker-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);color:inherit;padding:8px 12px;cursor:pointer;font-size:.84rem;text-align:left}
+.chain-picker-item:hover{border-color:var(--accent)}
+.chain-pill{font-size:.7rem;padding:3px 10px;border-radius:999px;border:1px solid var(--border);color:var(--text-dim)}
+.chain-pill.ok{color:var(--success,#3ecf8e);border-color:currentColor}
+.chain-pill.warn{color:var(--warning,#f0b429);border-color:currentColor}
+.banner-info{font-size:.8rem;color:var(--text-secondary);margin:8px 0}
+.banner-info[hidden]{display:none}

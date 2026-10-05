@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@tonconnect/ui": "^2.4.4",
+    "ethers": "^6.17.0",
     "three": "^0.169.0"
   },
   "devDependencies": {
