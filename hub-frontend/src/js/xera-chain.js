@@ -12,6 +12,7 @@
 // wallet password. Manual input is rejected client-side if it looks like one.
 
 import { TonConnectUI } from '@tonconnect/ui';
+import { appKitConfigured, connectWithAppKit, restoredAppKitProvider, disconnectAppKit, switchAppKitNetwork } from './xera-appkit.js';
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
@@ -170,10 +171,19 @@ async function discoverProviders() {
     return list;
 }
 
+// Providers usable for a transaction right now: the one chosen this visit, else a
+// restored WalletConnect session, else browser-injected wallets.
+async function activeProviders() {
+    if (state.provider) return [state.provider];
+    const restored = await restoredAppKitProvider(state.network && state.network.chain_id);
+    if (restored) return [{ info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: restored.provider, appkit: true, chainId: restored.chainId }];
+    return discoverProviders();
+}
+
 function hexToInt(hex) { return parseInt(hex, 16); }
 
-async function readChainId(provider) {
-    try { return hexToInt(await provider.request({ method: 'eth_chainId' })); } catch (_e) { return null; }
+async function readChainId(provider, fallback = null) {
+    try { return hexToInt(await provider.request({ method: 'eth_chainId' })); } catch (_e) { return fallback; }
 }
 
 function attachProviderListeners(entry) {
@@ -227,6 +237,12 @@ async function switchNetwork() {
     const net = state.network;
     if (!state.provider || !net) return;
     const { provider } = state.provider;
+    if (state.provider.appkit) {
+        await switchAppKitNetwork(net.chain_id);
+        state.providerChainId = net.chain_id;
+        renderNetworkBanner();
+        return;
+    }
     try {
         await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: net.chain_id_hex }] });
     } catch (err) {
@@ -413,7 +429,7 @@ async function removeWallet(chain, connected) {
     try {
         await req(`/api/xera/wallet/${chain}`, { method: 'DELETE' });
         if (chain === 'TON' && tonUI && tonUI.connected) { try { await tonUI.disconnect(); } catch (_e) { /* wallet session already gone */ } }
-        if (chain === 'BNB') { state.provider = null; state.providerChainId = null; renderNetworkBanner(); }
+        if (chain === 'BNB') { state.provider = null; state.providerChainId = null; renderNetworkBanner(); await disconnectAppKit(); }
         setNotice(connected ? 'Wallet disconnected.' : 'Address removed.');
     } catch (err) {
         setError(userMessage(err, 'Could not remove this wallet. Please try again.'));
@@ -431,6 +447,22 @@ async function connectBnbWallet() {
     setBusy('BNB', true);
     try {
         await loadNetworkConfig();
+
+        // Preferred: the wallet picker (lists wallets, deep links on mobile, QR on desktop).
+        if (appKitConfigured()) {
+            let picked = null;
+            try {
+                picked = await connectWithAppKit(state.network && state.network.chain_id);
+            } catch (err) {
+                if (err && err.cancelled) { return; }            // user closed the picker — not an error
+                console.warn('Wallet picker unavailable, falling back to browser wallet', err);
+            }
+            if (picked) {
+                await linkWithProvider({ info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: picked.provider, appkit: true, chainId: picked.chainId }, picked.address, picked.chainId);
+                return;
+            }
+        }
+
         const providers = await discoverProviders();
         if (!providers.length) {
             setError('No browser wallet detected. You can connect a supported wallet (MetaMask, Trust Wallet, Binance Wallet…) or add your BNB wallet address manually. On mobile, open this page inside your wallet app’s browser.');
@@ -474,14 +506,17 @@ function renderProviderPicker(providers) {
     );
 }
 
-async function linkWithProvider(entry) {
+async function linkWithProvider(entry, knownAddress, knownChainId) {
     const { provider } = entry;
-    const accounts = await provider.request({ method: 'eth_requestAccounts' });
-    const address = accounts && accounts[0];
+    let address = knownAddress;
+    if (!address) {
+        const accounts = await provider.request({ method: 'eth_requestAccounts' });
+        address = accounts && accounts[0];
+    }
     if (!address) throw userError('Your wallet didn’t share an account. Unlock it and try again.');
 
     state.provider = entry;
-    state.providerChainId = await readChainId(provider);
+    state.providerChainId = knownChainId || await readChainId(provider);
     attachProviderListeners(entry);
     renderNetworkBanner();
 
@@ -678,7 +713,7 @@ async function settleClaim(referenceId, button) {
 
     try {
         await loadNetworkConfig();
-        const providers = state.provider ? [state.provider] : await discoverProviders();
+        const providers = await activeProviders();
         if (!providers.length) throw userError('No browser wallet detected. Open this page in a wallet-enabled browser to confirm the transaction.');
         let entry = providers.length === 1 ? providers[0] : null;
         if (!entry) {
@@ -693,7 +728,7 @@ async function settleClaim(referenceId, button) {
         if (!entry) throw userError('Several wallets are installed. Use “Change wallet” above to pick the one linked to this account, then try again.');
         state.provider = entry;
         attachProviderListeners(entry);
-        state.providerChainId = await readChainId(entry.provider);
+        state.providerChainId = await readChainId(entry.provider, entry.chainId);
         renderNetworkBanner();
 
         // Wrong network is checked BEFORE the backend reserves anything.
@@ -778,10 +813,10 @@ async function claimLegacyMigration() {
         const wallet = state.wallets.BNB;
         if (!wallet || !wallet.verified) throw userError('Connect and verify your BNB wallet before claiming your legacy balance.');
         await loadNetworkConfig();
-        const providers = state.provider ? [state.provider] : await discoverProviders();
+        const providers = await activeProviders();
         const entry = providers[0];
         if (!entry) throw userError('No browser wallet detected. Open this page in a wallet-enabled browser to confirm the transaction.');
-        state.providerChainId = await readChainId(entry.provider);
+        state.providerChainId = await readChainId(entry.provider, entry.chainId);
         if (state.network && state.providerChainId !== state.network.chain_id) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
         }
