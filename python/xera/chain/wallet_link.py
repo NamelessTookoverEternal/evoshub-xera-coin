@@ -31,7 +31,7 @@ from xera.chain.bnb_verify import build_link_message, verify_bnb_signature
 from xera.chain.ton_verify import verify_ton_ownership
 from xera.chain.rpc import first_row
 
-_WALLET_CHANGE_COOLDOWN_SECONDS = int(os.getenv("XERA_WALLET_CHANGE_COOLDOWN_SECONDS", str(24 * 60 * 60)))
+_WALLET_CHANGE_COOLDOWN_SECONDS = int(os.getenv("XERA_WALLET_CHANGE_COOLDOWN_SECONDS", str(12 * 60 * 60)))  # 12h; set the env var to override (e.g. 21600 = 6h)
 
 # A TON nonce is issued BEFORE the wallet is connected, so the real address
 # isn't known yet. The nonce is bound to this fixed placeholder instead of a
