@@ -157,6 +157,8 @@ _DAILY_ERROR_HTTP = {
     "daily_claim_disabled": (403, "Daily claim is currently disabled."),
     "already_claimed_today": (409, "You've already claimed today's reward."),
     "wallet_not_active":     (403, "This wallet is suspended."),
+    "free_mining_closed":    (409, "Free rewards have ended because the mining pool is almost fully distributed."),
+    "allocation_exhausted":  (409, "The mining pool has been fully distributed."),
 }
 
 

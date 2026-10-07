@@ -67,7 +67,7 @@ def claim_daily(user_id: int) -> dict:
         }).execute()
     except Exception as e:
         msg = str(e)
-        for code in ("already_claimed_today", "wallet_not_active"):
+        for code in ("already_claimed_today", "wallet_not_active", "free_mining_closed", "allocation_exhausted"):
             if code in msg:
                 raise DailyClaimError(code)
         raise

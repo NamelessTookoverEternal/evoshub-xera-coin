@@ -19,7 +19,7 @@ from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.chain.wallet_link import (
     start_link, verify_and_link, get_linked_wallets, get_wallets, set_manual_wallet, remove_wallet, WalletLinkError,
 )
-from xera.chain.claims import sign_claim, confirm_claim, retry_claim, ClaimError
+from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_claim, retry_claim, ClaimError
 from xera.chain import migration as legacy_migration
 from xera.chain.migration import MigrationClaimError
 from xera.chain.config import get_chain_config, bnb_network_public, ChainConfigError
@@ -74,6 +74,13 @@ _CLAIM_ERROR_HTTP = {
     "claim_signer_not_configured":      (503, "Claim signing is temporarily unavailable."),
     "global_mining_allocation_exceeded": (409, "The global mining allocation has been fully claimed."),
     "claim_not_retryable":              (409, "This claim isn't in a retryable state."),
+    "invalid_amount":                   (400, "Enter a valid amount."),
+    "amount_too_precise":               (400, "Use at most 2 decimal places."),
+    "amount_below_minimum":             (400, "That is below the minimum amount you can move on-chain."),
+    "insufficient_claimable_balance":   (409, "That is more than your claimable balance."),
+    "wallet_not_active":                (403, "Your XERA wallet is suspended."),
+    "wallet_not_found":                 (404, "No XERA wallet found for this account."),
+    "invalid_split":                    (400, "Could not compute the 25/75 split for this amount."),
     "unsupported_chain":                (400, "Unsupported chain."),
     "claim_not_found":                  (404, "Claim not found."),
     "not_your_claim":                   (403, "This claim does not belong to you."),
@@ -248,16 +255,43 @@ class ClaimSignRequest(BaseModel):
     chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
 
 
-@router.post("/claim/sign")
+class ClaimAmountRequest(BaseModel):
+    chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
+    # A string or number — parsed with Decimal on the server, never as a float.
+    amount: str = Field(..., min_length=1, max_length=32)
+
+
+@router.get("/claim/overview")
+@limiter.limit("30/minute")
+def claim_overview(request: Request, authorization: str = Header(default="")):
+    """How much the user can move on-chain, and their recent claims (including ones to retry or confirm)."""
+    user_id = _current_user_id(authorization)
+    return {"status": "ok", **get_claim_overview(user_id)}
+
+
+@router.post("/claim/sign-amount")
 @limiter.limit("10/minute")
-def claim_sign(request: Request, data: ClaimSignRequest, authorization: str = Header(default="")):
+def claim_sign_amount(request: Request, data: ClaimAmountRequest, authorization: str = Header(default="")):
+    """
+    Move a user-chosen amount of claimable XERA to their verified wallet. The
+    amount is debited from the in-app balance atomically; the contract then
+    sends 25% to the wallet and locks 75% in vesting.
+    """
     user_id = _current_user_id(authorization)
     try:
-        result = sign_claim(user_id, data.reference_id, data.chain)
+        result = sign_amount_claim(user_id, data.chain, data.amount)
     except ClaimError as e:
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not sign claim."))
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
     return {"status": "ok", "claim": result}
+
+
+@router.post("/claim/sign")
+@limiter.limit("10/minute")
+def claim_sign_retired(request: Request, authorization: str = Header(default="")):
+    """Per-entitlement claims were replaced by amount-based claims (/claim/sign-amount)."""
+    _current_user_id(authorization)
+    raise HTTPException(status_code=410, detail="This claim method was replaced. Please refresh the page and enter an amount to move.")
 
 
 class ClaimConfirmRequest(BaseModel):

@@ -9,7 +9,10 @@ that amount on-chain, once.
 """
 
 import os
+import re
 import time
+import uuid
+from decimal import Decimal, InvalidOperation
 
 from eth_utils import keccak
 
@@ -95,6 +98,12 @@ def _sweep_expired_claims() -> None:
 
 
 def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
+    """
+    LEGACY per-entitlement claim. Retained only so existing rows keep working
+    and the original tests keep covering them. It is NOT exposed by the API any
+    more: it reserves without debiting the in-app balance, so using it next to
+    amount-based claims could move the same XERA twice. See sign_amount_claim.
+    """
     chain = chain.upper()
 
     # 2/3/4: reference_id belongs to this user, is a real finalized
@@ -242,6 +251,181 @@ def _iso_from_unix(unix_ts: int) -> str:
     return datetime.datetime.fromtimestamp(unix_ts, tz=datetime.timezone.utc).isoformat()
 
 
+# ------------------------------------------------------------------
+# AMOUNT-BASED CLAIMS — the user chooses how much to move on-chain
+# ------------------------------------------------------------------
+# The reservation (balance check, balance debit, ledger row, global-cap check)
+# is ONE atomic Postgres function: xera_reserve_onchain_claim_amount, see
+# supabase/migrations/20261006_xera_amount_claims.sql. This module only
+# validates the input, asks for the reservation, and signs it.
+
+_TRANSFERABLE_FRACTION = Decimal("0.25")     # 25% to the wallet now, 75% locked in vesting
+_AMOUNT_STEP = Decimal("0.01")               # at most 2 decimals — keeps the 25/75 split exact in NUMERIC(20,4)
+_MAX_CLAIM_AMOUNT = Decimal("75000000")      # the whole pool; anything above is nonsense input
+
+
+def min_claim_amount() -> Decimal:
+    """Smallest claim allowed (stops dust claims that cost the user more in gas than they receive)."""
+    try:
+        value = Decimal(os.getenv("XERA_MIN_ONCHAIN_CLAIM", "1"))
+    except InvalidOperation:
+        value = Decimal("1")
+    return max(value, _AMOUNT_STEP)
+
+
+_PLAIN_AMOUNT = re.compile(r"[0-9]{1,9}(\.[0-9]{1,2})?")  # ASCII digits only ("\d" also matches e.g. Arabic-Indic digits)
+_TOO_PRECISE = re.compile(r"[0-9]{1,9}\.[0-9]{3,}")
+
+
+def parse_claim_amount(raw) -> Decimal:
+    """
+    Validate a user-supplied amount. Raises ClaimError with a precise code.
+    Only plain decimal text is accepted ("12", "12.5", "12.50") — no signs,
+    exponents ("1e3"), separators, spaces, NaN/Infinity — and at most 2 decimals.
+    """
+    if isinstance(raw, bool) or raw is None:
+        raise ClaimError("invalid_amount")
+    text = str(raw).strip()
+    if _TOO_PRECISE.fullmatch(text):
+        raise ClaimError("amount_too_precise")
+    if not _PLAIN_AMOUNT.fullmatch(text):
+        raise ClaimError("invalid_amount")
+    amount = Decimal(text)
+    if amount <= 0 or amount > _MAX_CLAIM_AMOUNT:
+        raise ClaimError("invalid_amount")
+    if amount < min_claim_amount():
+        raise ClaimError("amount_below_minimum")
+    return amount
+
+
+def split_claim_amount(amount: Decimal) -> tuple:
+    """(transferable, locked) as Decimals that add up to `amount` exactly."""
+    transferable = amount * _TRANSFERABLE_FRACTION
+    return transferable, amount - transferable
+
+
+def _decimal_to_wei(amount: Decimal) -> int:
+    return int(amount * (10 ** _XERA_DECIMALS))
+
+
+def _build_signed_claim(chain, wallet, chain_cfg, reference_id, amount_wei, transferable_wei, locked_wei, deadline_unix) -> dict:
+    reference_id_bytes32 = _reference_id_to_bytes32(reference_id)
+    if chain == "BNB":
+        chain_id = bnb_chain_id()
+        signature = eip712_signer.sign_bnb_claim(
+            user_address=wallet["address"], amount_wei=amount_wei,
+            reference_id_bytes32=reference_id_bytes32, deadline_unix=deadline_unix,
+            chain_id=chain_id, verifying_contract=chain_cfg["xera_distributor_address"],
+        )
+        return {
+            "chain": "BNB", "reference_id": reference_id, "contract_address": chain_cfg["xera_distributor_address"],
+            "chain_id": chain_id, "user": wallet["address"], "amount_wei": str(amount_wei),
+            "reference_id_hash": "0x" + reference_id_bytes32.hex(), "deadline": deadline_unix,
+            "signature": signature, "transferable_wei": str(transferable_wei), "locked_wei": str(locked_wei),
+        }
+    query_id = int.from_bytes(os.urandom(7), "big")
+    ton_result = ton_claim_signer.sign_claim_configured(
+        query_id=query_id, user_address=wallet["address"], amount_nano=amount_wei,
+        reference_id=reference_id, deadline_unix=deadline_unix,
+    )
+    return {
+        "chain": "TON", "contract_address": chain_cfg["xera_distributor_address"], "query_id": str(query_id),
+        "user": wallet["address"], "amount_wei": str(amount_wei), "reference_id": reference_id,
+        "reference_id_uint256": str(ton_result["reference_id_uint256"]), "deadline": deadline_unix,
+        "signature": "0x" + ton_result["signature_hex"],
+        "transferable_wei": str(transferable_wei), "locked_wei": str(locked_wei),
+    }
+
+
+def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
+    """
+    Move `amount_raw` XERA of the user's claimable balance to their verified
+    wallet on `chain`. Returns the signed claim to submit on-chain.
+
+    Order matters: validate input -> verified wallet -> chain enabled -> atomic
+    reservation (this is where the balance is debited and the 75M cap checked)
+    -> sign. If signing fails AFTER the reservation, the reservation is marked
+    FAILED immediately so the funds are never stuck behind a signature that was
+    never produced; the user can simply retry.
+    """
+    chain = chain.upper()
+    if chain not in ("BNB", "TON"):
+        raise ClaimError("unsupported_chain")
+    amount = parse_claim_amount(amount_raw)
+
+    wallet = _get_verified_wallet(user_id, chain)
+    try:
+        chain_cfg = require_onchain_enabled(chain)
+    except ChainConfigError as e:
+        raise ClaimError(str(e))
+
+    transferable, locked = split_claim_amount(amount)
+    amount_wei = _decimal_to_wei(amount)
+    transferable_wei = (amount_wei * 2500) // 10000
+    locked_wei = amount_wei - transferable_wei
+
+    reference_id = f"claim-{uuid.uuid4()}"
+    deadline_unix = int(time.time()) + _CLAIM_SIGNATURE_TTL_SECONDS
+
+    try:
+        supabase.rpc("xera_reserve_onchain_claim_amount", {
+            "p_reference_id": reference_id,
+            "p_user_id": user_id,
+            "p_chain": chain,
+            "p_wallet_address": wallet["address"],
+            "p_amount": str(amount),
+            "p_transferable_amount": str(transferable),
+            "p_locked_amount": str(locked),
+            "p_contract_address": chain_cfg["xera_distributor_address"],
+            "p_deadline": _iso_from_unix(deadline_unix),
+        }).execute()
+    except Exception as e:
+        msg = str(e)
+        for code in ("insufficient_claimable_balance", "global_mining_allocation_exceeded",
+                     "wallet_not_active", "wallet_not_found", "invalid_amount", "invalid_split"):
+            if code in msg:
+                raise ClaimError(code)
+        raise
+
+    try:
+        return _build_signed_claim(chain, wallet, chain_cfg, reference_id, amount_wei,
+                                   transferable_wei, locked_wei, deadline_unix)
+    except Exception:
+        try:
+            supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": reference_id}).execute()
+        except Exception:
+            pass  # the stale-claim sweep will expire it; funds stay held for a retry either way
+        raise ClaimError("claim_signer_not_configured")
+
+
+def get_claim_overview(user_id: int) -> dict:
+    """What the claim screen needs: how much can be moved, and the user's recent claims."""
+    # An abandoned SIGNED claim (wallet popup closed, tab left) must become EXPIRED
+    # once its signature can no longer be executed, or it would sit "in progress"
+    # forever and never be retryable. Nothing else schedules this sweep.
+    _sweep_expired_claims()
+    bal_res = supabase.rpc("xera_claimable_balance", {"p_user_id": user_id}).execute()
+    bal = first_row(bal_res.data) or {}
+
+    claims_res = (
+        supabase.table("xera_onchain_claims")
+        .select("reference_id,chain,wallet_address,claimed_amount,transferable_amount,locked_amount,"
+                "status,transaction_hash,signature_deadline,created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(25)
+        .execute()
+    )
+    return {
+        "balance": float(bal.get("cached_balance") or 0),
+        "claimable": float(bal.get("claimable") or 0),
+        "min_amount": float(min_claim_amount()),
+        "transferable_percent": 25,
+        "locked_percent": 75,
+        "claims": claims_res.data or [],
+    }
+
+
 def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dict:
     res = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
     if not res.data:
@@ -312,6 +496,11 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
     row = res.data[0]
     if row["user_id"] != user_id:
         raise ClaimError("not_your_claim")
+    if row["status"] in ("SIGNED", "SUBMITTED"):
+        _sweep_expired_claims()
+        refreshed = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
+        if refreshed.data:
+            row = refreshed.data[0]
     if row["status"] not in ("FAILED", "EXPIRED"):
         raise ClaimError("claim_not_retryable")
 

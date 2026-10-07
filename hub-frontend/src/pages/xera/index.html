@@ -393,14 +393,37 @@
           <p class="banner-info" id="chainWalletNotice" hidden></p>
           <p class="banner-error" id="chainWalletError"></p>
 
-          <div class="section-title" style="margin-top:18px">Claim a mining entitlement</div>
+          <div class="section-title" style="margin-top:18px">Move XERA to your wallet</div>
           <div class="chain-claim-selector">
-            <label for="chainSelect">Settle on</label>
+            <label for="chainSelect">Send to</label>
             <select id="chainSelect">
               <option value="BNB">BNB Smart Chain</option>
               <option value="TON">TON</option>
             </select>
           </div>
+
+          <div class="chain-claim-card">
+            <div class="chain-claim-available">
+              <span>Available to move</span>
+              <b id="chainClaimableAmount">—</b>
+            </div>
+            <label class="chain-manual-label" for="chainClaimAmount">How much do you want to move?</label>
+            <div class="chain-claim-amount-row">
+              <input id="chainClaimAmount" class="chain-claim-input" type="text" inputmode="decimal"
+                     autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done"
+                     placeholder="0.00" aria-describedby="chainClaimMsg chainClaimSplit">
+              <button type="button" class="btn btn-sm btn-ghost chain-claim-max" id="chainClaimMax">Max</button>
+            </div>
+            <p class="chain-claim-msg" id="chainClaimMsg" role="status" aria-live="polite"></p>
+            <div class="chain-claim-split" id="chainClaimSplit" aria-live="polite"></div>
+            <button type="button" class="btn chain-claim-submit" id="chainClaimSubmit" disabled>Move to wallet</button>
+            <p class="chain-manual-hint">
+              <b>25%</b> arrives in your wallet right away. The other <b>75%</b> is locked in vesting and unlocks
+              gradually — you can follow it under “Vesting status”. The amount you move is taken off your in-app balance.
+            </p>
+          </div>
+
+          <div class="section-title" style="margin-top:18px">Your on-chain claims</div>
           <div id="chainClaimableList" class="chain-claimable-list"></div>
           <p class="banner-error" id="chainClaimError"></p>
 

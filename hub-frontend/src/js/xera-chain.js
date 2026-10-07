@@ -621,48 +621,112 @@ function forgetPendingTx(ref) { const m = pendingTxs(); delete m[ref]; try { loc
 
 const inFlight = new Set(); // reference_ids with a settle running in THIS tab (UX only — the backend enforces the real guard)
 
+// ================= MOVE XERA TO YOUR WALLET (amount-based claims) =================
+// The user chooses an amount. The backend debits it from the in-app balance and
+// signs ONE single-use claim; the contract sends 25% to the wallet and locks 75%
+// in vesting. The numbers shown here are a preview only — the server is the
+// authority on balance, rounding and the split.
+
+const signedClaims = new Map();   // reference_id -> signed claim, kept in memory so a closed wallet popup can be resumed
+
+function trimNum(n, max = 4) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: max }); }
+
+// A balance floored to 2 decimals, via the string (never Math.round) so it can't round UP past what's available.
+function floor2(n) { const [i, f = ''] = Number(n).toFixed(4).split('.'); return `${i}.${f.slice(0, 2)}`; }
+
+// "12.5" -> 1250 (hundredths of a XERA), or null if it isn't a plain amount with at most 2 decimals.
+function amountToCents(text) {
+    const m = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(String(text).trim());
+    return m ? Number(m[1]) * 100 + Number((m[2] || '').padEnd(2, '0')) : null;
+}
+
+function updateClaimPreview() {
+    const input = $('chainClaimAmount');
+    const msg = $('chainClaimMsg');
+    const split = $('chainClaimSplit');
+    const submit = $('chainClaimSubmit');
+    if (!input || !submit) return;
+    const ov = state.claimOverview;
+    const raw = input.value.trim();
+    split.replaceChildren();
+    msg.textContent = '';
+    let ok = false;
+
+    if (raw) {
+        const cents = amountToCents(raw);
+        const maxCents = ov ? amountToCents(floor2(ov.claimable)) : 0;
+        const minCents = ov ? Math.round(ov.min_amount * 100) : 100;
+        if (cents === null) msg.textContent = 'Enter a number with at most 2 decimals.';
+        else if (cents <= 0) msg.textContent = 'Enter an amount above zero.';
+        else if (cents < minCents) msg.textContent = `The minimum is ${trimNum(ov.min_amount)} XERA.`;
+        else if (cents > maxCents) msg.textContent = 'That is more than your available balance.';
+        else {
+            ok = true;
+            const total = cents / 100;
+            const now = cents * 25 / 10000;
+            split.append(
+                h('div', { class: 'chain-split-box' }, h('span', { text: 'To your wallet now (25%)' }), h('b', { text: `${trimNum(now)} XERA` })),
+                h('div', { class: 'chain-split-box' }, h('span', { text: 'Locked in vesting (75%)' }), h('b', { text: `${trimNum(total - now)} XERA` })),
+            );
+        }
+    }
+    submit.disabled = !ok || inFlight.has('amount');
+}
+
 async function loadClaimables({ keepError = false } = {}) {
     if (!keepError) $('chainClaimError').textContent = '';
     const list = $('chainClaimableList');
     try {
-        const { transactions } = await req('/api/xera/transactions?limit=50');
-        const rewards = transactions.filter((t) => t.type === 'MINING_REWARD' && t.status === 'CONFIRMED');
+        const ov = await req('/api/xera/claim/overview');
+        state.claimOverview = ov;
+        $('chainClaimableAmount').textContent = `${trimNum(ov.claimable)} XERA`;
         list.replaceChildren();
-        if (!rewards.length) {
-            list.append(h('p', { class: 'chain-empty', text: 'No eligible mining entitlement was found yet. Rewards appear here once a mining session is claimed.' }));
-            return;
+        if (!ov.claims.length) {
+            list.append(h('p', { class: 'chain-empty', text: 'Nothing moved yet. Claims you start will appear here with their status.' }));
+        } else {
+            for (const c of ov.claims) list.append(renderClaimRow(c));
         }
-        for (const tx of rewards) list.append(renderClaimRow(tx));
+        updateClaimPreview();
     } catch (err) {
-        $('chainClaimError').textContent = userMessage(err, 'Could not load your mining entitlements. Please try again.');
+        $('chainClaimError').textContent = userMessage(err, 'Could not load your claimable balance. Please try again.');
     }
 }
 
-function renderClaimRow(tx) {
-    const ref = tx.reference_id;           // <-- NOT tx.id
-    const status = tx.onchain_claim_status;
-    const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString() : '';
-    const label = h('span', { text: `${Number(tx.amount).toLocaleString()} XERA${date ? ' — ' + date : ''}` });
+function renderClaimRow(c) {
+    const ref = c.reference_id;
+    const status = c.status;
+    const date = c.created_at ? new Date(c.created_at).toLocaleDateString() : '';
+    const split = `${trimNum(c.transferable_amount)} to wallet · ${trimNum(c.locked_amount)} locked`;
+    const label = h('span', { class: 'chain-claim-label' },
+        h('b', { text: `${trimNum(c.claimed_amount)} XERA` }),
+        h('small', { text: `${date ? date + ' — ' : ''}${split}` }));
     const row = h('div', { class: 'chain-claim-row' }, label);
 
     if (status === 'CONFIRMED') {
-        row.append(h('span', { class: 'chain-pill ok', text: `Settled on ${tx.onchain_claim_chain || 'chain'}` }));
-        return row;
-    }
-    if (!ref) {
-        row.append(h('span', { class: 'chain-pill warn', text: 'Unavailable' }));
+        row.append(h('span', { class: 'chain-pill ok', text: `Settled on ${c.chain || 'chain'}` }));
         return row;
     }
 
     const savedHash = pendingTxs()[ref];
-    if ((status === 'SIGNED' || status === 'SUBMITTED') && savedHash) {
+    // A transaction we already sent can still be confirmed even if the signature window has since closed.
+    if ((status === 'SIGNED' || status === 'SUBMITTED' || status === 'EXPIRED' || status === 'FAILED') && savedHash) {
         row.append(h('button', { type: 'button', class: 'btn btn-sm', text: 'Confirm settlement', onclick: () => confirmSaved(ref, savedHash) }));
+        return row;
+    }
+
+    const cached = signedClaims.get(ref);
+    const stillValid = cached && cached.deadline * 1000 > Date.now() + 30000;
+    if (status === 'SIGNED' && stillValid) {
+        const btn = h('button', { type: 'button', class: 'btn btn-sm', text: 'Continue in wallet', onclick: () => continueSigned(ref, btn) });
+        row.append(btn);
         return row;
     }
     if (status === 'SIGNED' || status === 'SUBMITTED') {
         row.append(h('span', { class: 'chain-pill warn', text: 'In progress' }));
+        return row;
     }
-    const btn = h('button', { type: 'button', class: 'btn btn-sm', 'data-ref': ref, text: status === 'FAILED' || status === 'EXPIRED' ? 'Try again' : 'Settle on-chain', onclick: () => settleClaim(ref, btn) });
+    // FAILED / EXPIRED: the funds are still held for this claim — re-sign the SAME claim.
+    const btn = h('button', { type: 'button', class: 'btn btn-sm', text: 'Try again', onclick: () => retryClaim(ref, btn) });
     row.append(btn);
     return row;
 }
@@ -686,30 +750,32 @@ async function getEthers() {
 
 // Settlement, in order:
 //   1. cheap local checks (chain supported, wallet connected & verified)
-//   2. backend reserves the entitlement (single-use, DB-enforced) and signs it
-//   3. wallet on the right network -> user confirms the transaction
-//   4. backend independently verifies the transaction on-chain and only THEN marks settled
-async function settleClaim(referenceId, button) {
+//   2. wallet on the right network (checked BEFORE the backend reserves anything)
+//   3. backend reserves the amount (balance debited atomically) and signs it
+//   4. user confirms the transaction in their wallet
+//   5. backend independently verifies the transaction on-chain and only THEN marks it settled
+async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownRef }) {
     const chain = $('chainSelect').value;
     const errEl = $('chainClaimError');
     errEl.textContent = '';
     clearMessages();
 
     // TON settlement isn't wired up. Check BEFORE asking the backend to sign:
-    // signing reserves the entitlement, and reserving something we then can't
-    // submit would leave it stuck "in progress" until the signature expires.
+    // signing reserves the amount, and reserving something we then can't
+    // submit would hold it as "in progress" until the signature expires.
     if (chain !== 'BNB') {
-        errEl.textContent = 'TON settlement is not yet available — please settle on BNB Smart Chain for now.';
+        errEl.textContent = 'TON settlement is not yet available — please use BNB Smart Chain for now.';
         return;
     }
 
     const wallet = state.wallets.BNB;
-    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected before this entitlement can be settled.'; return; }
-    if (!wallet.verified) { errEl.textContent = 'Your BNB address was added manually and hasn’t been verified. Connect the wallet and sign the ownership request before settling.'; return; }
+    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected before you can move XERA to it.'; return; }
+    if (!wallet.verified) { errEl.textContent = 'Your BNB address was added manually and hasn’t been verified. Connect the wallet and sign the ownership request first.'; return; }
 
-    if (inFlight.has(referenceId)) return;
-    inFlight.add(referenceId);
+    if (inFlight.has(busyKey)) return;
+    inFlight.add(busyKey);
     if (button) { button.disabled = true; button.textContent = 'Preparing…'; }
+    let referenceId = knownRef;
 
     try {
         await loadNetworkConfig();
@@ -731,16 +797,14 @@ async function settleClaim(referenceId, button) {
         state.providerChainId = await readChainId(entry.provider, entry.chainId);
         renderNetworkBanner();
 
-        // Wrong network is checked BEFORE the backend reserves anything.
         if (state.network && state.providerChainId !== state.network.chain_id) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
         }
 
         if (button) button.textContent = 'Signing…';
-        const { claim } = await req('/api/xera/claim/sign', {
-            method: 'POST',
-            body: JSON.stringify({ reference_id: referenceId, chain }),
-        });
+        const claim = await fetchClaim(chain);
+        referenceId = claim.reference_id || knownRef;
+        signedClaims.set(referenceId, { ...claim, reference_id: referenceId });
 
         if (button) button.textContent = 'Confirm in wallet…';
         const { BrowserProvider, Contract } = await getEthers();
@@ -754,15 +818,43 @@ async function settleClaim(referenceId, button) {
         await tx.wait();
         await req('/api/xera/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, transaction_hash: tx.hash }) });
         forgetPendingTx(referenceId);
-        setNotice(`Settled on-chain. Transaction ${shorten(tx.hash)}`);
+        signedClaims.delete(referenceId);
+        setNotice(`Moved on-chain. Transaction ${shorten(tx.hash)}`);
         window.open(explorerTx('BNB', tx.hash), '_blank', 'noopener');
+        const amt = $('chainClaimAmount'); if (amt) amt.value = '';
     } catch (err) {
-        errEl.textContent = userMessage(err, 'Could not settle this claim. Your entitlement has not been lost — please try again.');
+        errEl.textContent = userMessage(err, 'Could not complete this claim. Your XERA has not been lost — if it was reserved it appears under “Your on-chain claims” and you can continue or try again.');
     } finally {
-        inFlight.delete(referenceId);
+        inFlight.delete(busyKey);
+        if (button && idleLabel) { button.textContent = idleLabel; }
         // keepError: the refresh must not wipe the failure message we just showed.
         await Promise.all([loadClaimables({ keepError: true }), loadVestingStatus()]);
     }
+}
+
+function settleAmount() {
+    const input = $('chainClaimAmount');
+    const text = input.value.trim();
+    if (amountToCents(text) === null) { updateClaimPreview(); return; }
+    return settleWithWallet({
+        busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet',
+        fetchClaim: async (chain) => (await req('/api/xera/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text }) })).claim,
+    });
+}
+
+function retryClaim(referenceId, button) {
+    return settleWithWallet({
+        busyKey: referenceId, button, idleLabel: 'Try again', knownRef: referenceId,
+        fetchClaim: async (chain) => (await req('/api/xera/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain }) })).claim,
+    });
+}
+
+// The wallet popup was closed before sending, but the signature is still valid: reuse it, no new reservation.
+function continueSigned(referenceId, button) {
+    return settleWithWallet({
+        busyKey: referenceId, button, idleLabel: 'Continue in wallet', knownRef: referenceId,
+        fetchClaim: async () => signedClaims.get(referenceId),
+    });
 }
 
 // Minimal ABI fragment — just the one function the frontend calls directly.
@@ -863,6 +955,26 @@ function initChainPanel() {
     renderWalletCard('TON');
     startProviderDiscovery();
     $('chainSelect')?.addEventListener('change', () => { loadVestingStatus(); });
+
+    const amountInput = $('chainClaimAmount');
+    if (amountInput) {
+        // Keep the field to digits and ONE dot, at most 2 decimals, so what the user sees is what is sent.
+        amountInput.addEventListener('input', () => {
+            let v = amountInput.value.replace(/[^0-9.]/g, '');
+            const dot = v.indexOf('.');
+            if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+            if (v !== amountInput.value) amountInput.value = v;
+            updateClaimPreview();
+        });
+        amountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (!$('chainClaimSubmit').disabled) settleAmount(); } });
+    }
+    $('chainClaimMax')?.addEventListener('click', () => {
+        const ov = state.claimOverview;
+        if (!ov) return;
+        amountInput.value = Number(floor2(ov.claimable)) > 0 ? floor2(ov.claimable) : '';
+        updateClaimPreview();
+    });
+    $('chainClaimSubmit')?.addEventListener('click', settleAmount);
 
     document.querySelectorAll('[data-tab="chain"], [data-goto="chain"]').forEach((btn) => {
         btn.addEventListener('click', () => { openChainTab(); });

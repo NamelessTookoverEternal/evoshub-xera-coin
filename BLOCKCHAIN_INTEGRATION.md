@@ -375,3 +375,31 @@ user_auth.py, wallet.py, admin_auth.py, or the existing migrations was
 touched. EVOS Data Services, EVOSGPT, TopTVGH, and EVOS Business Hub
 components outside XERA were not touched.
 ```
+
+
+## 18. Amount-based claims and the daily reward (migration `20261006_xera_amount_claims.sql`)
+
+**What changed**
+- On-chain claims are now **amount-based**: the user enters how much to move (2 decimals max, minimum
+  `XERA_MIN_ONCHAIN_CLAIM`, default `1`). The amount is debited from the in-app balance in the same database
+  transaction that records the claim; the distributor contract then sends **25%** to the wallet and locks
+  **75%** in vesting. No contract change was needed.
+- The **daily claim** now counts against the same 75,000,000 pool as free mining and hashrate, follows the
+  same closure rule (free rewards stop at `closure_threshold`), and is claimable on-chain.
+
+**What is claimable** — `LEAST(in-app balance, MINING_REWARD + DAILY_CLAIM credits − everything already in
+xera_onchain_claims)`. Purchases, referral rewards, bonuses and admin credits are *not* claimable on-chain
+because they are not funded from the mining pool the distributor holds.
+
+**Endpoints**: `GET /api/xera/claim/overview`, `POST /api/xera/claim/sign-amount {chain, amount}`;
+`/claim/confirm` and `/claim/retry` are unchanged. `POST /claim/sign` (per-entitlement) now returns `410` —
+it did not debit the balance and could double-spend next to amount claims.
+
+**Behaviour to know about**
+- A claim that fails or expires keeps its funds held and is re-signed through `/claim/retry` (same
+  `reference_id`, so it can execute on-chain at most once). It is never silently refunded.
+- Abandoned `SIGNED` claims are expired when the user opens the claim screen or retries.
+- One-time backfill: daily rewards paid before this migration are added to the pool counters once
+  (guarded by `xera_pool_backfill_markers`, so re-running the file is harmless).
+- Referral rewards are **not** counted against the pool (their default amount is 0). Decide this before
+  enabling them.
