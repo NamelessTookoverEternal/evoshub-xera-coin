@@ -282,6 +282,13 @@ init = [h for h in HTTP if "initialize" in h[1]][0][2]
 ok(j["status"] == "created" and init["amount"] == 5000 and init["currency"] == "GHS", "Paystack charged GH₵50.00 (5000 pesewas); a browser-sent amount is ignored")
 ref = j["reference"]
 ok(init["callback_url"].endswith(f"/success?type=agent-fee&reference={ref}"), "callback returns to the success page")
+ok(init["callback_url"] == f"https://evosdata.xyz/success?type=agent-fee&reference={ref}", "no Origin header: standalone success page, as before")
+# Started from inside the Hub: Paystack must return to /evosdata, not bounce out to evosdata.xyz
+new_user(25)
+HTTP.clear()
+j = c.post("/agent-fee/initiate", json={"user_id": 25}, headers={**H(25), "Origin": "https://evoshub.xyz"}).json()
+init_hub = [h for h in HTTP if "initialize" in h[1]][0][2]
+ok(init_hub["callback_url"] == f"https://evoshub.xyz/evosdata/success?type=agent-fee&reference={j['reference']}", "agent fee started in the Hub returns to the Hub-mounted /evosdata/success")
 ok(c.post("/agent-fee/initiate", json={"user_id": 21}, headers=H(21)).status_code == 400, "admin cannot buy agent status")
 st = c.get(f"/agent-fee/status?user_id=20&reference={ref}", headers=H(20)).json()
 ok(st["state"] == "pending", "unpaid attempt stays pending")

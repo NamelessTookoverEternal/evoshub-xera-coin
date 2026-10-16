@@ -205,7 +205,7 @@ def initiate(request: Request, body: InitBody):
                 "currency": "GHS",
                 "reference": reference,
                 "metadata": {"user_id": user_id, "type": "agent_fee"},
-                "callback_url": f"{os.getenv('FRONTEND_URL', 'https://evosdata.xyz')}/success?type=agent-fee&reference={reference}",
+                "callback_url": f"{m.callback_base(request)}/success?type=agent-fee&reference={reference}",
             },
             timeout=m.REQUEST_TIMEOUT,
         ).json()
