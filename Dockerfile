@@ -1,5 +1,8 @@
 # EVOS Business Hub / XERA Token — FastAPI backend
 #
+# Single backend for EVOS Hub, XERA AND EVOS Data Services (python/services/evosdata,
+# mounted at /api/evosdata by routes/evosdata.py). One image, one process.
+#
 # Container image build context is the repo root (works for Fly.io,
 # Google Cloud Run, or any Docker-based host). Everything the app
 # needs is copied in from ./python explicitly below.
