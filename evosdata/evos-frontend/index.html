@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/evosdata.png" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0a0814" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="EVOS Data" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>EVOS Data Ghana | Buy Mobile Data Instantly</title>
+  <meta
+    name="description"
+    content="Buy MTN, Telecel and AirtelTigo data bundles online in Ghana. Fast delivery, secure Paystack payments and instant order tracking with EVOS Data."
+  />
+  <meta
+    name="keywords"
+    content="buy data Ghana, MTN data Ghana, Telecel bundles, AirtelTigo data, cheap data Ghana, EVOS Data"
+  />
+  <meta name="author" content="EVOS Technologies" />
+  <meta name="robots" content="index, follow" />
+  <meta property="og:title" content="EVOS Data Ghana | Buy Mobile Data Instantly" />
+  <meta
+    property="og:description"
+    content="Buy MTN, Telecel and AirtelTigo data bundles online in Ghana. Fast delivery, secure Paystack payments and instant order tracking with EVOS Data."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://evosdata.xyz" />
+  <meta property="og:image" content="https://evosdata.xyz/og-image.jpg" />
+  <meta property="og:image:secure_url" content="https://evosdata.xyz/og-image.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="EVOS Data Ghana" />
+  <meta property="og:site_name" content="EVOS Data Ghana" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="EVOS Data Ghana | Buy Mobile Data Instantly" />
+  <meta name="twitter:description" content="Buy MTN, Telecel and AirtelTigo data bundles online in Ghana. Fast delivery, secure Paystack payments and instant order tracking." />
+  <meta name="twitter:image" content="https://evosdata.xyz/og-image.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    #splash{position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:#0a0814;overflow:hidden;transition:opacity .45s ease,visibility .45s ease;padding-bottom:env(safe-area-inset-bottom,0px)}
+    #splash.out{opacity:0;visibility:hidden}
+    #splash .glow{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none}
+    #splash .g1{width:70vmax;height:70vmax;left:-30vmax;top:-34vmax;background:radial-gradient(circle,rgba(139,92,246,.55),transparent 65%);animation:spDrift 9s ease-in-out infinite alternate}
+    #splash .g2{width:56vmax;height:56vmax;right:-26vmax;bottom:-22vmax;background:radial-gradient(circle,rgba(200,255,62,.22),transparent 65%);animation:spDrift 11s ease-in-out infinite alternate-reverse}
+    #splash .logo{position:relative;width:96px;height:96px;border-radius:26px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(200,255,62,.28);box-shadow:0 0 0 0 rgba(200,255,62,.35),0 18px 50px rgba(0,0,0,.5);animation:spPop .7s cubic-bezier(.2,.9,.3,1.2) both,spPulse 2s ease-in-out .7s infinite}
+    #splash .logo img{width:62px;height:62px;object-fit:contain}
+    #splash h1{margin:22px 0 4px;font:800 28px/1 "Space Grotesk",system-ui,sans-serif;letter-spacing:3px;color:#f3f0fb;animation:spUp .6s .25s both}
+    #splash .by{font:600 12px/1 "Inter",system-ui,sans-serif;letter-spacing:1.5px;color:#b4acd0;text-transform:uppercase;animation:spUp .6s .4s both}
+    #splash .bar{width:150px;height:3px;border-radius:3px;margin-top:34px;background:rgba(255,255,255,.1);overflow:hidden;animation:spUp .6s .5s both}
+    #splash .bar i{display:block;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,#8fe600,#c8ff3e);animation:spBar 1.1s ease-in-out infinite}
+    #splash .pw{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom,0px));font:600 11px/1 "Inter",system-ui,sans-serif;letter-spacing:1.2px;color:#7a6fa3;text-transform:uppercase;animation:spUp .6s .7s both}
+    #splash .pw b{color:#b4acd0;font-weight:700}
+    @keyframes spPop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+    @keyframes spUp{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+    @keyframes spPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,255,62,.30),0 18px 50px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 14px rgba(200,255,62,0),0 18px 50px rgba(0,0,0,.5)}}
+    @keyframes spBar{0%{transform:translateX(-110%)}100%{transform:translateX(380%)}}
+    @keyframes spDrift{from{transform:translate(0,0)}to{transform:translate(4vmax,3vmax)}}
+    @media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
+  </style>
+</head>
+  <body style="background:#0a0814">
+    <div id="splash" aria-hidden="true">
+      <i class="glow g1"></i><i class="glow g2"></i>
+      <div class="logo"><img src="/evosdata.png" alt="" onerror="this.style.display='none'" /></div>
+      <h1>EVOSDATA</h1>
+      <div class="by">by EVOS Business HUB</div>
+      <div class="bar"><i></i></div>
+      <div class="pw">Powered by <b>Evoxera Technology</b></div>
+    </div>
+    <script src="/splash-init.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
