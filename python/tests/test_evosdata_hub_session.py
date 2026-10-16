@@ -125,3 +125,31 @@ def test_background_jobs_toggle(monkeypatch):
     monkeypatch.setenv("EVOSDATA_ENABLED", "false")
     app_dis = FastAPI()
     assert mount_evosdata(app_dis) is False and not any(getattr(r, "path", "").startswith("/api/evosdata") for r in app_dis.routes)
+
+
+# ---- per-user endpoints that used to trust a bare user_id --------------------
+_PRIVATE = ["/api/evosdata/orders/me?user_id=1", "/api/evosdata/users/me?user_id=1", "/api/evosdata/today/1"]
+
+
+@pytest.mark.parametrize("path", _PRIVATE)
+def test_private_endpoints_reject_anonymous(client, path):
+    assert client.get(path).status_code == 403
+
+
+@pytest.mark.parametrize("path", _PRIVATE)
+def test_private_endpoints_reject_garbage_and_other_users_token(client, path):
+    assert client.get(path, headers={"X-User-Token": "garbage"}).status_code == 403
+    assert client.get(path, headers={"X-User-Token": hub_token(2)}).status_code == 403      # user 2 reading user 1
+    assert client.get(path, headers={"X-User-Token": hub_token(1, )[:-3] + "xxx"}).status_code == 403  # tampered
+
+
+@pytest.mark.parametrize("path", _PRIVATE)
+def test_private_endpoints_reject_expired_token(client, path):
+    assert client.get(path, headers={"X-User-Token": core.make_user_token(1, ttl=-5)}).status_code == 403
+
+
+def test_private_endpoints_accept_own_token(client):
+    assert client.get(_PRIVATE[0], headers={"X-User-Token": hub_token(1)}).status_code == 200
+    assert client.get(_PRIVATE[0], headers={"X-User-Token": core.make_user_token(1)}).status_code == 200
+    for p in _PRIVATE[1:]:
+        assert client.get(p, headers={"X-User-Token": hub_token(1)}).status_code != 403

@@ -3331,6 +3331,7 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
 @router.get("/orders/me")
 @limiter.limit("30/minute")
 def get_user_orders(request: Request, user_id: int = Query(...)):
+    require_user(request, user_id)  # token must belong to this user_id
     try:
         orders = supabase.table("orders").select("*").eq("user_id", user_id).execute()
         return {"status": "success", "orders": orders.data or []}
@@ -4042,6 +4043,7 @@ def sync_order(request: Request, reference: str):
 @router.get("/users/me")
 @limiter.limit("30/minute")
 def get_user(request: Request, user_id: int):
+    require_user(request, user_id)  # token must belong to this user_id
     try:
         res = supabase.table("users").select("*").eq("id", user_id).single().execute()
         user = res.data
@@ -5808,6 +5810,7 @@ def admin_me(request: Request, authorization: str = Header(default="")):
 @router.get("/today/{user_id}")
 @limiter.limit("30/minute")
 def today_dashboard(request: Request, user_id: int):
+    require_user(request, user_id)  # token must belong to this user_id
     try:
         global_orders = supabase.table("orders").select("id", count="exact").execute()
         total_orders  = global_orders.count or 0
