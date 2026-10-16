@@ -20,6 +20,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from routes import admin, contact, website_requests
+from routes.evosdata import mount_evosdata
 from utils.rate_limit import limiter
 from utils.xera_supabase import supabase
 from xera.routes import router as xera_router
@@ -76,7 +77,8 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    # X-* headers are the Evosdata auth headers (agent/user token, admin secret).
+    allow_headers=["Authorization", "Content-Type", "X-Agent-Token", "X-User-Token", "X-Admin-Secret"],
 )
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
@@ -125,6 +127,10 @@ app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admi
 app.include_router(xera_chain_router, prefix="/api/xera", tags=["xera-chain"])
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
+# EVOS Data Services: served by this same application (see routes/evosdata.py).
+mount_evosdata(app)
+
+
 def _route_registered(path: str, method: str) -> bool:
     return any(getattr(r, "path", None) == path and method in (getattr(r, "methods", None) or set()) for r in app.routes)
 

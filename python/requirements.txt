@@ -10,6 +10,10 @@ bcrypt==4.0.1
 
 supabase>=2.6,<3
 
+# --- EVOS Data Services (merged into this backend) ---
+requests==2.32.3
+python-multipart==0.0.9
+
 # --- blockchain integration (XERA settlement/ownership layer) ---
 web3==6.20.1
 eth-account==0.11.2
