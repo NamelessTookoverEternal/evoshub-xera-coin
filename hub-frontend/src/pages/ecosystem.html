@@ -90,7 +90,7 @@
       <span class="tier-num">TIER 01 · CORE PRODUCTS</span>
     </div>
     <div class="app-grid" data-stagger-cards style="margin-bottom:40px;">
-      <a href="https://evosdata.xyz" target="_blank" rel="noopener" class="card app-card">
+      <a href="/evosdata" class="card app-card">
         <div class="app-icon app-icon--green"><svg class="app-icon__fallback" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18v-3M9.3 18v-6M14.7 18v-9M20 18V4" stroke-linecap="round"/></svg><img src="/assets/images/evos-data.jpeg" alt="" style="display:none" onload="this.style.display='block';this.previousElementSibling.style.display='none';this.parentElement.classList.add('app-icon--logo')" onerror="this.remove()"/></div>
         <div class="app-card__cat">Digital Data Services</div>
         <div class="app-card__name">EVOS Data Services</div>
@@ -186,6 +186,7 @@
   <script type="module" src="../js/nav.js"></script>
   <script type="module">
     import { fetchPublicJson } from '../js/xera-public.js';
+    import { resolveEcosystemLink } from '../js/internal-links.js';
 
     (async function loadLinks() {
       const grid = document.getElementById('ecoLinksGrid');
@@ -193,12 +194,14 @@
         const d = await fetchPublicJson('/api/xera/ecosystem');
         const links = d.links || [];
         if (!links.length) { grid.remove(); return; }
-        grid.innerHTML = links.map((l) => `
-          <a class="link-tile" href="${l.url}" target="_blank" rel="noopener">
+        grid.innerHTML = links.map((l) => {
+          const dest = resolveEcosystemLink(l.url);
+          return `
+          <a class="link-tile" href="${dest.href}"${dest.external ? ' target="_blank" rel="noopener"' : ''}>
             <span class="logo"><img src="${l.image_url}" alt="" loading="lazy"></span>
             <span></span>
           </a>
-        `).join('');
+        `; }).join('');
         // Names set via textContent, never innerHTML, even though the
         // markup above is template-built — admin-entered text never gets
         // parsed as HTML.

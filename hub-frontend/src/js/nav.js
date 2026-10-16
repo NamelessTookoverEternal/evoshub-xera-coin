@@ -1,5 +1,6 @@
 // EVOSHUB — Navigation
 import './theme.js'
+import './hub-auth.js'
 
 const hamburger = document.querySelector('.hamburger')
 const navLinks  = document.querySelector('.nav-links')

@@ -6,6 +6,8 @@ let mining = null;
 let dailyData = null;
 let tickHandle = null;
 
+import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
+
 const token = () => localStorage.getItem('xera_evos_token') || '';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
@@ -80,6 +82,7 @@ function showLogin(message) {
     localStorage.removeItem('xera_evos_token');
     localStorage.removeItem('xera_evos_user');
     ['user','email','username','user_id','userToken','agentToken'].forEach((k) => localStorage.removeItem(k));
+    notifyAuthChange();
     $('walletView').hidden = true;
     $('walletView').style.display = 'none';
     $('authView').hidden = false;
@@ -100,7 +103,9 @@ async function login(e) {
         lsDel(REF_KEY); // already has an account — a stale invite code shouldn't linger
         localStorage.setItem('xera_evos_token', d.token);
         localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
+        notifyAuthChange();
         await load();
+        goToRequestedProduct();
     } catch (err) {
         $('loginError').textContent = err.message;
     } finally {
@@ -136,7 +141,9 @@ async function register(e) {
         lsDel(REF_KEY); // used — don't re-apply it to anyone else on this device
         localStorage.setItem('xera_evos_token', d.token);
         localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
+        notifyAuthChange();
         await load();
+        goToRequestedProduct();
     } catch (err) {
         $('registerError').textContent = err.message;
     } finally {
@@ -906,10 +913,50 @@ $('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecos
 $('miningAction').onclick = () => startOrClaim($('miningAction'), $('error'));
 $('miningActionDash').onclick = () => startOrClaim($('miningActionDash'), $('errorDash'));
 
+// ================= RETURN TO THE REQUESTED PRODUCT =================
+// Hub pages send signed-out visitors here as /xera?next=<path>. After sign-in
+// we return them to that exact route. safeNext() only allows same-origin
+// paths (no open redirect), and /xera itself is excluded so we never loop.
+const params0 = new URLSearchParams(location.search);
+const requestedNext = (() => {
+    const n = safeNext(params0.get('next') || '', '');
+    if (!n) return '';
+    const p = new URL(n, location.origin).pathname.replace(/\/+$/, '');
+    return p === '/xera' ? '' : n;
+})();
+
+function goToRequestedProduct() {
+    if (requestedNext && token() && $('authView').hidden) location.replace(requestedNext);
+}
+
+function showAuthContext() {
+    if (!requestedNext || $('authContext')) return;
+    const name = requestedNext.startsWith('/evosdata') ? 'EVOS Data' : requestedNext.startsWith('/hub') ? 'your Hub dashboard' : 'that page';
+    const el = document.createElement('p');
+    el.id = 'authContext';
+    el.className = 'auth-context';
+    el.style.cssText = 'text-align:center;font-size:13px;opacity:.8;margin:0 0 12px';
+    el.textContent = `Sign in or create an account to continue to ${name}.`;
+    const tabs = $('tabLogin').parentElement;
+    tabs.parentElement.insertBefore(el, tabs);
+}
+
+// Other tab signed out / token removed -> show sign-in here too.
+window.addEventListener('storage', (e) => {
+    if ((e.key === 'xera_evos_token' || e.key === null) && !token() && !$('walletView').hidden) showLogin('You were signed out.');
+});
+
 const incomingRef = captureRefFromUrl();
-if (token()) {
-    load();
-} else if (incomingRef) {
-    showAuthTab('register');   // invited visitor: land on "Create account" with the code filled in
-    prefillRef(incomingRef);
+showAuthContext();
+if (token() && isExpired(token())) {
+    showLogin('Your session expired. Please sign in again.');
+} else if (token()) {
+    if (requestedNext) {
+        location.replace(requestedNext);          // already signed in: go straight to the product
+    } else {
+        load();
+    }
+} else if (params0.get('mode') === 'register' || incomingRef) {
+    showAuthTab('register');   // "Sign up" link, or invited visitor: land on "Create account"
+    if (incomingRef) prefillRef(incomingRef);
 }

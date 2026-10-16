@@ -1,6 +1,7 @@
 import { initTheme } from './theme.js';
 import { requireSession, getUser, api } from './evos-session.js';
 import { mountHubShell } from './hub-shell.js';
+import { resolveEcosystemLink } from './internal-links.js';
 
 initTheme();
 
@@ -123,8 +124,10 @@ async function loadEcosystemLinks() {
             grid.innerHTML = '';
             return;
         }
-        grid.innerHTML = links.map(link => `
-            <a class="hub-product-card" href="${escapeAttr(link.url)}" target="_blank" rel="noopener">
+        grid.innerHTML = links.map(link => {
+            const dest = resolveEcosystemLink(link.url);
+            return `
+            <a class="hub-product-card" href="${escapeAttr(dest.href)}"${dest.external ? ' target="_blank" rel="noopener"' : ''}>
                 <span class="hub-product-icon">
                     ${link.image_url
                         ? `<img src="${escapeAttr(link.image_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px"/>`
@@ -136,10 +139,10 @@ async function loadEcosystemLinks() {
                 </div>
                 <div class="hub-product-foot">
                     <span class="hub-status-pill is-live"><span class="dot"></span>Live</span>
-                    <span class="hub-product-open">Open ↗</span>
+                    <span class="hub-product-open">Open ${dest.external ? '↗' : '→'}</span>
                 </div>
             </a>
-        `).join('');
+        `; }).join('');
     } catch (e) {
         grid.innerHTML = '';
     }

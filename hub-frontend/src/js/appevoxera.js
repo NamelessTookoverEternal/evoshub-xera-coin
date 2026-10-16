@@ -1,5 +1,6 @@
 // EVOXERA — product hub (/appevoxera)
 import './theme.js'
+import './hub-auth.js'
 import { initInstallButton } from './pwa.js'
 import { detectCountry } from './evoxera-geo.js'
 
