@@ -1385,9 +1385,10 @@ body{
 .chain-claim-available b{font-size:1.15rem;overflow-wrap:anywhere}
 .chain-claim-amount-row{display:flex;gap:8px;align-items:stretch;min-width:0}
 /* 16px so iOS Safari doesn't zoom the page when the field is focused */
-.chain-claim-input{flex:1 1 auto;min-width:0;width:100%;min-height:48px;background:var(--surface-2,var(--bg,transparent));border:1.5px solid var(--border);border-radius:var(--radius-md);padding:10px 14px;color:inherit;font-size:16px;font-variant-numeric:tabular-nums}
+.chain-claim-input{flex:1 1 0;min-width:0;width:auto;min-height:52px;box-sizing:border-box;background:var(--bg,#060810);border:1.5px solid var(--border-strong,rgba(255,255,255,.28));border-radius:var(--radius-md);padding:10px 14px;color:var(--text,#f2f5fa);-webkit-text-fill-color:var(--text,#f2f5fa);caret-color:var(--accent,#4c7eff);font-size:1.15rem;font-weight:600;font-variant-numeric:tabular-nums;opacity:1}
+.chain-claim-input::placeholder{color:var(--text-dim,#838da1);opacity:1;font-weight:400;-webkit-text-fill-color:var(--text-dim,#838da1)}
 .chain-claim-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft,rgba(120,120,255,.2))}
-.chain-claim-max{flex:0 0 auto;min-height:48px;padding:0 16px}
+.chain-claim-amount-row .chain-claim-max{flex:0 0 auto;width:auto;min-height:0;align-self:center;padding:7px 14px;font-size:.74rem;font-weight:600;letter-spacing:.02em}
 .chain-claim-msg{margin:0;font-size:.8rem;color:var(--danger,#e5484d);min-height:0;overflow-wrap:anywhere}
 .chain-claim-msg:empty{display:none}
 .chain-claim-split{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
@@ -1400,7 +1401,8 @@ body{
 .chain-claim-row{flex-wrap:wrap}
 .chain-claim-label{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 180px}
 .chain-claim-label small{font-size:.74rem;color:var(--text-dim);overflow-wrap:anywhere}
-.chain-claim-row .btn,.chain-claim-row .chain-pill{flex:0 0 auto}
+.chain-claim-row .btn{flex:0 0 auto;width:auto}
+.chain-claim-row .chain-pill{flex:0 0 auto}
 @media (max-width:420px){
   .chain-claim-selector{flex-wrap:wrap}
   .chain-claim-row .btn{width:100%;min-height:44px}

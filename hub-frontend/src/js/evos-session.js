@@ -33,9 +33,16 @@ export function isLoggedIn() {
     return !!getToken();
 }
 
+// EVOS Data keeps its own session on this same origin (/evosdata). Signing out
+// of the Hub must end that one too. (Server-side tokens are stateless and
+// simply expire; see EVOSDATA_INTEGRATION.md.)
+const EVOSDATA_KEYS = ['user', 'email', 'username', 'user_id', 'userToken', 'agentToken'];
+
 export function logout() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    EVOSDATA_KEYS.forEach((k) => localStorage.removeItem(k));
+    try { sessionStorage.removeItem('agentToken'); } catch (e) { /* ignore */ }
 }
 
 /** Redirects to the XERA sign-in screen (the only login screen the

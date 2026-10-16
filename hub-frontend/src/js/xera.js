@@ -79,6 +79,7 @@ function showAuthTab(tab) {
 function showLogin(message) {
     localStorage.removeItem('xera_evos_token');
     localStorage.removeItem('xera_evos_user');
+    ['user','email','username','user_id','userToken','agentToken'].forEach((k) => localStorage.removeItem(k));
     $('walletView').hidden = true;
     $('walletView').style.display = 'none';
     $('authView').hidden = false;

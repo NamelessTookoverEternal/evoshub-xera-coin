@@ -9,6 +9,7 @@ import { getUser, logout } from './evos-session.js';
 const NAV_ITEMS = [
     { key: 'overview', label: 'Overview', href: '/hub/', icon: 'grid' },
     { key: 'data',     label: 'Data Services', href: '/hub/#data', icon: 'signal' },
+    { key: 'evosdata', label: 'EVOS Data', href: '/evosdata', icon: 'signal' },
     { key: 'xera',     label: 'XERA Mining', href: '/xera', icon: 'bolt' },
     { key: 'activity', label: 'Activity', href: '/hub/#activity', icon: 'clock' },
     { key: 'settings', label: 'Settings', href: '/hub/settings.html', icon: 'gear' },
