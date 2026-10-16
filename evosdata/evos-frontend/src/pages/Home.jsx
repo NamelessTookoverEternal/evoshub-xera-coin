@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { asset } from "../lib/basePath";
 
 // =========================================================================
 // DESIGN TOKENS — now a palette map instead of a single fixed theme.
@@ -192,9 +193,9 @@ export default function Home({ setPage, theme }) {
   // (update the extension below if you use .jpg / .jpeg instead).
   // If an image is missing or fails to load, the emoji design is used automatically.
   const quickNetworks = [
-    { name: "MTN", label: "MTN", emoji: "🟡", image: "/images/mtn.png", color: T.gold, outOfStock: false },
-    { name: "TELECEL", label: "Telecel", emoji: "🔴", image: "/images/telecel.png", color: T.red, outOfStock: false },
-    { name: "AIRTELTIGO", label: "AirtelTigo", emoji: "🔵", image: "/images/airteltigo.png", color: T.green, outOfStock: false },
+    { name: "MTN", label: "MTN", emoji: "🟡", image: asset("images/mtn.png"), color: T.gold, outOfStock: false },
+    { name: "TELECEL", label: "Telecel", emoji: "🔴", image: asset("images/telecel.png"), color: T.red, outOfStock: false },
+    { name: "AIRTELTIGO", label: "AirtelTigo", emoji: "🔵", image: asset("images/airteltigo.png"), color: T.green, outOfStock: false },
   ];
 
   const steps = [

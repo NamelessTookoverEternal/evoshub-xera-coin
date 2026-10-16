@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { smartFetch } from "../config";
+import { userApi } from "../lib/userApi";
 import { Icon, WhatsAppIcon } from "../components/Icons";
 import { openCommunity, SUPPORT_URL } from "../lib/community";
 
@@ -30,8 +30,10 @@ export default function Dashboard({ setPage, user }) {
     if (!user?.id) return;
     (async () => {
       try {
-        const res = await smartFetch(`/today/${user.id}`);
-        const data = await res.json();
+        const r = await userApi(user, `/today/${user.id}`);
+        if (r.needsLogin) { setPage("login"); return; }
+        const data = r.data;
+        if (!r.ok || !data?.global) throw new Error("dashboard unavailable");
         setStats({
           total_orders: data.global.total_orders || 0,
           my_orders: data.user.my_orders || 0,

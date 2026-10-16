@@ -28,6 +28,28 @@ export function hubToken() {
 export const hubSignInUrl = (next) =>
   `/xera?next=${encodeURIComponent(next || window.location.pathname + window.location.search)}`;
 
+/** True when a Hub token is present and not past the expiry in its payload.
+ *  Client-side convenience only; every API call is still verified server-side. */
+export function hubSessionValid() {
+  const t = hubToken();
+  if (!t) return false;
+  try {
+    const b64 = t.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+    const p = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return !(p && p.exp && Number(p.exp) * 1000 <= Date.now());
+  } catch {
+    return false;
+  }
+}
+
+// Pages that need an account when running inside the Hub. Public: home, shop,
+// checkers, afa, store, track, success, forgot-password (customers buy without an account).
+export const HUB_PROTECTED_PAGES = new Set([
+  "dashboard", "orders", "spin", "become-agent",
+  "agent-dashboard", "agent-store-settings", "agent-pricing", "agent-withdraw",
+  "agent-buy-data", "agent-buy-checker", "agent-buy-afa", "agent-checker-pricing", "agent-deposit",
+]);
+
 async function postJson(base, path, body, headers = {}) {
   const res = await fetch(`${base}${path}`, {
     method: "POST",

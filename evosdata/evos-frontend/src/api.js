@@ -84,7 +84,10 @@ export const getPrices = () => request("get", "/prices");
 // =========================
 export const createOrder = (data) => request("post", "/orders/create", data);
 
-export const getOrders = (user_id) => request("get", `/orders/me?user_id=${user_id}`);
+export const getOrders = (user_id) =>
+  request("get", `/orders/me?user_id=${user_id}`, undefined, {
+    headers: { "X-User-Token": localStorage.getItem("userToken") || "" },
+  });
 
 // =========================
 // VERIFY NUMBER (MTN pre-check, informational only)

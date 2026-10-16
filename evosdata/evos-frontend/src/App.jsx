@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Home               from "./pages/Home";
 import Shop               from "./pages/Shop";
 import Dashboard          from "./pages/Dashboard";
@@ -29,13 +29,19 @@ import CommunityPopup     from "./components/CommunityPopup";
 import { InstallBanner, InstallHelp, useInstall } from "./components/InstallApp";
 import { Icon } from "./components/Icons";
 import { withBase, stripBase, asset } from "./lib/basePath";
-import { ssoFromHub, clearEvosdataSession, hubSessionEnded } from "./lib/hubSession";
+import { ssoFromHub, clearEvosdataSession, hubSessionEnded, hubSessionValid, hubSignInUrl, HUB_PROTECTED_PAGES } from "./lib/hubSession";
+import { IS_HUB_MOUNT } from "./lib/basePath";
 import XeraPromo from "./components/XeraPromo";
 
 export default function App() {
     const [page, setPage]         = useState("home");
     const [menuOpen, setMenuOpen] = useState(false);
     const [user, setUser]         = useState(null);
+    const [ssoPending, setSsoPending] = useState(() => IS_HUB_MOUNT && hubSessionValid() && !localStorage.getItem("user"));
+    // The account page the visitor actually asked for (URL as typed/clicked),
+    // remembered so the Hub guard can send them back to it after sign-in even if
+    // a child component has already switched the in-app page to "login".
+    const requestedPath = useRef("");
 
     const theme = "dark";
 
@@ -66,7 +72,7 @@ export default function App() {
             clearEvosdataSession();
             setUser(null);
         } else if (!savedUser) {
-            ssoFromHub().then((u) => { if (u) setUser(u); });
+            ssoFromHub().then((u) => { if (u) setUser(u); }).finally(() => setSsoPending(false));
         }
 
         detectRoute();
@@ -74,6 +80,20 @@ export default function App() {
         window.addEventListener("popstate", detectRoute);
         return () => window.removeEventListener("popstate", detectRoute);
     }, []);
+
+    // Hub auth guard: inside the Hub, account pages need the Hub session, and
+    // the in-app login/register screens are replaced by the central Hub sign-in.
+    // The visitor returns to the exact page they asked for after signing in.
+    useEffect(() => {
+        if (!IS_HUB_MOUNT) return;
+        const needsAuth = HUB_PROTECTED_PAGES.has(page);
+        const isAuthPage = page === "login" || page === "register";
+        if ((needsAuth || isAuthPage) && !hubSessionValid()) {
+            clearEvosdataSession();
+            const back = requestedPath.current || (isAuthPage ? withBase("/dashboard") : window.location.pathname + window.location.search);
+            window.location.replace(hubSignInUrl(back) + (page === "register" ? "&mode=register" : ""));
+        }
+    }, [page]);
 
     // Close sidebar on Escape key
     useEffect(() => {
@@ -120,7 +140,9 @@ export default function App() {
             "/dashxera":           "dashxera",
         };
 
-        setPage(routeMap[path] || "home");
+        const target = routeMap[path] || "home";
+        if (HUB_PROTECTED_PAGES.has(target)) requestedPath.current = window.location.pathname + window.location.search;
+        setPage(target);
     };
 
     const isAgentActive = user?.role === "agent" && user?.agent_status === "approved";
@@ -199,6 +221,11 @@ export default function App() {
     // PAGE RENDER
     // =========================
     const renderPage = () => {
+        // Hub single sign-on is still establishing the account: don't let an account
+        // page mount without a user and bounce itself to the in-app login screen.
+        if (IS_HUB_MOUNT && ssoPending && !user && HUB_PROTECTED_PAGES.has(page)) {
+            return <div style={{ padding: "4rem 1rem", textAlign: "center", opacity: 0.7 }}>Signing you in…</div>;
+        }
         switch (page) {
             case "home":
                 return <Home setPage={navigate} theme={theme} />;

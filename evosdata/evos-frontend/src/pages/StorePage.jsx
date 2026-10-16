@@ -5,19 +5,19 @@ import { smartFetch } from "../config";
 
 const NETWORK_CONFIG = {
   MTN: {
-    label: "MTN", logo: "/images/mtn.png", color: "#FFC107",
+    label: "MTN", logo: asset("images/mtn.png"), color: "#FFC107",
     bg: "linear-gradient(135deg, rgba(255,193,7,0.18), rgba(255,193,7,0.06))",
     border: "rgba(255,193,7,0.4)", shadow: "0 4px 20px rgba(245,158,11,0.2)",
     tag: "Most Popular", tagColor: "#f59e0b",
   },
   Telecel: {
-    label: "Telecel (Vodafone)", logo: "/images/telecel.png", color: "#ef4444",
+    label: "Telecel (Vodafone)", logo: asset("images/telecel.png"), color: "#ef4444",
     bg: "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(239,68,68,0.06))",
     border: "rgba(239,68,68,0.4)", shadow: "0 4px 20px rgba(239,68,68,0.2)",
     tag: "Reliable", tagColor: "#ef4444",
   },
   AirtelTigo: {
-    label: "AirtelTigo", logo: "/images/airteltigo.png", color: "#8b5cf6",
+    label: "AirtelTigo", logo: asset("images/airteltigo.png"), color: "#8b5cf6",
     bg: "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(139,92,246,0.06))",
     border: "rgba(139,92,246,0.4)", shadow: "0 4px 20px rgba(139,92,246,0.2)",
     tag: "Affordable", tagColor: "#8b5cf6",

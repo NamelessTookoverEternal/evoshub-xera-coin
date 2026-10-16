@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { asset } from "../lib/basePath";
+import { asset, withBase } from "../lib/basePath";
 
 import { smartFetch } from "../config";
 
@@ -11,7 +11,7 @@ const slugify = (name) =>
         .replace(/^-|-$/g, "");
 
 const buildStoreLink = (agentId, storeName) => {
-    const base = `${window.location.origin}/store/${agentId}`;
+    const base = `${window.location.origin}${withBase(`/store/${agentId}`)}`;
     const slug = storeName ? slugify(storeName) : "";
     return slug ? `${base}/${slug}` : base;
 };
