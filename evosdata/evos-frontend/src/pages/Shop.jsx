@@ -285,21 +285,32 @@ export default function Shop() {
               <p style={styles.emptyText}>No bundles available for this network.</p>
             )}
             <div style={styles.bundleGrid}>
-              {bundles.map((b, i) => (
-                <div
-                  key={i}
-                  style={styles.bundleCard}
-                  onClick={() => {
-                    setBundle(b.bundle);
-                    setBundlePrice(b.price);
-                    setStep(3);
-                  }}
-                >
-                  <div style={styles.bundleSize}>{b.bundle}</div>
-                  <div style={styles.bundlePrice}>GH₵ {Number(b.price).toFixed(2)}</div>
-                  <div style={styles.bundleTap}>Tap to select →</div>
-                </div>
-              ))}
+              {bundles.map((b, i) => {
+                const soldOut = b.in_stock === false;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      ...styles.bundleCard,
+                      ...(soldOut ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                    }}
+                    onClick={() => {
+                      if (soldOut) return;
+                      setBundle(b.bundle);
+                      setBundlePrice(b.price);
+                      setStep(3);
+                    }}
+                  >
+                    <div style={styles.bundleSize}>{b.bundle}</div>
+                    <div style={styles.bundlePrice}>GH₵ {Number(b.price).toFixed(2)}</div>
+                    {soldOut ? (
+                      <div style={{ ...styles.bundleTap, color: "#ef4444", opacity: 0.9, fontWeight: 800 }}>Out of stock</div>
+                    ) : (
+                      <div style={styles.bundleTap}>Tap to select →</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

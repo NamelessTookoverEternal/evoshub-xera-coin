@@ -31,6 +31,7 @@ const SECTIONS = [
   { id: "financials", label: "Financials", icon: "₵" },
   { id: "agents", label: "Agents", icon: "◎" },
   { id: "providers", label: "Providers", icon: "◇" },
+  { id: "wallet", label: "DataMart Wallet", icon: "◐" },
   { id: "incidents", label: "Incidents", icon: "△" },
   { id: "ecosystem", label: "Ecosystem Sales", icon: "◈" },
   { id: "audit", label: "Reprocessing / Audit", icon: "✓" },
@@ -99,6 +100,8 @@ export default function DashXera() {
   const [undispatched, setUndispatched] = useState(null);
   const [incidents, setIncidents] = useState(null);
   const [audit, setAudit] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [walletBusy, setWalletBusy] = useState(false);
 
   const [ordersPage, setOrdersPage] = useState(1);
   const [undispatchedPage, setUndispatchedPage] = useState(1);
@@ -157,6 +160,9 @@ export default function DashXera() {
         }
         if (section === "providers") {
           tasks.push(call(`/admin/dashxera/providers?days=${days}`).then(setProviders));
+        }
+        if (section === "wallet") {
+          tasks.push(call("/admin/dashxera/datamart-wallet").then(setWallet));
         }
         if (section === "ecosystem") {
           tasks.push(call(`/admin/dashxera/ecosystem?days=${days}`).then(setEcosystem));
@@ -269,6 +275,25 @@ export default function DashXera() {
       setLoginError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setLoginBusy(false);
+    }
+  };
+
+  const refreshWallet = async () => {
+    setWalletBusy(true);
+    try {
+      const data = await call("/admin/dashxera/datamart-wallet/refresh", { method: "POST" });
+      setWallet(data);
+      if (data.result?.ok) {
+        flash(data.result.changed
+          ? `DataMart balance updated: ${cedi(data.result.balance)}`
+          : "Checked: balance is unchanged");
+      } else {
+        flash(`Couldn't read DataMart balance: ${data.result?.error || "unknown error"}`, "warn");
+      }
+    } catch (err) {
+      flash(err.message || "Refresh failed", "warn");
+    } finally {
+      setWalletBusy(false);
     }
   };
 
@@ -928,6 +953,77 @@ export default function DashXera() {
                 attribution. {providers.unattributed_note}
               </div>
             )}
+          </>
+        )}
+
+        {/* ====================================================== DATAMART WALLET */}
+        {section === "wallet" && (
+          <>
+            <Panel title="DataMart wallet"
+                   note={wallet?.gating_active
+                     ? `Checked every ${Math.round((wallet.poll_seconds || 300) / 60)} min`
+                     : "Stock control is OFF until a balance check succeeds"}>
+              <Row label="Balance" big
+                   value={wallet?.balance == null ? "Not checked yet" : cedi(wallet.balance)}
+                   tone={wallet?.low ? "#f87171" : "#4ade80"}
+                   hint={wallet?.previous_balance != null
+                     ? `Previously ${cedi(wallet.previous_balance)} · changed ${timeAgo(wallet.last_changed_at)}`
+                     : undefined} />
+              <Row label="Spendable" value={wallet?.available == null ? "—" : cedi(wallet.available)}
+                   hint={`Balance minus a ${cedi(wallet?.buffer)} safety buffer. Bundles priced above this are out of stock.`} />
+              <Row label="Last checked" value={timeAgo(wallet?.last_checked_at)}
+                   tone={wallet?.last_error ? "#fbbf24" : "#9189b5"}
+                   hint={wallet?.last_error ? `Last check failed: ${wallet.last_error}` : undefined} />
+              {!wallet?.configured && (
+                <div style={styles.caveat}>DATAMART_API_KEY is not set on the backend.</div>
+              )}
+              <div style={{ marginTop: 12 }}>
+                <button style={styles.primaryBtnSmall} onClick={refreshWallet} disabled={walletBusy}>
+                  {walletBusy ? "Checking…" : "DataMart updated — check now"}
+                </button>
+              </div>
+            </Panel>
+
+            <Panel title={`${wallet?.out_of_stock?.length ?? 0} bundles out of stock`}
+                   note={`${wallet?.bundles_total ?? 0} bundles total`}>
+              {wallet?.out_of_stock?.length ? (
+                <TableWrap min={420}>
+                  <thead><tr><Th>Network</Th><Th>Bundle</Th><ThNum>Selling price</ThNum></tr></thead>
+                  <tbody>
+                    {wallet.out_of_stock.map((b) => (
+                      <tr key={`${b.network}-${b.bundle}`}>
+                        <Td>{b.network}</Td><Td>{b.bundle}</Td><TdNum>{cedi(b.price)}</TdNum>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableWrap>
+              ) : (
+                <Empty>Everything is in stock.</Empty>
+              )}
+            </Panel>
+
+            <Panel title="Balance changes" note="Newest first">
+              {wallet?.log?.length ? (
+                <TableWrap min={480}>
+                  <thead><tr><Th>When</Th><ThNum>Before</ThNum><ThNum>After</ThNum><ThNum>Change</ThNum><Th>Source</Th></tr></thead>
+                  <tbody>
+                    {wallet.log.map((l) => (
+                      <tr key={l.id}>
+                        <Td>{when(l.created_at)}</Td>
+                        <TdNum>{l.previous_balance == null ? "—" : cedi(l.previous_balance)}</TdNum>
+                        <TdNum>{cedi(l.balance)}</TdNum>
+                        <TdNum style={{ color: Number(l.delta) < 0 ? "#f87171" : "#4ade80" }}>
+                          {l.delta == null ? "—" : `${Number(l.delta) > 0 ? "+" : ""}${Number(l.delta).toFixed(2)}`}
+                        </TdNum>
+                        <Td>{l.source}</Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableWrap>
+              ) : (
+                <Empty>No balance changes recorded yet.</Empty>
+              )}
+            </Panel>
           </>
         )}
 

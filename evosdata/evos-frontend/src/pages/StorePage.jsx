@@ -907,17 +907,26 @@ export default function StorePage({ setPage }) {
             <div style={styles.bundleGrid}>
               {bundles.map((item, i) => {
                 const accent = bundleAccents[i % bundleAccents.length];
+                const soldOut = item.in_stock === false;
                 return (
                   <div
                     key={i}
-                    style={{ ...styles.bundleCard, border: `1px solid ${accent.border}` }}
-                    onClick={() => setSelected(item)}
+                    style={{
+                      ...styles.bundleCard,
+                      border: `1px solid ${soldOut ? "rgba(239,68,68,0.2)" : accent.border}`,
+                      ...(soldOut ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                    }}
+                    onClick={() => { if (!soldOut) setSelected(item); }}
                   >
                     <div style={styles.bundleSize}>{item.bundle}</div>
-                    <div style={{ ...styles.bundlePrice, color: accent.price }}>
+                    <div style={{ ...styles.bundlePrice, color: soldOut ? "#ef4444" : accent.price }}>
                       GH₵ {Number(item.final_price).toFixed(2)}
                     </div>
-                    <div style={{ ...styles.bundleCta, color: accent.price }}>Select →</div>
+                    {soldOut ? (
+                      <div style={{ ...styles.bundleCta, color: "#ef4444" }}>Out of stock</div>
+                    ) : (
+                      <div style={{ ...styles.bundleCta, color: accent.price }}>Select →</div>
+                    )}
                   </div>
                 );
               })}

@@ -1811,7 +1811,46 @@ def dashxera_attention(days: int = Query(7), actor: str = Depends(require_dashxe
     except Exception:
         pass
 
+    try:
+        from services.evosdata import datamart_stock
+        wallet = datamart_stock.admin_status()
+        if wallet["out_of_stock"]:
+            items.append({
+                "kind": "datamart_wallet", "severity": "critical",
+                "title": f"DataMart wallet low: {len(wallet['out_of_stock'])} bundles out of stock",
+                "detail": f"Balance GHS {wallet['balance']:.2f}. Top up DataMart to put them back on sale.",
+                "link": "wallet",
+            })
+        elif wallet["low"]:
+            items.append({
+                "kind": "datamart_wallet", "severity": "warning",
+                "title": "DataMart wallet is running low",
+                "detail": f"Balance GHS {wallet['balance']:.2f}",
+                "link": "wallet",
+            })
+    except Exception as exc:
+        logger.warning("DASHXERA: datamart wallet status unavailable: %s", exc)
+
     return {"status": True, "window_days": days, "items": items, "count": len(items)}
+
+
+# ============================================================================
+# DATAMART WALLET (auto out-of-stock)
+# ============================================================================
+
+@router.get("/datamart-wallet")
+def dashxera_datamart_wallet(_: str = Depends(require_dashxera_admin)):
+    from services.evosdata import datamart_stock
+    return {"status": True, **datamart_stock.admin_status()}
+
+
+@router.post("/datamart-wallet/refresh")
+def dashxera_datamart_wallet_refresh(actor: str = Depends(require_dashxera_admin)):
+    """The 'DataMart updated' button: re-read the balance now instead of waiting."""
+    from services.evosdata import datamart_stock
+    result = datamart_stock.refresh_balance(source=f"admin:{actor}")
+    logger.info("DASHXERA: %s refreshed the DataMart wallet (%s)", actor, result)
+    return {"status": bool(result.get("ok")), "result": result, **datamart_stock.admin_status()}
 
 
 # ============================================================================

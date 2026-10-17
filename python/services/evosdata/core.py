@@ -42,6 +42,7 @@ import threading
 
 from utils.rate_limit import limiter          # the Hub's single shared limiter
 from services.evosdata.db import get_supabase
+from services.evosdata import datamart_stock
 
 # =========================
 # LOGGING
@@ -605,7 +606,7 @@ def get_checker_products():
 
 def call_checker_purchase(checker_type: str, phone: str, ref: str, webhook_url: str = None, skip_sms: bool = False) -> dict:
     try:
-        res = requests.post(
+        res = datamart_stock.purchase_post(
             f"{DATAMART_CHECKERS_BASE}/purchase",
             headers=_datamart_checkers_headers(),
             json={
@@ -625,7 +626,7 @@ def call_checker_purchase(checker_type: str, phone: str, ref: str, webhook_url: 
 
 def call_checker_bulk_purchase(checker_type: str, phone: str, quantity: int, ref: str, webhook_url: str = None, skip_sms: bool = False) -> dict:
     try:
-        res = requests.post(
+        res = datamart_stock.purchase_post(
             f"{DATAMART_CHECKERS_BASE}/bulk-purchase",
             headers=_datamart_checkers_headers(),
             json={
@@ -1501,8 +1502,12 @@ def increment_user_orders(user_id: int):
 @limiter.limit("60/minute")
 def get_prices(request: Request):
     try:
-        data = supabase.table("prices").select("*").execute().data
-        return {"status": "success", "data": data or []}
+        data = supabase.table("prices").select("*").execute().data or []
+        try:
+            datamart_stock.annotate(data)   # adds in_stock to every bundle
+        except Exception as stock_err:
+            logger.warning("PRICES: stock annotate skipped (%s)", stock_err)
+        return {"status": "success", "data": data}
     except Exception as e:
         logger.error("PRICES ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Failed to load prices")
@@ -2394,7 +2399,7 @@ async def retry_stuck_orders():
 
                     # ── DATAMART ──────────────────────────────────────────
                     if provider == "DATAMART":
-                        dm_response = requests.post(
+                        dm_response = datamart_stock.purchase_post(
                             f"{DATAMART_BASE}/purchase",
                             headers={"X-API-Key": DATAMART_API_KEY},
                             json={
@@ -2919,7 +2924,7 @@ async def retry_stuck_order_payments():
 
                     try:
                         if provider == "DATAMART":
-                            dm_response = requests.post(
+                            dm_response = datamart_stock.purchase_post(
                                 f"{DATAMART_BASE}/purchase",
                                 headers={"X-API-Key": DATAMART_API_KEY},
                                 json={
@@ -3268,6 +3273,7 @@ async def startup_event():
     asyncio.create_task(retry_stuck_checker_payments())
     asyncio.create_task(retry_stuck_afa())
     asyncio.create_task(retry_stuck_paystack_withdrawals())
+    asyncio.create_task(datamart_stock.poller_loop())
 
 
 # =========================
@@ -3361,6 +3367,9 @@ def track_orders(request: Request, phone: str = Query(...)):
 @limiter.limit("10/minute")
 def create_order(request: Request, data: CreateOrderRequest):
     try:
+        if not datamart_stock.bundle_in_stock(data.network, data.bundle):
+            raise HTTPException(400, datamart_stock.OUT_OF_STOCK_MESSAGE)
+
         buyer_key = data.user_id if data.user_id else data.email
 
         if buyer_key:
@@ -3557,7 +3566,7 @@ async def paystack_webhook(request: Request):
 
             try:
                 if provider == "DATAMART":
-                    dm_response = requests.post(
+                    dm_response = datamart_stock.purchase_post(
                         f"{DATAMART_BASE}/purchase",
                         headers={"X-API-Key": DATAMART_API_KEY},
                         json={
@@ -4651,6 +4660,11 @@ def get_agent_pricing(request: Request, agent_id: int, _: int = Depends(require_
                 "has_override":     key in override_map,
             })
 
+        try:
+            datamart_stock.annotate(result)
+        except Exception as stock_err:
+            logger.warning("AGENT PRICING: stock annotate skipped (%s)", stock_err)
+
         return {"status": "success", "prices": result}
     except Exception as e:
         logger.error("AGENT PRICING ERROR: %s", str(e))
@@ -5002,6 +5016,9 @@ async def agent_buy_data(request: Request, payload: AgentBuyDataRequest):
         bundle       = payload.bundle
         phone_number = payload.phone_number
 
+        if not datamart_stock.bundle_in_stock(network, bundle):
+            return {"status": "error", "message": datamart_stock.OUT_OF_STOCK_MESSAGE}
+
         override_res = supabase.table("admin_agent_prices") \
             .select("cost_price") \
             .eq("agent_id", agent_id) \
@@ -5108,7 +5125,7 @@ async def agent_buy_data(request: Request, payload: AgentBuyDataRequest):
             provider = get_provider(network)
 
             if provider == "DATAMART":
-                dm_response = requests.post(
+                dm_response = datamart_stock.purchase_post(
                     f"{DATAMART_BASE}/purchase",
                     headers={"X-API-Key": DATAMART_API_KEY},
                     json={
@@ -5242,6 +5259,11 @@ async def public_agent_store(request: Request, agent_id: int):
                 "markup":      markup,
                 "final_price": round(base_price + markup, 2)
             })
+
+        try:
+            datamart_stock.annotate(bundles)
+        except Exception as stock_err:
+            logger.warning("STORE: stock annotate skipped (%s)", stock_err)
 
         checker_markups = supabase.table("checker_agent_prices").select("*").eq("agent_id", agent_id).execute()
         checker_markup_map = {}
@@ -5399,6 +5421,9 @@ async def create_store_order(request: Request, payload: StoreOrderRequest):
         bundle         = payload.bundle
         phone_number   = payload.phone_number
         customer_email = str(payload.email or "customer@evoshub.store").strip()
+
+        if not datamart_stock.bundle_in_stock(network, bundle):
+            return {"status": "error", "message": datamart_stock.OUT_OF_STOCK_MESSAGE}
 
         agent = supabase.table("users") \
             .select("id,role,agent_status,full_name,username") \
@@ -5894,6 +5919,8 @@ async def ussd(request: Request):
             price_res = supabase.table("prices").select("price").eq("network", network).eq("bundle", bundle).limit(1).execute()
             if not price_res.data:
                 return "END Bundle not available"
+            if not datamart_stock.bundle_in_stock(network, bundle):
+                return "END Sorry, that bundle is out of stock. Try a smaller one or check back soon."
 
             actual_price = float(price_res.data[0]["price"])
             paystack = requests.post(
@@ -6172,6 +6199,8 @@ async def whatsapp_webhook(request: Request):
         price = fetch_price(session["network"], session["bundle"])
         if not price:
             reply = "❌ Bundle not found. Try again."
+        elif not datamart_stock.bundle_in_stock(session["network"], session["bundle"]):
+            reply = "❌ That bundle is out of stock right now. Try a smaller one or check back soon."
         else:
             session["price"] = price
             session["step"]  = "confirm"

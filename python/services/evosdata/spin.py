@@ -47,6 +47,8 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from services.evosdata import datamart_stock
+
 logger = logging.getLogger("spin")
 
 # ============================================================================
@@ -241,7 +243,7 @@ def _dispatch(order: dict) -> dict:
     ref = order["paystack_ref"]
 
     if provider == "DATAMART":
-        r = requests.post(
+        r = datamart_stock.purchase_post(
             f"{m.DATAMART_BASE}/purchase",
             headers={"X-API-Key": m.DATAMART_API_KEY},
             json={"phoneNumber": order["phone_number"], "network": m.NETWORK_MAP.get(order["network"]),

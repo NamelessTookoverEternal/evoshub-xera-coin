@@ -49,6 +49,8 @@ import requests
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
+from services.evosdata import datamart_stock
+
 logger = logging.getLogger("evoxera_bot")
 
 # ============================================================================
@@ -379,6 +381,10 @@ def fetch_bundles(network: str) -> List[dict]:
     res = _db().table("prices").select("network, bundle, price") \
         .in_("network", NETWORK_DB_VALUES[network]).execute()
     rows = res.data or []
+    try:
+        rows = [r for r in datamart_stock.annotate(rows) if r.get("in_stock", True)]
+    except Exception as exc:
+        logger.warning("EVOXERA BOT: stock filter skipped (%s)", exc)
     rows.sort(key=lambda r: _capacity_key(r["bundle"]))
     return rows
 
@@ -550,6 +556,8 @@ def create_whatsapp_order(wa: str, data: dict) -> Optional[dict]:
     price = fetch_price(data["network"], data["bundle"])
     if price is None:
         return None
+    if not datamart_stock.bundle_in_stock(data["network"], data["bundle"]):
+        return {"out_of_stock": True}
     if abs(price - float(data["price"])) > 0.001:
         data["price"] = price
         data["price_changed"] = True
@@ -595,6 +603,9 @@ def handle_pay(wa: str, session: dict) -> None:
     result = create_whatsapp_order(wa, data)
     if result is None:
         send_text(wa, "❌ That bundle is no longer available.")
+        show_evosdata_menu(wa)
+    elif result.get("out_of_stock"):
+        send_text(wa, "❌ Sorry, that bundle just went out of stock. Please pick a smaller one or try again soon.")
         show_evosdata_menu(wa)
     elif result.get("price_changed"):
         save_session(wa, "buy_confirm", data)

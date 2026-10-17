@@ -364,6 +364,7 @@ export default function AgentBuyData({ user, setPage, authLoading }) {
           network: item.network,
           bundle: item.bundle,
           cost_price: Number(item.base_price || 0),
+          in_stock: item.in_stock !== false,
         }));
 
         setBundles(normalized);
@@ -575,7 +576,8 @@ export default function AgentBuyData({ user, setPage, authLoading }) {
                   <div style={styles.bundleGrid}>
                     {networkBundles.map((item, i) => {
                       const accent = bundleAccents[i % bundleAccents.length];
-                      const canAfford = walletBalance >= Number(item.cost_price);
+                      const soldOut = item.in_stock === false;
+                      const canAfford = !soldOut && walletBalance >= Number(item.cost_price);
                       return (
                         <div
                           key={i}
@@ -594,7 +596,7 @@ export default function AgentBuyData({ user, setPage, authLoading }) {
                           {canAfford ? (
                             <div style={{ ...styles.bundleCta, color: accent.price }}>Select →</div>
                           ) : (
-                            <div style={styles.bundleInsufficient}>Low balance</div>
+                            <div style={styles.bundleInsufficient}>{soldOut ? "Out of stock" : "Low balance"}</div>
                           )}
                         </div>
                       );
