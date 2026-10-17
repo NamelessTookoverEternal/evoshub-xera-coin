@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sendMessage, generateImage, editImage, generateDocument, getMemory, clearMemory, getUser } from "../api";
-import { EVOSDATA_URL } from "../config";
+import { EVOSDATA_URL, openProduct } from "../config";
 
 const TIER_BADGE = {
   Basic:   { icon: "🧊", color: "#64748b" },
@@ -380,7 +380,7 @@ export default function Chat({ setPage, user, setUser }) {
           <div style={S.menuItem} onClick={() => { setPage("dashboard"); setMenuOpen(false); }}>🏠 Dashboard</div>
           {tier === "Basic" && <div style={S.menuItem} onClick={() => { setPage("upgrade"); setMenuOpen(false); }}>⚡ Upgrade</div>}
           <div style={S.menuItem} onClick={() => { handleClear(); setMenuOpen(false); }}>🗑️ Clear Memory</div>
-          <div style={S.menuItem} onClick={() => window.open(EVOSDATA_URL, "_blank")}>📶 Buy Data (EvosData)</div>
+          <div style={S.menuItem} onClick={() => openProduct(EVOSDATA_URL)}>📶 Buy Data (EvosData)</div>
         </div>
       )}
 

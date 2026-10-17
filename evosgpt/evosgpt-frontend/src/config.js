@@ -15,3 +15,11 @@ export const HUB_URL      = IS_HUB_MOUNT ? "/home"     : "https://evoshub.xyz";
 
 // The Hub's own session (written by the /xera login screens, read by every Hub-mounted app).
 export const HUB_TOKEN_KEY = "xera_evos_token";
+
+// Inside the Hub, ecosystem links (EvosData, XERA, the Hub itself) stay in the same tab so they land on the
+// in-Hub app (the Hub's back tab returns here). Standalone keeps opening the public sites in a new tab.
+export const XERA_URL = IS_HUB_MOUNT ? "/xera" : "https://evoshub.xyz/xera";
+export function openProduct(url) {
+  if (IS_HUB_MOUNT) window.location.assign(url);
+  else window.open(url, "_blank");
+}

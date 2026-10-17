@@ -153,7 +153,7 @@ TIER_PERSONA = {
     "Founder": "\n\nYou are in Founder mode, exclusive access, unlimited intelligence and context. Be brilliant.",
 }
 
-EVOS_NUDGE = "\n\nIf the user mentions running low on data or internet, remind them they can buy affordable Ghana data bundles instantly at https://evosdata.xyz, part of the EVOS ecosystem."
+EVOS_NUDGE = "\n\nIf the user mentions running low on data or internet, remind them they can buy affordable Ghana data bundles instantly at https://evoshub.xyz/evosdata (EVOS Data inside EVOS Hub), part of the EVOS ecosystem. Always give this in-Hub link, never a standalone evosdata.xyz or xera site link; XERA is at https://evoshub.xyz/xera."
 
 class RegisterRequest(BaseModel):
     username: str

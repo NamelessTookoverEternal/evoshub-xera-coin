@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { getUser, getReferral } from "../api";
-import { EVOSDATA_URL } from "../config";
+import { EVOSDATA_URL, openProduct } from "../config";
 
 const TIER_INFO = {
   Basic:   { icon: "🧊", color: "#64748b", label: "Basic" },
@@ -121,7 +121,7 @@ export default function Dashboard({ setPage, user, onLogout }) {
             <div style={{ fontWeight: 800, fontSize: 15, color: "#f1f5f9", marginBottom: 4 }}>📶 Need Data?</div>
             <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>Buy affordable Ghana data bundles on EvosData.</p>
           </div>
-          <button style={S.crossellBtn} onClick={() => window.open(EVOSDATA_URL, "_blank")}>Visit EvosData →</button>
+          <button style={S.crossellBtn} onClick={() => openProduct(EVOSDATA_URL)}>Visit EvosData →</button>
         </div>
       </main>
     </div>

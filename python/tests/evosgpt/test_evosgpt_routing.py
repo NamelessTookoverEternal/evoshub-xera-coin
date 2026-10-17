@@ -411,3 +411,10 @@ def test_native_greetings_vary_but_stay_natural():
     from services.evosgpt import native
     replies = {native.try_native("hi", username="Ama", rng=random.Random(s)).reply for s in range(20)}
     assert len(replies) > 1 and all("Ama" in r for r in replies)
+
+
+def test_replies_point_to_in_hub_products_not_standalone_sites(app):
+    r = app.chat(1, "where can i buy data")["reply"] + app.chat(1, "what is evosdata")["reply"]
+    assert "evoshub.xyz/evosdata" in r and "https://evosdata.xyz" not in r
+    app.chat(1, "I'm running low on data, what should I do about it?")
+    assert "evoshub.xyz/evosdata" in app.ai.calls[-1]["system"]

@@ -64,7 +64,7 @@ VERIFIED_FACTS = {
     "evosgpt": "EVOSGPT is the AI assistant built by EVOXERA TECHNOLOGY. It runs inside EVOS Hub at /evosgpt, remembers your past conversations, and can also generate images and PDF/Word documents on paid tiers.",
     "evoxera": "EVOXERA TECHNOLOGY is the company behind EVOS Hub and its products: EVOSGPT, EVOS Data, XERA and Website Creation.",
     "evoshub": "EVOS Hub (evoshub.xyz) is the portal that brings the EVOXERA TECHNOLOGY products together in one place.",
-    "evosdata": "EVOS Data (evosdata.xyz) lets you buy Ghana mobile data bundles instantly.",
+    "evosdata": "EVOS Data (evoshub.xyz/evosdata) lets you buy Ghana mobile data bundles instantly.",
     "xera": "XERA is the EVOXERA TECHNOLOGY token. The XERA app in EVOS Hub (/xera) has a wallet, 24-hour mining and reward claiming.",
     "website_creation": "Website Creation (/website-creation) lets you pick a package, submit a request and chat live with an EVOXERA agent.",
 }
@@ -272,7 +272,7 @@ def respond(intent: str, message: str, *, username: str = "", geo: Optional[dict
     if intent == "how_clear_memory":
         return "You can clear your EVOSGPT memory from the memory/settings option in the app. That deletes your saved conversation history and your long-term summary, and EVOSGPT starts fresh."
     if intent == "evosdata_buy":
-        return VERIFIED_FACTS["evosdata"] + " You can start at https://evosdata.xyz."
+        return VERIFIED_FACTS["evosdata"] + " You can start at https://evoshub.xyz/evosdata."
     if intent == "about_time":
         lt = (geo or {}).get("local_time")
         return f"It's {lt} where you are (based on your approximate location)." if lt else None

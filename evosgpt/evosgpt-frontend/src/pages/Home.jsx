@@ -1,4 +1,4 @@
-import { EVOSDATA_URL } from "../config";
+import { EVOSDATA_URL, openProduct } from "../config";
 import { useCurrency } from "../lib/currency";
 
 export default function Home({ setPage, user }) {
@@ -223,7 +223,7 @@ print(calculate_profit(5000, 3200))
             <h3 style={{ fontSize: "clamp(16px,2.5vw,20px)", fontWeight: 900, color: "#f1f5f9", marginBottom: 6 }}>Need data to keep chatting?</h3>
             <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>Buy affordable Ghana data bundles instantly on EvosData.</p>
           </div>
-          <button onClick={() => window.open(EVOSDATA_URL, "_blank")} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontWeight: 900, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+          <button onClick={() => openProduct(EVOSDATA_URL)} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", fontWeight: 900, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
             📶 Buy Data on EvosData
           </button>
         </div>
@@ -240,7 +240,7 @@ print(calculate_profit(5000, 3200))
             {[["Login","login"],["Register","register"],["Chat","chat"]].map(([l,p]) => (
               <span key={p} onClick={() => setPage(p)} style={{ fontSize: 13, color: "#475569", cursor: "pointer", fontWeight: 600 }}>{l}</span>
             ))}
-            <span onClick={() => window.open(EVOSDATA_URL,"_blank")} style={{ fontSize: 13, color: "#475569", cursor: "pointer", fontWeight: 600 }}>EvosData</span>
+            <span onClick={() => openProduct(EVOSDATA_URL)} style={{ fontSize: 13, color: "#475569", cursor: "pointer", fontWeight: 600 }}>EvosData</span>
           </div>
         </div>
         <div style={{ fontSize: 12, color: "#334155", textAlign: "center" }}>© 2026 Evoxera Technology · All Rights Reserved</div>

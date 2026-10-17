@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { loginUser } from "../api";
-import { HUB_URL } from "../config";
+import { HUB_URL, openProduct } from "../config";
 
 export default function Login({ setPage, setUser }) {
   const [form, setForm]     = useState({ username: "", password: "" });
@@ -55,7 +55,7 @@ export default function Login({ setPage, setUser }) {
 
         <div style={{ textAlign: "center", marginTop: 10 }}>
           <span style={{ fontSize: 13, color: "#334155" }}>Part of </span>
-          <span onClick={() => window.open(HUB_URL,"_blank")} style={{ fontSize: 13, color: "#38bdf8", cursor: "pointer", fontWeight: 700 }}>EVOS Business Hub</span>
+          <span onClick={() => openProduct(HUB_URL)} style={{ fontSize: 13, color: "#38bdf8", cursor: "pointer", fontWeight: 700 }}>EVOS Business Hub</span>
         </div>
       </div>
     </div>
