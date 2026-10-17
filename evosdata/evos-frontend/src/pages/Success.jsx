@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { withBase } from "../lib/basePath";
+import { withBase, IS_HUB_MOUNT } from "../lib/basePath";
 
 import { smartFetch } from "../config";
 import { userApi } from "../lib/userApi";
@@ -293,7 +293,7 @@ export default function Success() {
               <p style={s.promoSub}>
                 Login with your EvosData details and start for free.
               </p>
-              <a href="https://evosgpt.xyz" style={s.promoBtn}>
+              <a href={IS_HUB_MOUNT ? "/evosgpt" : "https://evoshub.xyz/evosgpt"} style={s.promoBtn}>
                 Try EVOSGPT →
               </a>
             </div>

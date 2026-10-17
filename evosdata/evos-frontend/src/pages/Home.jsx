@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { asset } from "../lib/basePath";
+import { asset, IS_HUB_MOUNT } from "../lib/basePath";
+
+// Inside the Hub build EVOSGPT lives at /evosgpt (same origin); standalone points at the Hub copy.
+const GPT_HREF = IS_HUB_MOUNT ? "/evosgpt" : "https://evoshub.xyz/evosgpt";
 
 // =========================================================================
 // DESIGN TOKENS — now a palette map instead of a single fixed theme.
@@ -143,7 +146,7 @@ export default function Home({ setPage, theme }) {
       title: <>Meet <span style={{ color: T.accent }}>EVOSGPT</span> — Your AI Assistant</>,
       body: "Need help with CVs, business plans, school work, coding, or ideas? EVOSGPT is part of the EVOS Business HUB family — and your EvosData account already unlocks it.",
       ctaText: "Try EVOSGPT Free →",
-      ctaHref: "https://evosgpt.xyz",
+      ctaHref: GPT_HREF,
       footer: <>EvosData · EVOSGPT · EVOS Business HUB — all under{" "}<span style={{ color: T.accent }}>Evoxera Technology</span></>,
     },
     evoshub: {
@@ -544,7 +547,7 @@ export default function Home({ setPage, theme }) {
           </div>
           <div>
             <h3 style={styles.footerHead}>Other Products</h3>
-            <p style={styles.footerLink} onClick={() => window.open("https://evosgpt.xyz", "_blank")}>EVOS GPT</p>
+            <p style={styles.footerLink} onClick={() => (window.location.href = GPT_HREF)}>EVOS GPT</p>
             <p style={styles.footerLink} onClick={() => window.open("https://evoshub.xyz", "_blank")}>EVOS BUSINESS HUB (PARENT)</p>
           </div>
           <div>
