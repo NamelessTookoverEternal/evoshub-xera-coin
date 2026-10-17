@@ -369,6 +369,24 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
 .edlg__go:hover { border-color: var(--ex-blue); box-shadow: 0 10px 30px -12px rgba(47, 123, 255, .6); }
 .edlg__go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
+/* "Other products & ecosystem" tile: a full app tile (button) in the same family as EvosData / XERA / EVOSGPT */
+.ptile--more { --rgb: 176, 124, 255; --h: 230px; width: 100%; font: inherit; text-align: left; border: 0; }
+.ptile--more:focus-visible { outline: none; }
+.ptile--more .ptile__name { font-size: clamp(24px, 7.2vw, 48px); }
+.edlg__panel--list { max-width: 440px; text-align: left; }
+.edlg__list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }
+.edlg__item {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; color: var(--ex-text);
+  border: 1px solid var(--ex-line); border-radius: 16px; background: rgba(190, 210, 245, .04); transition: border-color .25s, box-shadow .25s, transform .2s;
+}
+.edlg__item:hover { border-color: var(--ex-blue); box-shadow: 0 10px 30px -14px rgba(47, 123, 255, .6); transform: translateY(-1px); }
+.edlg__item:focus-visible { outline: 2px solid var(--ex-cyan); outline-offset: 3px; }
+.edlg__item-text { display: grid; gap: 4px; }
+.edlg__item-text strong { font: 700 15px/1.2 var(--ex-display); }
+.edlg__item-text span { font: 300 13px/1.4 var(--ex-body); color: var(--ex-dim); }
+.edlg__pill { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; font: 400 9px/1 var(--ex-label); letter-spacing: .22em; text-transform: uppercase; color: var(--ex-cyan); }
+.edlg__pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--ex-cyan); animation: ex-pulse 2.4s ease-in-out infinite; }
+
 @keyframes ex-line  { from { transform: translateY(105%); } to { transform: none; } }
 @keyframes ex-up    { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes ex-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -386,6 +404,7 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
   .ptile__open::before { display: none; }
   .ptile__open svg { order: 0; width: 44px; height: 44px; padding: 13px; }
   .ptile--soon { --h: 72px; grid-column: 1 / -1; }
+  .ptile--more { grid-column: 1 / -1; --cut: 26px; --h: 230px; }
   .ptile--soon .ptile__face { padding: 14px 16px; }
   .ptile--soon .ptile__label { font-size: 8.5px; letter-spacing: .2em; white-space: nowrap; }
   .ptile--soon .ptile__slot { display: none; }
@@ -397,6 +416,7 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
   .ehub__deck { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ptile--data, .ptile--xera, .ptile--gpt { grid-column: 1 / -1; --h: 280px; }
   .ptile--soon { grid-column: 1 / -1; }
+  .ptile--more { grid-column: 1 / -1; --h: 220px; }
   .ehub__status { display: inline-flex; }
   .ehub__title { font-size: clamp(40px, 7.4vw, 100px); }
 }
@@ -408,6 +428,7 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
   .ptile--xera { grid-column: 15 / 25; grid-row: 1; --h: 100%; --cut: 34px; }
   .ptile--gpt  { grid-column: 15 / 25; grid-row: 2; --h: 100%; --cut: 34px; }
   .ptile--soon { grid-column: 1 / 25; grid-row: 3; }
+  .ptile--more { grid-column: 1 / 25; grid-row: 3; --h: 230px; --cut: 34px; }
   .ptile--data .ptile__name { font-size: clamp(40px, 4.3vw, 66px); }
   .ptile--data .ptile__art { width: min(70%, 520px); top: 4%; right: -4%; }
   .ptile--xera .ptile__name { font-size: clamp(40px, 4.2vw, 64px); }

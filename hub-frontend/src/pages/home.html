@@ -107,10 +107,11 @@
 
     /* ── NAV LOGO with image ── */
     .nav-logo__img {
-      width: 30px;
-      height: 30px;
+      width: 34px;
+      height: 34px;
       object-fit: contain;
-      border-radius: 6px;
+      border-radius: 50%;
+      background: #fff;
     }
     .nav-logo__fallback {
       width: 34px; height: 34px;
@@ -293,13 +294,8 @@
 <!-- ══ NAV ══ -->
 <nav>
   <a class="nav-logo" href="#">
-    <!-- Drop evoshub.png into /public/assets/images/ and this auto-shows -->
-    <img class="nav-logo__img"
-         src="/assets/images/evoshub.jpeg"
-         alt="EVOSHUB"
-         onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div class="nav-logo__fallback" style="display:none;">EH</div>
-    <span class="nav-logo__text">EVOSHUB</span>
+    <img class="nav-logo__img nav-logo__img--mark" src="/assets/images/evoxera-mark.png" alt="Evoxera Technology" width="34" height="34" decoding="async">
+    <span class="nav-logo__text">EVOXERA</span>
   </a>
   <ul class="nav-links">
     <li><a href="#">Home</a></li>
@@ -702,10 +698,8 @@
       <!-- Brand -->
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <img src="/assets/images/evoshub.png" alt="EVOSHUB"
-               style="width:30px;height:30px;object-fit:contain;border-radius:6px;"
-               onerror="this.style.display='none'">
-          <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);">EVOSHUB</span>
+          <img src="/assets/images/evoxera-mark.png" alt="Evoxera Technology" width="30" height="30" style="width:30px;height:30px;object-fit:contain;border-radius:50%;background:#fff;">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--text);">EVOXERA</span>
         </div>
         <p style="font-size:13.5px;color:var(--text3);line-height:1.75;max-width:280px;margin-bottom:16px;">
           EVOXERA TECHNOLOGY is a technology company providing digital solutions and online services. EVOS Business Hub is our ecosystem platform — home to EVOS Data, EVOS GPT, and more.
@@ -755,5 +749,6 @@
 </footer>
 
 <script src="../js/main.js" type="module"></script>
+<script src="/hub-back.js" defer></script>
 </body>
 </html>

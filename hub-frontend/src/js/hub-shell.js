@@ -53,8 +53,8 @@ export function mountHubShell(activeKey) {
     if (sidebar) {
         sidebar.innerHTML = `
             <div class="hub-side-brand">
-                <span class="hub-side-brand-mark">EH</span>
-                <span class="hub-side-brand-text">EVOS HUB</span>
+                <img class="hub-side-brand-mark" src="/assets/images/evoxera-mark.png" alt="Evoxera Technology" width="32" height="32" decoding="async">
+                <span class="hub-side-brand-text">EVOXERA</span>
             </div>
             <nav class="hub-side-nav" aria-label="EVOS Hub">
                 ${NAV_ITEMS.map(item => `
@@ -80,7 +80,7 @@ export function mountHubShell(activeKey) {
     const topbar = document.getElementById('hubTopbar');
     if (topbar) {
         topbar.innerHTML = `
-            <span class="hub-topbar-brand">EVOS HUB</span>
+            <span class="hub-topbar-brand"><img src="/assets/images/evoxera-mark.png" alt="" width="24" height="24" style="border-radius:50%;background:#fff;vertical-align:-6px;margin-right:8px">EVOXERA</span>
             <span class="hub-avatar hub-avatar-sm">${initial}</span>
         `;
     }

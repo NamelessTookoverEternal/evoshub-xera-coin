@@ -47,3 +47,10 @@ if (!IS_HUB_MOUNT && "serviceWorker" in navigator && import.meta.env.PROD) {
     navigator.serviceWorker.register("/sw.js").catch(() => {});
   });
 }
+
+// Floating "back to EVOS Hub" tab (served by the Hub at /hub-back.js; same origin only inside the Hub).
+if (IS_HUB_MOUNT) {
+  const s = document.createElement("script");
+  s.src = "/hub-back.js"; s.defer = true;
+  document.head.appendChild(s);
+}

@@ -152,9 +152,42 @@
             </span>
           </span>
         </a>
-        <div class="ptile ptile--soon" aria-disabled="true">
-          <span class="ptile__face"><span class="ptile__label">Coming soon</span><span class="ptile__slot" aria-hidden="true"></span></span>
-        </div>
+        <button type="button" class="ptile ptile--more" id="card-more" aria-haspopup="dialog" aria-controls="more-dialog">
+          <span class="ptile__face">
+            <svg class="ptile__art" viewBox="0 0 400 300" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
+              <circle cx="200" cy="150" r="138" stroke-dasharray="2 7" opacity=".35"/>
+              <g class="art-orbit">
+                <circle cx="200" cy="150" r="92" opacity=".7"/>
+                <path d="M200 150 292 150M200 150 154 70M200 150 154 230M200 150 108 150M200 150 246 70M200 150 246 230" opacity=".5"/>
+                <g fill="currentColor" stroke="none">
+                  <circle cx="292" cy="150" r="7"/>
+                  <circle cx="154" cy="70" r="5.5"/>
+                  <circle cx="154" cy="230" r="5.5"/>
+                  <circle cx="108" cy="150" r="4.5" opacity=".7"/>
+                  <circle cx="246" cy="70" r="4" opacity=".7"/>
+                  <circle cx="246" cy="230" r="4" opacity=".7"/>
+                </g>
+              </g>
+              <circle cx="200" cy="150" r="22" fill="currentColor" opacity=".18" stroke="none"/>
+              <circle cx="200" cy="150" r="9" fill="currentColor" stroke="none"/>
+            </svg>
+            <span class="ptile__glass" aria-hidden="true">
+              <svg class="ptile__logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                <rect x="9" y="9" width="12" height="12" rx="3" opacity=".85"/>
+                <rect x="27" y="9" width="12" height="12" rx="3" opacity=".6"/>
+                <rect x="9" y="27" width="12" height="12" rx="3" opacity=".6"/>
+                <circle cx="33" cy="33" r="6.5"/>
+                <path d="M33 30v6M30 33h6"/>
+              </svg>
+            </span>
+            <span class="ptile__top"><span class="ptile__tag"><i></i>Ecosystem</span></span>
+            <span class="ptile__body">
+              <span class="ptile__name">Other products</span>
+              <span class="ptile__desc">Website Creation and more from Evoxera</span>
+              <span class="ptile__open">Explore <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </span>
+          </span>
+        </button>
       </section>
     </main>
 
@@ -176,7 +209,26 @@
     </div>
   </div>
 
+  <div class="edlg" id="more-dialog" role="dialog" aria-modal="true" aria-labelledby="more-dialog-title" hidden>
+    <div class="edlg__panel edlg__panel--list">
+      <h2 id="more-dialog-title">Other products &amp; ecosystem</h2>
+      <p>More from Evoxera Technology, live now.</p>
+      <ul class="edlg__list">
+        <li>
+          <a class="edlg__item" href="/website-creation" id="more-website">
+            <span class="edlg__item-text"><strong>Website Creation</strong><span>Get a professional website built by our team.</span></span>
+            <span class="edlg__pill"><i></i>Active</span>
+          </a>
+        </li>
+      </ul>
+      <div class="edlg__btns">
+        <button type="button" class="edlg__ok" id="more-dialog-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="../js/appevoxera.js"></script>
   <script type="module" src="../js/evoxera-fx.js"></script>
+<script src="/hub-back.js" defer></script>
 </body>
 </html>

@@ -76,8 +76,8 @@
           </div>
         </a>
 
-        <!-- EVOSGPT — explicitly not built yet; never presented as active -->
-        <div class="hub-product-card hub-product-card--soon">
+        <!-- EVOSGPT — live, runs inside the Hub at /evosgpt -->
+        <a class="hub-product-card hub-product-card--live" href="/evosgpt">
           <p class="hub-product-kicker">Expanding product</p>
           <span class="hub-product-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a5 5 0 0 0-5 5v3l-2 4h14l-2-4V8a5 5 0 0 0-5-5Z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>
@@ -87,10 +87,10 @@
             <p class="hub-product-desc">Your evolving AI experience.</p>
           </div>
           <div class="hub-product-foot">
-            <span class="hub-status-pill is-soon">Coming later</span>
-            <span class="hub-product-open">—</span>
+            <span class="hub-status-pill is-live"><span class="dot"></span>Live</span>
+            <span class="hub-product-open">Open →</span>
           </div>
-        </div>
+        </a>
 
         <!-- Everything else in the ecosystem — admin-curated, real, not
              hardcoded here. Populated by hub-dashboard.js. -->
@@ -137,8 +137,8 @@
             <p class="hub-announce-body">A unified dashboard for everything EVOXERA TECHNOLOGY is building — starting with XERA, more products soon.</p>
           </div>
           <div class="hub-announce-item">
-            <p class="hub-announce-title">EVOSGPT — coming later</p>
-            <p class="hub-announce-body">In development. It'll show up here the moment it's ready.</p>
+            <p class="hub-announce-title">EVOSGPT — live now</p>
+            <p class="hub-announce-body">Your AI assistant is now inside the Hub. Sign in once and it just works.</p>
           </div>
         </aside>
       </div>
@@ -149,5 +149,6 @@
 </div>
 
 <script type="module" src="../../js/hub-dashboard.js"></script>
+<script src="/hub-back.js" defer></script>
 </body>
 </html>
