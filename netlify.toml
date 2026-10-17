@@ -121,6 +121,15 @@
   from = "/evosdata/*"
   to = "/evosdata/index.html"
   status = 200
+# EVOSGPT SPA (built into dist/evosgpt) — same pattern as EVOS Data above.
+[[redirects]]
+  from = "/evosgpt"
+  to = "/evosgpt/index.html"
+  status = 200
+[[redirects]]
+  from = "/evosgpt/*"
+  to = "/evosgpt/index.html"
+  status = 200
 [[redirects]]
   from = "/ecosystem"
   to = "/ecosystem.html"

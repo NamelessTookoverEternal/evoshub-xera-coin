@@ -352,7 +352,8 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
 }
 .edlg__panel h2 { font: 800 21px/1.2 var(--ex-display); letter-spacing: -.01em; margin-bottom: 12px; }
 .edlg__panel p { font: 300 15px/1.55 var(--ex-body); color: var(--ex-dim); }
-.edlg__btns { display: flex; margin-top: 24px; }
+.edlg__own { margin-top: 8px; font-size: 14px; }
+.edlg__btns { display: flex; gap: 10px; margin-top: 24px; }
 .edlg__ok {
   flex: 1; cursor: pointer; padding: 15px 20px; border: 0; border-radius: 999px; color: #04060A;
   font: 400 10px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase;
@@ -360,6 +361,13 @@ body { font-family: var(--ex-body); -webkit-tap-highlight-color: transparent; ov
 }
 .edlg__ok:hover { box-shadow: 0 10px 30px -8px rgba(47, 123, 255, .8); }
 .edlg__ok:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.edlg__go {
+  flex: 1; cursor: pointer; padding: 15px 20px; border-radius: 999px; color: var(--ex-text); background: transparent;
+  border: 1px solid var(--ex-line); font: 400 10px/1 var(--ex-label); letter-spacing: .3em; text-transform: uppercase;
+  transition: transform .2s, border-color .3s, box-shadow .3s;
+}
+.edlg__go:hover { border-color: var(--ex-blue); box-shadow: 0 10px 30px -12px rgba(47, 123, 255, .6); }
+.edlg__go:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 @keyframes ex-line  { from { transform: translateY(105%); } to { transform: none; } }
 @keyframes ex-up    { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }

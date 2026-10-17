@@ -21,6 +21,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from routes import admin, contact, website_requests
 from routes.evosdata import mount_evosdata
+from routes.evosgpt import mount_evosgpt
 from utils.rate_limit import limiter
 from utils.xera_supabase import supabase
 from xera.routes import router as xera_router
@@ -129,6 +130,8 @@ app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xer
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
 # EVOS Data Services: served by this same application (see routes/evosdata.py).
 mount_evosdata(app)
+# EVOSGPT: also served by this application (see routes/evosgpt.py), at /api/evosgpt.
+mount_evosgpt(app)
 
 
 def _route_registered(path: str, method: str) -> bool:

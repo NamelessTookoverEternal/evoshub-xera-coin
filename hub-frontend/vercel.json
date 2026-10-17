@@ -28,7 +28,10 @@
     { "source": "/ecosystem", "destination": "/ecosystem.html" },
     { "source": "/evosdata", "destination": "/evosdata/index.html" },
     { "source": "/evosdata/", "destination": "/evosdata/index.html" },
-    { "source": "/evosdata/:path((?!assets/|icons/|images/)[^.]*)", "destination": "/evosdata/index.html" }
+    { "source": "/evosdata/:path((?!assets/|icons/|images/)[^.]*)", "destination": "/evosdata/index.html" },
+    { "source": "/evosgpt", "destination": "/evosgpt/index.html" },
+    { "source": "/evosgpt/", "destination": "/evosgpt/index.html" },
+    { "source": "/evosgpt/:path((?!assets/|icons/|images/)[^.]*)", "destination": "/evosgpt/index.html" }
   ],
   "headers": [
     {

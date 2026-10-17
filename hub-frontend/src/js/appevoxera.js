@@ -17,6 +17,7 @@ detectCountry().then((code) => { country = code })
 
 const dialog = document.getElementById('evosdata-dialog')
 const closeBtn = document.getElementById('evosdata-dialog-close')
+const proceedBtn = document.getElementById('evosdata-dialog-proceed')
 const card = document.getElementById('card-evosdata')
 let lastFocus = null
 
@@ -39,6 +40,8 @@ card?.addEventListener('click', (e) => {
   }
 })
 closeBtn?.addEventListener('click', closeDialog)
+// Proceed: the visitor chose to continue on their own accord, so take them to EvosData.
+proceedBtn?.addEventListener('click', () => { window.location.href = card?.getAttribute('href') || '/evosdata' })
 dialog?.addEventListener('click', (e) => { if (e.target === dialog) closeDialog() })
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog && !dialog.hidden) closeDialog() })
 

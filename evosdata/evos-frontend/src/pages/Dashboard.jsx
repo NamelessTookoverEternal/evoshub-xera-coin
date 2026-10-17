@@ -146,7 +146,7 @@ export default function Dashboard({ setPage, user }) {
         <a className="db-help-b" href="mailto:support@evosdata.xyz"><Icon name="share" size={18} /> Email us</a>
       </div>
 
-      <p className="db-foot">© 2026 EVOS Technologies · All rights reserved</p>
+      <p className="db-foot">© 2026 Evoxera Technology · All rights reserved</p>
 
       {supportOpen && (
         <div className="db-modal" role="dialog" aria-modal="true">
