@@ -1,5 +1,5 @@
 -- REFERENCE ONLY: these tables already exist in production (shared Supabase project with the Hub / EVOS Data).
--- Idempotent, so safe to run again on a fresh project. No migration is needed for the Hub merge.
+-- Idempotent, so safe to run again on a fresh project. The Supabase-first additions (evosgpt_knowledge, evosgpt_usage_events, evosgpt_memory.conversation_id) live in supabase/migrations/20261017_evosgpt_supabase_first.sql.
 -- ============================================================
 -- EVOSGPT TABLES — Run in EVOSDATA Supabase SQL Editor
 -- The shared `users` table already exists in EVOSDATA.

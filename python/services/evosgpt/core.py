@@ -9,13 +9,14 @@ Migrated from the standalone evosgpt-rebirth backend. Same endpoints, same table
   * the Hub's shared Supabase service client (no second SUPABASE_KEY),
   * visitor currency (default GHS, follows the visitor's country) in services/evosgpt/currency.py.
 """
-from fastapi import APIRouter, HTTPException, Request, Header
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Header
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from passlib.context import CryptContext
 from datetime import datetime, timezone
 import os, uuid, hmac, hashlib, requests, re, logging
+from contextvars import ContextVar
 from io import BytesIO
 
 from reportlab.lib.pagesizes import A4, LETTER, LEGAL, A5
@@ -36,6 +37,8 @@ except ImportError:  # Python < 3.9 fallback
 
 from services.evosdata.db import get_supabase
 from services.evosgpt import currency as _currency
+from services.evosgpt import knowledge as _kb
+from services.evosgpt import native as _native
 from utils.rate_limit import limiter
 from xera.user_auth import XeraTokenInvalid, make_user_token, verify_user_token
 
@@ -169,6 +172,7 @@ class ChatRequest(BaseModel):
     message: str
     image_base64: Optional[str] = None   # raw base64, no data-URI prefix
     image_mime: Optional[str] = "image/jpeg"
+    conversation_id: Optional[str] = None   # optional: groups messages of one conversation (frontend need not send it)
 
 class ImageGenRequest(BaseModel):
     user_id: int
@@ -217,28 +221,37 @@ def get_long_memory(user_id: int) -> Optional[str]:
     res = db_client.table("evosgpt_long_memory").select("summary").eq("user_id", user_id).limit(1).execute()
     return res.data[0]["summary"] if res.data else None
 
-def save_message(user_id: int, role: str, content: str):
-    db_client.table("evosgpt_memory").insert({
-        "user_id": user_id, "role": role, "content": content,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }).execute()
+def save_message(user_id: int, role: str, content: str, conversation_id: Optional[str] = None):
+    row = {"user_id": user_id, "role": role, "content": content,
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    if conversation_id:
+        row["conversation_id"] = str(conversation_id)[:64]
+    db_client.table("evosgpt_memory").insert(row).execute()
 
-def trim_memory(user_id: int, limit: int):
-    res = db_client.table("evosgpt_memory").select("id").eq("user_id", user_id).order("created_at", desc=False).execute()
-    rows = res.data or []
-    if len(rows) > limit:
-        for r in rows[:len(rows) - limit]:
-            db_client.table("evosgpt_memory").delete().eq("id", r["id"]).execute()
+def trim_memory(user_id: int, limit: int = 0):
+    """Kept for compatibility. It no longer deletes history to fit a context window: how many messages
+    go to the model is controlled by get_short_memory(limit); how long rows are KEPT is the retention
+    policy (EVOSGPT_RETENTION_DAYS / EVOSGPT_RETENTION_MAX_ROWS). `limit` is ignored."""
+    return _kb.apply_retention(db_client, user_id)
+
+# Opt-in: the old behaviour of paying OpenAI to summarise/merge memory. Default off (deterministic memory).
+LLM_MEMORY = os.getenv("EVOSGPT_LLM_MEMORY", "false").strip().lower() in ("1", "true", "yes", "on")
 
 def update_long_memory(user_id: int, new_summary: str):
     existing = get_long_memory(user_id)
+    now = datetime.now(timezone.utc).isoformat()
     if existing:
-        merged = call_openai("gpt-4o-mini", "You are a memory summarizer. Be concise and factual.",
-            f"Merge these two user summaries into one paragraph:\nOld: {existing}\nNew: {new_summary}")
-        summary = merged or new_summary
-        db_client.table("evosgpt_long_memory").update({"summary": summary, "updated_at": datetime.now(timezone.utc).isoformat()}).eq("user_id", user_id).execute()
+        if LLM_MEMORY:
+            _LAST_USAGE.set(None)
+            merged = call_openai("gpt-4o-mini", "You are a memory summarizer. Be concise and factual.",
+                f"Merge these two user summaries into one paragraph:\nOld: {existing}\nNew: {new_summary}")
+            _kb.record_usage(db_client, user_id, "openai", model="gpt-4o-mini", usage=_LAST_USAGE.get(), purpose="memory_maintenance")
+            summary = merged or new_summary
+        else:
+            summary = new_summary          # callers pass an already-merged value on the deterministic path
+        db_client.table("evosgpt_long_memory").update({"summary": summary, "updated_at": now}).eq("user_id", user_id).execute()
     else:
-        db_client.table("evosgpt_long_memory").insert({"user_id": user_id, "summary": new_summary, "updated_at": datetime.now(timezone.utc).isoformat()}).execute()
+        db_client.table("evosgpt_long_memory").insert({"user_id": user_id, "summary": new_summary, "updated_at": now}).execute()
 
 
 def get_today_count(user_id: int) -> int:
@@ -336,11 +349,15 @@ def strip_stray_image_markdown(text: Optional[str]) -> Optional[str]:
     return _MD_IMAGE_RE.sub("", text).strip()
 
 
-def call_openai(model: str, system: str, user_msg, history: list = []) -> Optional[str]:
+# Token usage of the most recent call_openai() in this request/thread (None if unknown or the call failed).
+_LAST_USAGE: ContextVar = ContextVar("evosgpt_last_usage", default=None)
+
+def call_openai(model: str, system: str, user_msg, history: Optional[list] = None) -> Optional[str]:
     """user_msg can be a plain string, or a list of content blocks (for vision)."""
+    _LAST_USAGE.set(None)
     try:
         messages = [{"role": "system", "content": system}]
-        for h in history:
+        for h in (history or []):
             messages.append({"role": h["role"], "content": h["content"]})
         messages.append({"role": "user", "content": user_msg})
         res = requests.post(
@@ -349,7 +366,10 @@ def call_openai(model: str, system: str, user_msg, history: list = []) -> Option
             json={"model": model, "messages": messages, "temperature": 0.7},
             timeout=60
         )
-        return res.json()["choices"][0]["message"]["content"].strip()
+        data = res.json()
+        text = data["choices"][0]["message"]["content"].strip()
+        _LAST_USAGE.set(data.get("usage"))
+        return text
     except Exception as e:
         print("OPENAI ERROR:", e)
         return None
@@ -583,7 +603,8 @@ def render_docx_document(blocks: list, paper_size: str = DEFAULT_PAPER_SIZE) -> 
     doc.save(out)
     return out.getvalue()
 
-def build_system_prompt(tier: str, long_memory: Optional[str], username: str, geo: Optional[dict] = None) -> str:
+def build_system_prompt(tier: str, long_memory: Optional[str], username: str, geo: Optional[dict] = None,
+                        history_context: Optional[str] = None, history_asked: bool = False) -> str:
     prompt = BASE_PROMPT + TIER_PERSONA.get(tier, TIER_PERSONA["Basic"]) + EVOS_NUDGE
     prompt += f"\n\nThe user's name is {username}."
     if tier in IMAGE_GEN_TIERS:
@@ -606,14 +627,23 @@ def build_system_prompt(tier: str, long_memory: Optional[str], username: str, ge
 
     if long_memory:
         prompt += f"\n\nWhat you know about this user from past conversations:\n{long_memory}"
+    if history_asked:
+        prompt += ("\n\nThe user is referring to earlier conversations. Only the earlier user messages listed below are available to you. "
+                   "Use them to continue or answer; if nothing relevant is listed, say plainly that you can't find it in their saved history "
+                   "instead of guessing.")
+        if history_context:
+            prompt += f"\nRelevant earlier messages from this user:\n{history_context}"
     return prompt
 
-def summarize_memory(history: list) -> Optional[str]:
+def summarize_memory(history: list, user_id: Optional[int] = None) -> Optional[str]:
+    """OpenAI-backed summary. Only used when EVOSGPT_LLM_MEMORY is enabled (default: deterministic memory)."""
     if len(history) < 4:
         return None
     convo = "\n".join([f"{h['role'].capitalize()}: {h['content']}" for h in history[-10:]])
-    return call_openai("gpt-4o-mini", "You are a memory summarizer for an AI assistant. Be concise.",
+    out = call_openai("gpt-4o-mini", "You are a memory summarizer for an AI assistant. Be concise.",
         f"Summarize this conversation in 2-3 sentences. Focus on the user's goals, skills, and key topics:\n\n{convo}")
+    _kb.record_usage(db_client, user_id, "openai", model="gpt-4o-mini", usage=_LAST_USAGE.get(), purpose="memory_maintenance")
+    return out
 
 
 @router.post("/auth/register")
@@ -736,8 +766,83 @@ def login(request: Request, data: LoginRequest):
         print("LOGIN ERROR:", e)
         raise HTTPException(500, "Server error")
 
+def _safe(fn, default):
+    """Run a Supabase read; on failure log and return `default` so chat degrades instead of failing."""
+    try:
+        return fn()
+    except Exception as e:
+        logger.warning("EVOSGPT: Supabase read failed (%s) — continuing without it", e)
+        return default
+
+
+def resolve_without_openai(user_id: int, message: str, *, username: str, geo: dict, has_image: bool):
+    """
+    Stages 3-5 of the pipeline (everything that can answer before paying OpenAI).
+
+    Returns (route, reply, ctx) where route is 'native' | 'history' | 'knowledge' | None.
+    When route is None the caller uses OpenAI; ctx carries retrieved history so it can be injected.
+    """
+    ctx = {"history_hits": [], "history_asked": False, "intent": None}
+    if has_image:                       # vision always needs the model
+        return None, None, ctx
+
+    # Simple conversational / verified-fact / deterministic tasks: no database or OpenAI needed.
+    nat = _native.try_native(message, username=username, geo=geo, tiers=TIERS)
+    if nat:
+        ctx["intent"] = nat.intent
+        return "native", nat.reply, ctx
+
+    # The user's own earlier conversations (always scoped to this user_id).
+    h_intent = _kb.history_intent(message)
+    if h_intent:
+        ctx["history_asked"] = True
+        hits = _safe(lambda: _kb.search_history(db_client, user_id, message), [])
+        ctx["history_hits"] = hits
+        if h_intent == "recall" and hits and not _native.is_complex(message):
+            ctx["intent"] = "history_recall"
+            return "history", _kb.format_recall_reply(hits), ctx
+        return None, None, ctx          # continuing work, or nothing found: OpenAI, with retrieved context
+
+    # Reviewed shared knowledge (impersonal, fresh, confident matches only).
+    row = _safe(lambda: _kb.find_knowledge(db_client, message), None)
+    if row:
+        ctx["intent"] = "knowledge"
+        _kb.bump_knowledge_use(db_client, row)
+        return "knowledge", row["answer"], ctx
+    return None, None, ctx
+
+
+def learn_after_chat(user_id: int, message: str, reply: str, route: str, mem_limit: int, short_memory: list, today_count: int):
+    """Deferred, deterministic post-processing (runs after the response is sent). Never raises."""
+    try:
+        if route == "openai":
+            _kb.learn_candidate(db_client, message, reply)          # -> pending shared-knowledge candidate
+        facts = _kb.extract_personal_facts(message)                 # -> sanitised personal memory, no LLM
+        if facts:
+            merged = _kb.merge_long_memory(get_long_memory(user_id), facts)
+            if merged:
+                if get_long_memory(user_id) is None:
+                    db_client.table("evosgpt_long_memory").insert({"user_id": user_id, "summary": merged,
+                        "updated_at": datetime.now(timezone.utc).isoformat()}).execute()
+                else:
+                    db_client.table("evosgpt_long_memory").update({"summary": merged,
+                        "updated_at": datetime.now(timezone.utc).isoformat()}).eq("user_id", user_id).execute()
+        if LLM_MEMORY and route == "openai" and (today_count + 1) % 5 == 0:      # every 5th chat of the day
+            summary = summarize_memory(short_memory, user_id=user_id)
+            if summary:
+                update_long_memory(user_id, summary)
+        if today_count % 5 == 0:                                    # retention check is cheap but not free
+            _kb.apply_retention(db_client, user_id)
+    except Exception as e:
+        logger.warning("EVOSGPT: post-chat learning failed: %s", e)
+
+
 @router.post("/chat")
-def chat(data: ChatRequest, request: Request):
+def chat(data: ChatRequest, request: Request, background_tasks: BackgroundTasks):
+    """
+    Routing: 1 auth -> 2 history+memory from Supabase -> 3/4/5 native engine, own-history recall, reviewed
+    knowledge -> 6 OpenAI only if none of those can answer reliably -> 7 save + deferred learning.
+    """
     try:
         require_user(request, data.user_id)
         user_id = data.user_id
@@ -770,40 +875,60 @@ def chat(data: ChatRequest, request: Request):
         if day_limit is not None and today_count in [4, 7]:
             show_upgrade_nudge = True
 
-        geo           = get_geo_context(request)
-        short_memory  = get_short_memory(user_id, limit=mem_limit)
-        long_memory   = get_long_memory(user_id)
-        system_prompt = build_system_prompt(tier, long_memory, username, geo)
+        geo = get_geo_context(request)
+        has_image = bool(data.image_base64)
 
-        if data.image_base64:
-            user_content = [
-                {"type": "text", "text": message or "What's in this image?"},
-                {"type": "image_url", "image_url": {"url": f"data:{data.image_mime or 'image/jpeg'};base64,{data.image_base64}"}},
-            ]
-            # Vision models need gpt-4o (or mini); both tiers already map to a vision-capable model.
-            reply = call_openai(model, system_prompt, user_content, short_memory)
+        # 3-5: can Python / Supabase answer this without OpenAI?
+        route, reply, ctx = resolve_without_openai(user_id, message, username=username, geo=geo, has_image=has_image)
+        used_model, usage = None, None
+
+        if route is None:
+            # 2 + 6: recent history window and long-term memory (Supabase) -> OpenAI.
+            short_memory  = _safe(lambda: get_short_memory(user_id, limit=mem_limit), [])
+            long_memory   = _safe(lambda: get_long_memory(user_id), None)
+            system_prompt = build_system_prompt(
+                tier, long_memory, username, geo,
+                history_context=_kb.format_history_context(ctx["history_hits"]) if ctx["history_hits"] else None,
+                history_asked=ctx["history_asked"],
+            )
+            _LAST_USAGE.set(None)
+            if has_image:
+                user_content = [
+                    {"type": "text", "text": message or "What's in this image?"},
+                    {"type": "image_url", "image_url": {"url": f"data:{data.image_mime or 'image/jpeg'};base64,{data.image_base64}"}},
+                ]
+                # Vision models need gpt-4o (or mini); both tiers already map to a vision-capable model.
+                reply = call_openai(model, system_prompt, user_content, short_memory)
+            else:
+                reply = call_openai(model, system_prompt, message, short_memory)
+            usage, used_model, route = _LAST_USAGE.get(), model, "openai"
         else:
-            reply = call_openai(model, system_prompt, message, short_memory)
+            short_memory = []
 
         if not reply:
             raise HTTPException(500, "AI service unavailable. Try again.")
         reply = strip_stray_image_markdown(reply)
 
-        # Store a text-only record in memory (images aren't persisted into long-term history).
-        stored_user_msg = message if not data.image_base64 else f"[Image uploaded] {message}".strip()
-        save_message(user_id, "user", stored_user_msg)
-        save_message(user_id, "assistant", reply)
-        trim_memory(user_id, mem_limit)
-        increment_today_count(user_id)
+        # 7: persist (never delete history to fit a context window; see trim_memory / retention policy).
+        stored_user_msg = message if not has_image else f"[Image uploaded] {message}".strip()
+        try:
+            save_message(user_id, "user", stored_user_msg, data.conversation_id)
+            save_message(user_id, "assistant", reply, data.conversation_id)
+        except Exception as e:
+            logger.warning("EVOSGPT: could not save conversation (reply still delivered): %s", e)
+        try:
+            increment_today_count(user_id)
+        except Exception as e:
+            logger.warning("EVOSGPT: could not update daily count: %s", e)
+        _kb.record_usage(db_client, user_id, route, model=used_model, usage=usage)
 
-        total = len(short_memory) + 1
-        if total % 10 == 0:
-            summary = summarize_memory(short_memory)
-            if summary:
-                update_long_memory(user_id, summary)
+        if not has_image:
+            background_tasks.add_task(learn_after_chat, user_id, message, reply, route, mem_limit, short_memory, today_count)
 
         return {
-            "status": "ok", "reply": reply, "tier": tier, "model": model,
+            "status": "ok", "reply": reply, "tier": tier,
+            "model": model if route == "openai" else f"evosgpt-{route}",
+            "source": route,
             "today_count": today_count + 1, "day_limit": day_limit,
             "show_upgrade_nudge": show_upgrade_nudge,
             "location": {
@@ -1068,6 +1193,13 @@ def clear_memory(user_id: int, request: Request):
         return {"status": "ok", "message": "Memory cleared. EVOSGPT starts fresh."}
     except Exception:
         raise HTTPException(500, "Failed to clear memory")
+
+
+@router.get("/usage/{user_id}")
+def get_usage(user_id: int, request: Request):
+    """The caller's own request routing counts (native / history / knowledge / OpenAI) and estimated cost."""
+    require_user(request, user_id)
+    return {"status": "ok", "usage": _kb.usage_summary(db_client, user_id)}
 
 
 @router.get("/user/{user_id}")

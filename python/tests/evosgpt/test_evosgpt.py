@@ -8,74 +8,6 @@ import pytest
 os.environ.setdefault("XERA_TOKEN_SECRET", "test-secret-for-evosgpt")
 
 
-class _Q:
-    def __init__(self, db, name):
-        self.db, self.name = db, name
-        self.f, self.op, self.payload, self._limit = [], "select", None, None
-
-    def select(self, *a, **k): return self
-    def eq(self, k, v): self.f.append((k, v)); return self
-    def or_(self, expr):
-        pairs = [p.split(".eq.") for p in expr.split(",")]
-        self.f.append(("__or__", pairs)); return self
-    def order(self, *a, **k): return self
-    def limit(self, n): self._limit = n; return self
-    def insert(self, row): self.op, self.payload = "insert", row; return self
-    def update(self, row): self.op, self.payload = "update", row; return self
-    def delete(self): self.op = "delete"; return self
-
-    def _match(self, r):
-        for k, v in self.f:
-            if k == "__or__":
-                if not any(str(r.get(a)) == b for a, b in v): return False
-            elif r.get(k) != v: return False
-        return True
-
-    def execute(self):
-        rows = self.db.setdefault(self.name, [])
-        if self.op == "insert":
-            row = dict(self.payload); row.setdefault("id", len(rows) + 1); rows.append(row)
-            return types.SimpleNamespace(data=[row], count=1)
-        hits = [r for r in rows if self._match(r)]
-        if self.op == "update":
-            for r in hits: r.update(self.payload)
-        elif self.op == "delete":
-            for r in hits: rows.remove(r)
-        if self._limit: hits = hits[: self._limit]
-        return types.SimpleNamespace(data=hits, count=len(hits))
-
-
-class FakeDB:
-    def __init__(self): self.t = {}
-    def table(self, name): return _Q(self.t, name)
-
-
-@pytest.fixture()
-def env(monkeypatch):
-    fake = FakeDB()
-    import services.evosdata.db as dbmod
-    monkeypatch.setattr(dbmod, "get_supabase", lambda: fake)
-    for m in [m for m in sys.modules if m.startswith("services.evosgpt")]:
-        del sys.modules[m]
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-    from services.evosgpt import core
-    from utils.rate_limit import limiter
-    from slowapi import _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-    app = FastAPI()
-    app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    app.include_router(core.router, prefix="/api/evosgpt")
-    fake.t["users"] = [
-        {"id": 1, "username": "ama", "email": "ama@x.com", "full_name": "Ama", "evosgpt_tier": "Basic",
-         "password": core.hash_password("secret12"), "referral_code": "EVOS-AMA-1"},
-        {"id": 2, "username": "kofi", "email": "kofi@x.com", "full_name": "Kofi", "evosgpt_tier": "Basic",
-         "password": core.hash_password("secret12"), "referral_code": "EVOS-KOF-2"},
-    ]
-    return types.SimpleNamespace(core=core, db=fake, client=TestClient(app), monkeypatch=monkeypatch)
-
-
 def _hdr(core, uid):
     return {"Authorization": f"Bearer {core.make_user_token(uid)}"}
 
@@ -123,8 +55,8 @@ def test_own_token_works_for_user_and_chat(env):
     env.monkeypatch.setattr(env.core, "call_openai", lambda *a, **k: "Hello Ama")
     env.monkeypatch.setattr(env.core, "get_geo_context", lambda req: {"country_code": "GH", "local_time": "now", "timezone": "UTC"})
     assert env.client.get("/api/evosgpt/user/1", headers=_hdr(env.core, 1)).status_code == 200
-    r = env.client.post("/api/evosgpt/chat", json={"user_id": 1, "message": "hi"}, headers=_hdr(env.core, 1)).json()
-    assert r["status"] == "ok" and r["reply"] == "Hello Ama"
+    r = env.client.post("/api/evosgpt/chat", json={"user_id": 1, "message": "Write a short poem about Accra"}, headers=_hdr(env.core, 1)).json()
+    assert r["status"] == "ok" and r["reply"] == "Hello Ama" and r["source"] == "openai"
 
 
 def test_hub_session_exchange(env):
