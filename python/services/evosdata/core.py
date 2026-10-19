@@ -291,6 +291,19 @@ def require_user(request: Request, user_id: int) -> int:
         raise HTTPException(status_code=403, detail="Please sign in again")
     return int(user_id)
 
+def resolve_order_identity(request: Request, claimed_user_id: Optional[int]) -> Optional[int]:
+    """A client-supplied user_id is only a claim. A valid X-User-Token proves it
+    (order attaches to the account); a wrong token is refused; no token means a
+    guest purchase and the claim is dropped."""
+    if not claimed_user_id:
+        return None
+    token = request.headers.get("X-User-Token", "")
+    if not token:
+        return None
+    if not verify_user_token(token, claimed_user_id):
+        raise HTTPException(status_code=403, detail="Please sign in again")
+    return int(claimed_user_id)
+
 # =========================
 # MODELS
 # =========================
@@ -1532,6 +1545,7 @@ def list_checker_products(request: Request):
 @limiter.limit("10/minute")
 def create_checker_order(request: Request, data: CreateCheckerOrderRequest):
     try:
+        data.user_id = resolve_order_identity(request, data.user_id)
         products = get_checker_products()
         product = next((p for p in products if p.get("name", "").upper() == data.checker_type), None)
         if not product:
@@ -2017,6 +2031,7 @@ def afa_info(request: Request):
 @limiter.limit("10/minute")
 def create_afa_registration(request: Request, data: CreateAfaRequest):
     try:
+        data.user_id = resolve_order_identity(request, data.user_id)
         try:
             f = data.cleaned()
         except ValueError as ve:
@@ -3367,6 +3382,7 @@ def track_orders(request: Request, phone: str = Query(...)):
 @limiter.limit("10/minute")
 def create_order(request: Request, data: CreateOrderRequest):
     try:
+        data.user_id = resolve_order_identity(request, data.user_id)
         if not datamart_stock.bundle_in_stock(data.network, data.bundle):
             raise HTTPException(400, datamart_stock.OUT_OF_STOCK_MESSAGE)
 

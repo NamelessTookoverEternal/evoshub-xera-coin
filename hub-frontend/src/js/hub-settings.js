@@ -1,10 +1,11 @@
 import { THEMES, getTheme, applyTheme, initTheme } from './theme.js';
-import { requireSession, getUser } from './evos-session.js';
+import { getUser } from './evos-session.js';
 import { mountHubShell } from './hub-shell.js';
+import { guestGate } from './guest-access.js';
 
 initTheme();
 
-if (requireSession()) {
+if (guestGate('manage your settings')) {
     mountHubShell('settings');
     renderAccentGrid();
     renderProfile();

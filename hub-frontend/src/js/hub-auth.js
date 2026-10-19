@@ -6,19 +6,21 @@
  * sync on login, logout, expiry and cross-tab changes — no refresh needed.
  *
  * Sign-in itself is the one central screen at /xera (the only login the
- * ecosystem has). Links to protected products are pointed at it with a
- * validated ?next= so the user lands back on the product they chose.
+ * ecosystem has). Guests can open every product; only account-only actions
+ * and pages ask for sign-in (see guest-access.js), with a validated ?next= so
+ * the user lands back on what they were doing.
  */
 
 import { isLoggedIn, getUser, logout, onAuthChange, signInUrl, safeNext } from './evos-session.js';
+import { mountGuestBanner, unmountGuestBanner } from './guest-access.js';
 
-// Products that need an account. Public pages/docs stay open.
-// (/xera is itself the sign-in surface, so it is not rewritten.)
-const PROTECTED_PREFIXES = ['/evosdata', '/hub'];
-const isProtectedPath = (p) => PROTECTED_PREFIXES.some((x) => p === x || p.startsWith(x + '/') || p.startsWith(x + '.'));
+// Account-only pages that a guest is sent home from when they sign out.
+const ACCOUNT_ONLY_PREFIXES = ['/hub'];
+const isAccountOnlyPath = (p) => ACCOUNT_ONLY_PREFIXES.some((x) => p === x || p.startsWith(x + '/') || p.startsWith(x + '.'));
 
 const CSS = `
 .evos-auth{display:inline-flex;align-items:center;gap:8px;position:relative;font:inherit}
+.evos-auth__chip{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid rgba(128,128,128,.4);opacity:.85;white-space:nowrap}
 .evos-auth__link{color:inherit;text-decoration:none;font-size:14px;font-weight:500;padding:8px 10px;border-radius:8px;opacity:.9}
 .evos-auth__link:hover{opacity:1}
 .evos-auth__cta{background:var(--green,#16a34a);color:#fff!important;padding:8px 16px;border-radius:999px;font-size:14px;font-weight:600;text-decoration:none;opacity:1}
@@ -50,6 +52,7 @@ function render(host) {
     if (!isLoggedIn()) {
         const next = currentNext();
         host.innerHTML = `
+            <span class="evos-auth__chip" title="You're browsing as a guest">Guest</span>
             <a class="evos-auth__link" data-evos-login href="${esc(signInUrl(next, 'login'))}">Log in</a>
             <a class="evos-auth__cta" data-evos-signup href="${esc(signInUrl(next, 'register'))}">Sign up</a>`;
         return;
@@ -78,21 +81,7 @@ function render(host) {
     });
     host.querySelector('[data-evos-signout]').addEventListener('click', () => {
         logout();                                   // fires the auth event -> everything re-renders
-        if (isProtectedPath(location.pathname)) location.replace('/');
-    });
-}
-
-/** Protected product links go through sign-in when signed out; plain links when signed in. */
-function syncProtectedLinks(root = document) {
-    const out = !isLoggedIn();
-    root.querySelectorAll('a[href]').forEach((a) => {
-        const orig = a.dataset.evosHref || a.getAttribute('href');
-        if (!orig || !orig.startsWith('/') || orig.startsWith('//')) return;
-        let path;
-        try { path = new URL(orig, location.origin).pathname; } catch (e) { return; }
-        if (!isProtectedPath(path)) return;
-        a.dataset.evosHref = orig;
-        a.setAttribute('href', out ? signInUrl(orig) : orig);
+        if (isAccountOnlyPath(location.pathname)) location.replace('/');
     });
 }
 
@@ -118,7 +107,7 @@ function mount() {
         return; // page has no public header (hub shell pages have their own)
     }
 
-    const refresh = () => { render(host); syncProtectedLinks(); };
+    const refresh = () => { render(host); if (isLoggedIn()) unmountGuestBanner(); else mountGuestBanner(); };
     refresh();
     onAuthChange(refresh);
     document.addEventListener('click', () => {
@@ -128,20 +117,6 @@ function mount() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') host.querySelector('.evos-auth__menu')?.setAttribute('hidden', '');
     });
-
-    // Links added after load (e.g. admin-curated ecosystem links) are handled on click.
-    document.addEventListener('click', (e) => {
-        const a = e.target.closest && e.target.closest('a[href]');
-        if (!a || isLoggedIn() || e.defaultPrevented || e.button !== 0) return;
-        const href = a.dataset.evosHref || a.getAttribute('href');
-        if (!href || !href.startsWith('/') || href.startsWith('//')) return;
-        let path;
-        try { path = new URL(href, location.origin).pathname; } catch (err) { return; }
-        if (isProtectedPath(path) && !a.getAttribute('href').startsWith('/xera')) {
-            e.preventDefault();
-            location.href = signInUrl(href);
-        }
-    }, true);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

@@ -7,6 +7,7 @@ let dailyData = null;
 let tickHandle = null;
 
 import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
+import { mountGuestBanner } from './guest-access.js';
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -960,3 +961,28 @@ if (token() && isExpired(token())) {
     showAuthTab('register');   // "Sign up" link, or invited visitor: land on "Create account"
     if (incomingRef) prefillRef(incomingRef);
 }
+
+
+// ================= GUEST EXPLORER =================
+// Guests can read everything public about XERA without an account. Mining,
+// personal progress, claims, wallet linking and balances all stay behind sign-in
+// (and the backend enforces that on its own); this only adds the public links.
+(function mountGuestExplorer() {
+    const auth = $('authView');
+    if (!auth || auth.hidden || $('guestExplorer')) return;
+    const box = document.createElement('div');
+    box.id = 'guestExplorer';
+    box.style.cssText = 'margin:18px auto 0;max-width:420px;text-align:center;font-size:13px;opacity:.9';
+    box.innerHTML = `
+        <p style="margin:0 0 8px">Just looking? Explore XERA as a guest:</p>
+        <p style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center">
+            <a href="/xera/tokenomics.html">Tokenomics</a>
+            <a href="/xera/whitepaper.html">Whitepaper</a>
+            <a href="/xera/stats.html">Public stats</a>
+            <a href="/xera/roadmap.html">Roadmap</a>
+            <a href="/xera/faq.html">FAQ</a>
+        </p>
+        <p style="margin:0;opacity:.7">Signing in is needed to mine, track your rewards, claim XERA, link a wallet, or see balances.</p>`;
+    auth.appendChild(box);
+    mountGuestBanner();
+})();

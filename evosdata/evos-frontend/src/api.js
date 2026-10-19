@@ -39,6 +39,31 @@ primaryClient.interceptors.response.use((res) => res, logError("primary"));
 fallbackClient.interceptors.response.use((res) => res, logError("fallback"));
 
 // =========================
+// ORDER IDENTITY
+// =========================
+// A user_id in the body is only a claim: the backend attaches the order to the
+// account only when a valid X-User-Token proves it. The token is sent only when
+// it belongs to the same user_id, so a stale token can never cause a 403 for a
+// customer who is buying as a guest.
+const IDENTITY_ROUTES = ["/orders/create", "/checkers/create", "/afa/create"];
+const attachUserToken = (config) => {
+  try {
+    const url = config.url || "";
+    const body = config.data;
+    if (IDENTITY_ROUTES.some((r) => url.endsWith(r)) && body && body.user_id) {
+      const token = localStorage.getItem("userToken") || "";
+      if (token && String(localStorage.getItem("user_id")) === String(body.user_id)) {
+        config.headers = config.headers || {};
+        config.headers["X-User-Token"] = token;
+      }
+    }
+  } catch { /* storage unavailable: proceed as guest */ }
+  return config;
+};
+primaryClient.interceptors.request.use(attachUserToken);
+fallbackClient.interceptors.request.use(attachUserToken);
+
+// =========================
 // FAILOVER WRAPPER
 // =========================
 // Only retries on fallback if the primary never answered at all

@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -142,7 +143,7 @@ def available(wallet: Optional[dict]) -> float:
 
 
 def is_in_stock(price, wallet: Optional[dict] = None) -> bool:
-    """Can the wallet cover a bundle selling at `price`?"""
+    """Can the wallet cover a bundle selling at `price`? (wallet check only)"""
     w = wallet if wallet is not None else get_wallet()
     if not gating_active(w):
         return True
@@ -152,50 +153,139 @@ def is_in_stock(price, wallet: Optional[dict] = None) -> bool:
     return p <= available(w) + 1e-9
 
 
+# ============================================================================
+# ONE AVAILABILITY POLICY (every network, every size, every channel)
+# ============================================================================
+
+STATUS_AVAILABLE = "available"
+STATUS_OUT = "out_of_stock"
+STATUS_UNKNOWN = "unknown"
+
+_NETWORK_ALIASES = {
+    "MTN": "MTN",
+    "VODAFONE": "TELECEL", "TELECEL": "TELECEL", "VODA": "TELECEL",
+    "AT": "AIRTELTIGO", "AIRTEL": "AIRTELTIGO", "TIGO": "AIRTELTIGO",
+    "AIRTELTIGO": "AIRTELTIGO", "ATISHARE": "AIRTELTIGO", "ATBIGTIME": "AIRTELTIGO",
+}
+
+_route_cache: Dict = {"ts": 0.0, "map": None}
+
+
+def norm_network(network) -> str:
+    key = re.sub(r"[\s_\-]+", "", str(network or "").upper())
+    return _NETWORK_ALIASES.get(key, key)
+
+
+def norm_bundle(bundle) -> str:
+    return re.sub(r"\s+", "", str(bundle or "").lower())
+
+
+def unknown_blocks_purchase() -> bool:
+    """Business switch: when True an 'unknown' bundle can't be bought."""
+    return os.getenv("STOCK_UNKNOWN_BLOCKS_PURCHASE", "false").strip().lower() in ("1", "true", "yes")
+
+
 def reference_prices() -> Dict[tuple, float]:
-    """{(network_lower, bundle_lower): selling price} from the `prices` table."""
+    """{(NETWORK, bundle): price} from BOTH `prices` (retail) and `base_prices`
+    (agent / store cost), keys normalized, higher figure wins when both exist."""
     now = time.time()
     with _lock:
         if _price_cache["map"] and now - _price_cache["ts"] < _PRICE_TTL:
             return _price_cache["map"]
-    try:
-        rows = _db().table("prices").select("network, bundle, price").execute().data or []
-    except Exception as exc:
-        logger.warning("DATAMART STOCK: couldn't read prices (%s)", exc)
+    mp: Dict[tuple, float] = {}
+    ok = False
+    for table, col in (("prices", "price"), ("base_prices", "cost_price")):
+        try:
+            rows = _db().table(table).select(f"network, bundle, {col}").execute().data or []
+            ok = True
+        except Exception as exc:
+            logger.warning("STOCK: couldn't read %s (%s)", table, exc)
+            continue
+        for r in rows:
+            p = _num(r.get(col))
+            if p is None:
+                continue
+            k = (norm_network(r.get("network")), norm_bundle(r.get("bundle")))
+            if k not in mp or p > mp[k]:
+                mp[k] = p
+    if not ok:
         return {}
-    mp = {}
-    for r in rows:
-        p = _num(r.get("price"))
-        if p is not None:
-            mp[(str(r.get("network", "")).strip().lower(), str(r.get("bundle", "")).strip().lower())] = p
     with _lock:
         _price_cache["map"] = mp
         _price_cache["ts"] = now
     return mp
 
 
-def bundle_in_stock(network: str, bundle: str) -> bool:
-    """Order-time guard. Unknown bundles pass; the caller's own lookup rejects them."""
+def routed_providers() -> Optional[Dict[str, set]]:
+    """{NETWORK: {active providers}} from provider_routes; None if unreadable."""
+    now = time.time()
+    with _lock:
+        if _route_cache["map"] is not None and now - _route_cache["ts"] < _PRICE_TTL:
+            return _route_cache["map"]
+    try:
+        rows = _db().table("provider_routes").select("network, provider, active").execute().data or []
+    except Exception as exc:
+        logger.warning("STOCK: couldn't read provider_routes (%s)", exc)
+        return None
+    mp: Dict[str, set] = {}
+    for r in rows:
+        if r.get("active") is False:
+            continue
+        mp.setdefault(norm_network(r.get("network")), set()).add(str(r.get("provider", "")).strip().upper())
+    with _lock:
+        _route_cache["map"] = mp
+        _route_cache["ts"] = now
+    return mp
+
+
+def _decide(network, bundle, wallet, prices, routes) -> tuple:
+    """(status, reason). The single decision used by listings, admin and checkout.
+
+    - another active provider can fulfil the network -> available (DataMart's
+      wallet is not the only way to deliver it)
+    - no fresh DataMart reading, or no reference price -> unknown (never out)
+    - otherwise the wallet either covers the price or it doesn't
+    """
+    net = norm_network(network)
+    if routes and any(p != "DATAMART" for p in routes.get(net, ())):
+        return STATUS_AVAILABLE, "fallback_provider"
+    if routes is None:
+        return STATUS_UNKNOWN, "routes_unreadable"
+    if not gating_active(wallet):
+        return STATUS_UNKNOWN, "supplier_unverified"
+    price = prices.get((net, norm_bundle(bundle)))
+    if price is None:
+        return STATUS_UNKNOWN, "no_reference_price"
+    if price <= available(wallet) + 1e-9:
+        return STATUS_AVAILABLE, "wallet_covers"
+    return STATUS_OUT, "wallet_short"
+
+
+def bundle_status(network: str, bundle: str) -> str:
     w = get_wallet()
-    if not gating_active(w):
-        return True
-    price = reference_prices().get((str(network).strip().lower(), str(bundle).strip().lower()))
-    return True if price is None else is_in_stock(price, w)
+    return _decide(network, bundle, w, reference_prices(), routed_providers())[0]
+
+
+def purchasable(status: str) -> bool:
+    return status == STATUS_AVAILABLE or (status == STATUS_UNKNOWN and not unknown_blocks_purchase())
+
+
+def bundle_in_stock(network: str, bundle: str) -> bool:
+    """Order-time guard: False only when the bundle can't be sold right now."""
+    return purchasable(bundle_status(network, bundle))
 
 
 def annotate(rows: List[dict]) -> List[dict]:
-    """Add `in_stock` to rows that carry network + bundle (any price shape)."""
+    """Add `stock_status` and `in_stock` to rows carrying network + bundle."""
     w = get_wallet()
-    active = gating_active(w)
-    prices = reference_prices() if active else {}
+    prices = reference_prices()
+    routes = routed_providers()
     for r in rows:
         if not isinstance(r, dict):
             continue
-        if not active:
-            r["in_stock"] = True
-            continue
-        ref = prices.get((str(r.get("network", "")).strip().lower(), str(r.get("bundle", "")).strip().lower()))
-        r["in_stock"] = True if ref is None else is_in_stock(ref, w)
+        status = _decide(r.get("network"), r.get("bundle"), w, prices, routes)[0]
+        r["stock_status"] = status
+        r["in_stock"] = purchasable(status)
     return rows
 
 
@@ -327,9 +417,11 @@ def admin_status() -> dict:
     avail = available(wallet)
     out: List[dict] = []
     total = 0
-    for (net, bun), price in reference_prices().items():
+    prices = reference_prices()
+    routes = routed_providers()
+    for (net, bun), price in prices.items():
         total += 1
-        if active and price > avail + 1e-9:
+        if _decide(net, bun, wallet, prices, routes)[0] == STATUS_OUT:
             out.append({"network": net.upper(), "bundle": bun.upper(), "price": price})
     out.sort(key=lambda r: (r["network"], _capacity(r["bundle"])))
     try:

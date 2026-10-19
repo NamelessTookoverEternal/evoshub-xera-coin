@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Home      from "./pages/Home";
 import Login     from "./pages/Login";
 import Register  from "./pages/Register";
@@ -33,6 +33,12 @@ const hasReferralLink = () => {
 export default function App() {
   const [page, setPage] = useState(() => (hasReferralLink() ? "register" : "home"));
   const [user, setUser] = useState(null);
+  // Guest-first: browse freely; asking for a protected page (chat, dashboard,
+  // upgrade) shows sign-in, remembers where they were headed, and returns them there.
+  const userRef = useRef(null);
+  const pendingRef = useRef("");
+  const [pendingNotice, setPendingNotice] = useState("");
+  useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
     let restored = null;
@@ -85,9 +91,11 @@ export default function App() {
     if (u) {
       const { user_token, ...rest } = u;
       if (user_token) localStorage.setItem(TOKEN_KEY, user_token);
+      userRef.current = rest;
       setUser(rest);
       localStorage.setItem("evosgpt_user", JSON.stringify(rest));
     } else {
+      userRef.current = null;
       setUser(null);
       localStorage.removeItem("evosgpt_user");
       localStorage.removeItem(TOKEN_KEY);
@@ -96,14 +104,25 @@ export default function App() {
 
   const handleLogout = () => { handleSetUser(null); setPage("home"); };
 
+  const PROTECTED = { chat: "use EVOSGPT chat", dashboard: "open your dashboard", upgrade: "upgrade your plan" };
   const go = (p) => {
-    if (["chat","dashboard","upgrade"].includes(p) && !user) { setPage("login"); return; }
+    const signedIn = !!userRef.current;
+    if (p === "login" && signedIn) p = pendingRef.current || "chat";
+    if (PROTECTED[p] && !signedIn) {
+      pendingRef.current = p;
+      setPendingNotice(`Sign in to ${PROTECTED[p]}. You can go back and keep browsing as a guest.`);
+      setPage("login");
+      return;
+    }
+    if (p === "chat" && signedIn && pendingRef.current) p = pendingRef.current;
+    if (signedIn && PROTECTED[p]) { pendingRef.current = ""; setPendingNotice(""); }
+    if (!PROTECTED[p] && p !== "login" && p !== "register") { pendingRef.current = ""; setPendingNotice(""); }
     setPage(p);
   };
 
   const pages = {
     home:      <Home      setPage={go} user={user} />,
-    login:     <Login     setPage={go} setUser={handleSetUser} />,
+    login:     <Login     setPage={go} setUser={handleSetUser} notice={pendingNotice} onBack={() => go("home")} />,
     register:  <Register  setPage={go} setUser={handleSetUser} />,
     chat:      <Chat      setPage={go} user={user} setUser={handleSetUser} />,
     dashboard: <Dashboard setPage={go} user={user} onLogout={handleLogout} />,

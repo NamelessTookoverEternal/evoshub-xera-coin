@@ -2,7 +2,7 @@ import { useState } from "react";
 import { loginUser } from "../api";
 import { HUB_URL, openProduct } from "../config";
 
-export default function Login({ setPage, setUser }) {
+export default function Login({ setPage, setUser, notice, onBack }) {
   const [form, setForm]     = useState({ username: "", password: "" });
   const [loading, setLoad]  = useState(false);
   const [error, setError]   = useState("");
@@ -33,6 +33,12 @@ export default function Login({ setPage, setUser }) {
           <div style={S.sub}>The AI that evolves with you</div>
         </div>
 
+        {notice && (
+          <div role="status" style={{ fontSize: 13, textAlign: "center", margin: "0 0 12px", color: "#38bdf8" }}>
+            {notice}{" "}
+            {onBack && <span onClick={onBack} style={{ cursor: "pointer", textDecoration: "underline" }}>Back to browsing</span>}
+          </div>
+        )}
         <h2 style={S.title}>Welcome Back</h2>
 
         <label style={S.label}>Username or Email</label>

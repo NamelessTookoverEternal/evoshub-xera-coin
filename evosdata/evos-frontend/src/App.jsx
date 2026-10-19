@@ -29,6 +29,8 @@ import CommunityPopup     from "./components/CommunityPopup";
 import { InstallBanner, InstallHelp, useInstall } from "./components/InstallApp";
 import { Icon } from "./components/Icons";
 import { withBase, stripBase, asset } from "./lib/basePath";
+import AuthPrompt from "./components/AuthPrompt";
+import GuestBanner from "./components/GuestBanner";
 import { ssoFromHub, clearEvosdataSession, hubSessionEnded, hubSessionValid, hubSignInUrl, HUB_PROTECTED_PAGES } from "./lib/hubSession";
 import { IS_HUB_MOUNT } from "./lib/basePath";
 import XeraPromo from "./components/XeraPromo";
@@ -42,6 +44,8 @@ export default function App() {
     // remembered so the Hub guard can send them back to it after sign-in even if
     // a child component has already switched the in-app page to "login".
     const requestedPath = useRef("");
+    // Guest hit an account-only page: show the in-app prompt instead of leaving the app.
+    const [authPrompt, setAuthPrompt] = useState(null);
 
     const theme = "dark";
 
@@ -91,7 +95,14 @@ export default function App() {
         if ((needsAuth || isAuthPage) && !hubSessionValid()) {
             clearEvosdataSession();
             const back = requestedPath.current || (isAuthPage ? withBase("/dashboard") : window.location.pathname + window.location.search);
-            window.location.replace(hubSignInUrl(back) + (page === "register" ? "&mode=register" : ""));
+            if (isAuthPage) {
+                // Credentials are only ever checked by the Hub, so go there directly.
+                window.location.replace(hubSignInUrl(back) + (page === "register" ? "&mode=register" : ""));
+            } else {
+                setAuthPrompt({ page, back });
+            }
+        } else {
+            setAuthPrompt(null);
         }
     }, [page]);
 
@@ -225,6 +236,10 @@ export default function App() {
         // page mount without a user and bounce itself to the in-app login screen.
         if (IS_HUB_MOUNT && ssoPending && !user && HUB_PROTECTED_PAGES.has(page)) {
             return <div style={{ padding: "4rem 1rem", textAlign: "center", opacity: 0.7 }}>Signing you in…</div>;
+        }
+        if (authPrompt && authPrompt.page === page && IS_HUB_MOUNT && !hubSessionValid()) {
+            return <AuthPrompt page={page} back={authPrompt.back}
+                onCancel={() => { setAuthPrompt(null); navigate("shop"); }} />;
         }
         switch (page) {
             case "home":
@@ -424,6 +439,7 @@ export default function App() {
 
             {/* ======= PAGE ======= */}
             <main className="vy-main">
+                {IS_HUB_MOUNT && !user && !hubSessionValid() && <GuestBanner />}
                 {(page === "home" || page === "dashboard") && <XeraPromo.Card />}
                 {renderPage()}
             </main>

@@ -1,11 +1,12 @@
 import { initTheme } from './theme.js';
-import { requireSession, getUser, api } from './evos-session.js';
+import { getUser, api } from './evos-session.js';
 import { mountHubShell } from './hub-shell.js';
+import { guestGate } from './guest-access.js';
 import { resolveEcosystemLink } from './internal-links.js';
 
 initTheme();
 
-if (requireSession()) {
+if (guestGate('view your dashboard')) {
     const user = getUser();
     const nameEl = document.getElementById('welcomeName');
     if (nameEl) nameEl.textContent = user?.full_name || user?.username || 'there';
