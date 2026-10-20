@@ -11,6 +11,7 @@ issued by /auth/login. None of these trust a user_id from the request body.
 import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from main import supabase, limiter
@@ -19,6 +20,10 @@ from xera.config import get_config, get_allocations, get_mining_config
 from xera.wallet import get_or_create_wallet, get_transactions
 from xera.mining import start_session, get_status, claim, current_rate, MiningError
 from xera.daily import get_daily_status, claim_daily, DailyClaimError
+from xera.agreement import agreement_document
+from xera.launch import (
+    LaunchError, public_launch_info, user_launch_info, accept_agreement, mark_welcome_seen,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -56,6 +61,9 @@ _MINING_ERROR_HTTP = {
     "allocation_exhausted":   (409, "The mining allocation for this phase has been fully distributed."),
     "wallet_not_found":       (404, "Wallet not found."),
     "free_mining_closed":     (403, "Free mining has closed — the mining allocation is nearly fully distributed. XERA hashrate is still available."),
+    "agreement_required":     (403, "Please read and accept the XERA Miner Agreement before you start mining."),
+    "launch_not_ready":       (503, "XERA mining is being prepared. Please try again shortly."),
+    "invalid_parameters":     (500, "Mining is temporarily unavailable. Please try again later."),
 }
 
 
@@ -118,11 +126,20 @@ def mining_status(request: Request, authorization: str = Header(default="")):
 @router.post("/mining/start")
 @limiter.limit("5/minute")
 def mining_start(request: Request, authorization: str = Header(default="")):
+    # Identity comes only from the verified token. There is no request body, so
+    # the client cannot name a user, a rate, or a bonus.
     user_id = _current_user_id(request, authorization)
     try:
         session = start_session(user_id)
     except MiningError as e:
-        _raise_mining_error(e, request, user_id)
+        code = str(e)
+        status, message = _MINING_ERROR_HTTP.get(code, (400, "Could not process mining request."))
+        if code == "active_session_exists":
+            _log_security_event(user_id, "DUPLICATE_CLAIM_ATTEMPT", request, {"code": code})
+        elif code == "allocation_exhausted":
+            _log_security_event(user_id, "ALLOCATION_EXCEEDED", request, {"code": code})
+        # `code` lets the app tell "needs agreement" from other failures.
+        return JSONResponse(status_code=status, content={"detail": message, "code": code})
     return {"status": "ok", "mining": session}
 
 
@@ -146,6 +163,97 @@ def mining_claim(request: Request, data: ClaimRequest, authorization: str = Head
     except Exception as e:
         logger.error("XERA REFERRAL QUALIFY FAILED: %s", str(e))
 
+    return {"status": "ok", **result}
+
+
+# ------------------------------------------------------------
+# OFFICIAL LAUNCH: agreement, welcome notice, early-miner status
+# ------------------------------------------------------------
+
+_LAUNCH_ERROR_HTTP = {
+    "agreement_version_mismatch": (409, "This agreement version is out of date. Please reload to read the current version."),
+    "agreement_hash_mismatch":    (409, "The agreement text changed. Please reload to read the current version."),
+    "agreement_unavailable":      (503, "The agreement is being updated. Please try again shortly."),
+    "invalid_content_hash":       (400, "Invalid agreement data."),
+    "user_not_found":             (404, "Account not found."),
+    "notice_version_mismatch":    (409, "This notice is out of date. Please reload."),
+    "launch_not_ready":           (503, "XERA mining is being prepared. Please try again shortly."),
+}
+
+
+def _launch_http(e: LaunchError) -> HTTPException:
+    status, message = _LAUNCH_ERROR_HTTP.get(str(e), (400, "Could not process request."))
+    return HTTPException(status_code=status, detail=message)
+
+
+@router.get("/launch/agreement")
+@limiter.limit("30/minute")
+def launch_agreement(request: Request):
+    """The one authoritative agreement text, its version and SHA-256. Public (no private data)."""
+    return {"status": "ok", "agreement": agreement_document()}
+
+
+@router.get("/public/launch")
+@limiter.limit("60/minute")
+def public_launch(request: Request):
+    """Aggregate launch numbers (reward estimate, bonus slots left). No per-account data."""
+    try:
+        return {"status": "ok", "launch": public_launch_info()}
+    except LaunchError as e:
+        raise _launch_http(e)
+
+
+@router.get("/launch/status")
+@limiter.limit("60/minute")
+def launch_status_route(request: Request, authorization: str = Header(default="")):
+    """Aggregate numbers plus the CALLER's own flags (user taken from the token)."""
+    user_id = _current_user_id(request, authorization)
+    try:
+        return {"status": "ok", "launch": user_launch_info(user_id)}
+    except LaunchError as e:
+        raise _launch_http(e)
+
+
+class AcceptAgreementRequest(BaseModel):
+    agreement_version: str = Field(..., min_length=1, max_length=80)
+    content_sha256: str = Field(..., min_length=64, max_length=64)
+    # The checkbox. Scrolling or opening the modal is never acceptance.
+    confirmed: bool
+
+
+@router.post("/launch/agreement/accept")
+@limiter.limit("10/minute")
+def launch_accept_agreement(request: Request, data: AcceptAgreementRequest, authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    if data.confirmed is not True:
+        raise HTTPException(status_code=400, detail="Please confirm that you have read and agree to the agreement.")
+    try:
+        result = accept_agreement(
+            user_id,
+            data.agreement_version,
+            data.content_sha256,
+            request.client.host if request.client else None,
+            request.headers.get("user-agent"),
+        )
+    except LaunchError as e:
+        if str(e) in ("agreement_version_mismatch", "agreement_hash_mismatch"):
+            _log_security_event(user_id, "AGREEMENT_ACCEPT_REJECTED", request, {"code": str(e)})
+        raise _launch_http(e)
+    return {"status": "ok", **result}
+
+
+class WelcomeSeenRequest(BaseModel):
+    notice_version: str = Field(..., min_length=1, max_length=80)
+
+
+@router.post("/launch/welcome/seen")
+@limiter.limit("20/minute")
+def launch_welcome_seen(request: Request, data: WelcomeSeenRequest, authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    try:
+        result = mark_welcome_seen(user_id, data.notice_version)
+    except LaunchError as e:
+        raise _launch_http(e)
     return {"status": "ok", **result}
 
 
@@ -210,7 +318,10 @@ def ecosystem_links(request: Request):
 def public_stats(request: Request):
     cfg = get_config()
     alloc = get_allocations()
-    rate = current_rate() if cfg["mining_enabled"] else None
+    try:
+        rate = current_rate() if cfg["mining_enabled"] else None
+    except MiningError:
+        rate = None  # launch migration not applied yet: show 0 miners rather than fail the page
 
     # Aggregate counts only — no user ids, emails, or per-account data ever
     # leave this route. count="exact" with no .select() payload columns

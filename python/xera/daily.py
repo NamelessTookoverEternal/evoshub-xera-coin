@@ -10,7 +10,7 @@ single Postgres transaction, for the same race-safety reasons documented
 in mining.py.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from main import supabase
 from xera.wallet import get_or_create_wallet
@@ -38,7 +38,8 @@ def get_daily_status(user_id: int) -> dict:
     res = supabase.table("xera_daily_claims").select("*").eq("user_id", user_id).limit(1).execute()
     row = res.data[0] if res.data else None
 
-    today = date.today()
+    # The database decides "today" with now()::date (UTC); use UTC here too.
+    today = datetime.now(timezone.utc).date()
     last = _parse_date(row.get("last_claim_date")) if row else None
     already_claimed_today = last == today
 

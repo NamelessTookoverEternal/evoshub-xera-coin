@@ -27,7 +27,29 @@ import json
 import os
 import time
 
-_TOKEN_TTL_SECONDS = 24 * 60 * 60  # 24h — matches a mining session's own lifetime
+# Why this is not 24h any more: the Hub session token is shared by XERA, EVOS
+# Data and EVOSGPT, and EVOS Data's own tokens last 30 days. A 24h Hub token
+# meant someone signed in yesterday was asked for their password again the next
+# day when opening XERA (it had nothing to do with the mining session length).
+# Default 7 days, overridable with XERA_TOKEN_TTL_SECONDS, clamped to 1h..30d.
+_MIN_TTL = 60 * 60
+_MAX_TTL = 30 * 24 * 60 * 60
+_DEFAULT_TTL = 7 * 24 * 60 * 60
+
+
+def token_ttl_seconds() -> int:
+    raw = os.getenv("XERA_TOKEN_TTL_SECONDS", "")
+    try:
+        ttl = int(raw) if raw else _DEFAULT_TTL
+    except ValueError:
+        ttl = _DEFAULT_TTL
+    return min(max(ttl, _MIN_TTL), _MAX_TTL)
+
+
+# A refreshed token keeps the original sign-in time. Refreshing can extend a
+# session only up to this absolute limit, then a real login is required, so a
+# leaked token cannot be kept alive forever.
+MAX_SESSION_SECONDS = _MAX_TTL
 
 
 def _secret() -> bytes:
@@ -46,8 +68,13 @@ def _b64decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(data + padding)
 
 
-def make_user_token(user_id: int) -> str:
-    payload = {"uid": user_id, "exp": int(time.time()) + _TOKEN_TTL_SECONDS}
+def make_user_token(user_id: int, session_start: int | None = None) -> str:
+    now = int(time.time())
+    payload = {
+        "uid": user_id,
+        "exp": now + token_ttl_seconds(),
+        "ses": int(session_start) if session_start else now,  # original sign-in time
+    }
     payload_b64 = _b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
     signature_b64 = _b64encode(hmac.new(_secret(), payload_b64.encode("ascii"), hashlib.sha256).digest())
     return f"{payload_b64}.{signature_b64}"
@@ -59,6 +86,11 @@ class XeraTokenInvalid(Exception):
 
 def verify_user_token(token: str) -> int:
     """Returns the verified user id if the token checks out."""
+    return int(verify_user_token_payload(token)["uid"])
+
+
+def verify_user_token_payload(token: str) -> dict:
+    """Full verified payload (uid, exp, ses). Raises XeraTokenInvalid otherwise."""
     if not token or "." not in token:
         raise XeraTokenInvalid("Missing or malformed token.")
 
@@ -85,4 +117,4 @@ def verify_user_token(token: str) -> int:
     if not isinstance(user_id, int):
         raise XeraTokenInvalid("Token missing user id.")
 
-    return user_id
+    return payload
