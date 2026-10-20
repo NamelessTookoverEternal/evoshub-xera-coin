@@ -18,6 +18,7 @@
 <link href="../../css/xera-splash.css" rel="stylesheet"/>
 <link href="../../css/xera-space.css" rel="stylesheet"/>
   <link rel="stylesheet" href="../../css/xera-gallery.css">
+  <style id="xera-chain-phase-visibility">[data-panel="chain"]{display:none!important}</style>
 </head>
 <body>
 <!-- App startup splash: coin, then title + "powered by". Plays once per session (see js/xera-splash.js). -->
@@ -140,7 +141,7 @@
       <p class="auth-foot">Already have an EVOS account? <button type="button" class="linklike" id="goLogin">Sign in</button></p>
     </form>
 
-    <p class="auth-foot legal">Mining is live. Buying, withdrawing and transferring XERA are coming soon.</p>
+    <p class="auth-foot legal">In-app mining is live. On-chain claiming, withdrawals, and transfers are not yet available.</p>
   </section>
 
   <!-- ===== APP (dashboard, tabbed) ===== -->
@@ -162,7 +163,7 @@
         <button type="button" class="tab-nav-item" data-tab="mine">Mine</button>
         <button type="button" class="tab-nav-item" data-tab="hashrate">Hashrate</button>
         <button type="button" class="tab-nav-item" data-tab="wallet">Wallet</button>
-        <button type="button" class="tab-nav-item" data-tab="chain">Blockchain</button>
+        
         <button type="button" class="tab-nav-item" data-tab="activity">Activity</button>
         <button type="button" class="tab-nav-item" data-tab="rewards">Rewards</button>
         <button type="button" class="tab-nav-item" data-tab="profile">Profile</button>
@@ -191,7 +192,7 @@
             <p class="reward-line" id="rewardTextDash"></p>
             <button type="button" class="btn" id="miningActionDash">Start mining</button>
             <p class="banner-error" id="errorDash"></p>
-            <button type="button" class="info-link" data-goto="mine">Open the mining engine →</button>
+            <button type="button" class="info-link" data-goto="mine">View mining details →</button>
           </div>
 
           <div class="mini-card rewards-mini" id="rewardsMiniDash" hidden>
@@ -347,7 +348,7 @@
           <div class="hashrate-footnote">
             <span><img src="/assets/images/xeracoin.jpg" alt="XERA"/> 30-day entitlement</span>
             <span>✓ Paystack available when enabled</span>
-            <span>◌ Crypto rail prepared but disabled until configured</span>
+            <span>Additional payment options are not available yet.</span>
           </div>
           <p class="banner-error" id="hashrateError"></p>
         </section>
@@ -363,8 +364,8 @@
             <div class="wp-stat"><span>Total earned (all-time)</span><b id="totalEarned">—</b></div>
             <div class="wp-stat"><span>Mining allocation left ecosystem-wide</span><b id="walletRemainingSupply">—</b></div>
           </div>
-          <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">Buying, withdrawing and transferring XERA aren't live yet — this wallet currently only reflects what you've mined and claimed.</p>
-          <button type="button" class="info-link" data-goto="chain">Settle a claim on BNB or TON →</button>
+          <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">This wallet currently reflects the XERA you have mined and claimed. On-chain claiming, withdrawals, and transfers are not yet available.</p>
+          <p class="info-link">On-chain claiming on BNB or TON is planned for a later phase.</p>
           <div class="section-title">Coming soon</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>

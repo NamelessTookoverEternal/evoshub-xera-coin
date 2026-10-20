@@ -45,6 +45,27 @@ proceedBtn?.addEventListener('click', () => { window.location.href = card?.getAt
 dialog?.addEventListener('click', (e) => { if (e.target === dialog) closeDialog() })
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dialog && !dialog.hidden) closeDialog() })
 
+// ── Other products & ecosystem popup (Website Creation is live) ─────
+const moreDialog = document.getElementById('more-dialog')
+const moreCard = document.getElementById('card-more')
+const moreClose = document.getElementById('more-dialog-close')
+let moreFocus = null
+function openMore() {
+  moreFocus = document.activeElement
+  moreDialog.hidden = false
+  moreDialog.classList.add('is-open')
+  document.getElementById('more-website')?.focus()
+}
+function closeMore() {
+  moreDialog.classList.remove('is-open')
+  moreDialog.hidden = true
+  moreFocus?.focus?.()
+}
+moreCard?.addEventListener('click', openMore)
+moreClose?.addEventListener('click', closeMore)
+moreDialog?.addEventListener('click', (e) => { if (e.target === moreDialog) closeMore() })
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && moreDialog && !moreDialog.hidden) closeMore() })
+
 // ── Glass logo plates: use the real logo image once it loads, else keep the glyph fallback ──
 document.querySelectorAll('.ptile__glass').forEach((glass) => {
   const img = glass.querySelector('.ptile__img')
