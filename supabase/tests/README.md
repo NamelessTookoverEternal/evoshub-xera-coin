@@ -49,3 +49,14 @@ recreate between runs, since the SQL test file mutates state).
   than real per-user row policies, because this app doesn't use Supabase
   Auth — see the migration file's own comment on this. If Supabase Auth is
   ever adopted, this test suite should grow real per-user policy tests.
+
+## XERA official launch tests (Batch 1)
+
+Disposable-DB suites; each builds its own database from the real migrations with
+`setup_xera_test_db.sh` (it DROPS the target db — never point it at Supabase):
+
+```bash
+./run_launch_tests.sh               # tiers, agreement, bonus, 100 cap, allocation limits, privileges
+./run_launch_reset_test.sh          # reset / backups / preconditions / final update / rollback
+./run_launch_concurrency_test.sh    # real parallel sessions: double-submit, last-slot race, tier boundary, daily claim
+```
