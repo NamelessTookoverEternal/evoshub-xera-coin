@@ -4,9 +4,7 @@ Uses the existing EVOS ecosystem users table and password system.
 
 import re
 
-import time
-
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from passlib.context import CryptContext
 
@@ -14,16 +12,13 @@ from utils.rate_limit import limiter
 import logging
 
 from utils.supabase_admin import (
-    get_public_user_by_id,
     get_public_user_by_identifier,
     create_public_user,
     link_referral,
     PublicUserConflict,
 )
 from xera.referrals import clean_ref, new_unique_code
-from xera.user_auth import (
-    MAX_SESSION_SECONDS, XeraTokenInvalid, make_user_token, verify_user_token_payload,
-)
+from xera.user_auth import make_user_token
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -91,36 +86,6 @@ async def xera_login(
             "full_name": user.get("full_name"),
         },
     }
-
-
-@router.post("/refresh")
-@limiter.limit("20/minute")
-async def xera_refresh(request: Request, authorization: str = Header(default="")):
-    """
-    Swap a still-valid session token for a fresh one so an active person is not
-    asked to log in again mid-use. This never creates a login: it needs a token
-    that already verifies, the account must still exist, and the original
-    sign-in time is preserved, so a session cannot outlive MAX_SESSION_SECONDS
-    without a real password login. The user id comes from the token only.
-    """
-    token = authorization.removeprefix("Bearer ").strip()
-    try:
-        payload = verify_user_token_payload(token)
-    except XeraTokenInvalid:
-        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
-
-    user_id = int(payload["uid"])
-    # Tokens issued before "ses" existed lasted exactly 24h, so their sign-in
-    # time is exp - 24h.
-    session_start = int(payload.get("ses") or (int(payload["exp"]) - 24 * 60 * 60))
-    if time.time() - session_start > MAX_SESSION_SECONDS:
-        raise HTTPException(status_code=401, detail="Your session has expired. Please log in again.")
-
-    user = await get_public_user_by_id(user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired session. Please log in again.")
-
-    return {"status": "ok", "token": make_user_token(user_id, session_start=session_start)}
 
 
 _USERNAME_RE = re.compile(r"^[a-z0-9_]{3,32}$")

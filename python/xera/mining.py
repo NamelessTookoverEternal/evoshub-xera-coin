@@ -1,19 +1,16 @@
 """
-XERA mining session service.
+XERA mining rate + session service.
 
-The base reward schedule (10 -> 1 XERA by number of active, unexpired
-sessions), the agreement check, the one-active-session rule and the
-first-100 bonus all live in ONE Postgres function, xera_start_mining_launch,
-so they are atomic and cannot be bypassed or raced from here. This module
-holds no reward table of its own: it asks the database. Paid/boost hashrate
-is intentionally separate (hashrate.py).
+Base free-mining rewards are determined by the number of currently active,
+unexpired mining sessions. Paid/boost hashrate is intentionally separate.
+The database RPCs remain responsible for atomic session creation and claims.
 """
 
 from datetime import date, datetime, timezone
 
 from main import supabase
 from xera.config import get_config, get_mining_config, get_allocations
-from xera.launch import LaunchError, launch_status, is_function_missing
+from xera.wallet import get_or_create_wallet
 
 DEFAULT_MINING_PERIOD_DAYS = 90
 
@@ -30,91 +27,90 @@ def _remaining_mining_days(mining_cfg: dict) -> int:
     return max((end_date - date.today()).days, 1)
 
 
-def current_rate() -> dict:
-    """
-    Live base reward and the active-miner count it was chosen from, both read
-    from the database's own calculation (xera_launch_status). Raises
-    MiningError("launch_not_ready") if the launch migration is not applied.
-    """
-    try:
-        info = launch_status(None)
-    except LaunchError:
-        raise MiningError("launch_not_ready")
+def _active_miners_count() -> int:
+    """Count only sessions that are marked ACTIVE and have not expired."""
+    now = datetime.now(timezone.utc).isoformat()
+    res = (
+        supabase.table("xera_mining_sessions")
+        .select("id", count="exact")
+        .eq("status", "ACTIVE")
+        .gt("expires_at", now)
+        .execute()
+    )
+    return max(res.count or 0, 0)
 
+
+def _base_reward_for_active_miners(active_miners: int) -> float:
+    """Base free-mining reward per completed 24-hour session."""
+    if active_miners <= 100:
+        return 10.0
+    if active_miners <= 200:
+        return 8.0
+    if active_miners <= 500:
+        return 5.0
+    if active_miners <= 1000:
+        return 3.0
+    if active_miners <= 1500:
+        return 2.5
+    if active_miners <= 2000:
+        return 2.0
+    if active_miners <= 3000:
+        return 1.5
+    return 1.0
+
+
+def current_rate() -> dict:
+    """Return the live base reward and the active-miner count used to choose it."""
     alloc = get_allocations()
     mining_cfg = get_mining_config()
+
     remaining_allocation = max(
         float(alloc["mining_allocation"]) - float(alloc["mining_distributed"]), 0.0
     )
-    rate = float(info.get("base_reward_estimate") or 0) if remaining_allocation > 0 else 0.0
+    remaining_days = _remaining_mining_days(mining_cfg)
+    active_miners = _active_miners_count()
+    scheduled_reward = _base_reward_for_active_miners(active_miners)
+
+    # Do not advertise a positive rate if the mining allocation is exhausted.
+    rate = min(scheduled_reward, remaining_allocation) if remaining_allocation > 0 else 0.0
 
     return {
         "rate": round(rate, 4),
         "remaining_allocation": round(remaining_allocation, 4),
-        "remaining_days": _remaining_mining_days(mining_cfg),
-        "active_miners": int(info.get("active_miners") or 0),
+        "remaining_days": remaining_days,
+        "active_miners": active_miners,
     }
 
 
-_START_ERRORS = (
-    "agreement_required", "active_session_exists", "wallet_not_active",
-    "free_mining_closed", "allocation_exhausted", "invalid_parameters",
-)
-
-
 def start_session(user_id: int) -> dict:
-    """
-    Start a mining session for the authenticated user.
-
-    One database transaction: agreement check -> tiered reward -> session ->
-    (optional) early-miner bonus. If anything fails nothing is committed, so a
-    failed start never costs a bonus slot and never leaves a half-made session.
-    Returns the session plus a "bonus" summary; only a real session is returned.
-    """
     cfg = get_config()
     if not cfg["system_enabled"] or not cfg["mining_enabled"]:
         raise MiningError("mining_disabled")
 
     mining_cfg = get_mining_config()
+    rate_info = current_rate()
+    if rate_info["rate"] <= 0:
+        raise MiningError("allocation_exhausted")
+
+    get_or_create_wallet(user_id)
 
     try:
-        res = supabase.rpc("xera_start_mining_launch", {
+        res = supabase.rpc("xera_start_mining_session", {
             "p_user_id": user_id,
-            "p_hours": int(mining_cfg["session_hours"]),
+            "p_rate": rate_info["rate"],
+            "p_hours": mining_cfg["session_hours"],
             "p_max_reward": float(mining_cfg["max_reward_per_session"]),
         }).execute()
     except Exception as e:
-        if is_function_missing(e):
-            raise MiningError("launch_not_ready")
         msg = str(e)
-        for code in _START_ERRORS:
+        for code in (
+            "active_session_exists", "wallet_not_active", "free_mining_closed",
+        ):
             if code in msg:
                 raise MiningError(code)
         raise
 
-    out = res.data
-    if isinstance(out, list):
-        out = out[0] if out else None
-    if not isinstance(out, dict) or not out.get("session_id"):
-        # Never report an active miner unless the database confirmed a session.
-        raise RuntimeError("xera_start_mining_launch returned no session")
-
-    return {
-        "id": out["session_id"],
-        "user_id": out.get("user_id"),
-        "started_at": out.get("started_at"),
-        "expires_at": out.get("expires_at"),
-        "status": out.get("status"),
-        "rate_snapshot": out.get("rate_snapshot"),
-        "estimated_reward": out.get("estimated_reward"),
-        "active_miners": out.get("active_miners"),
-        "bonus": {
-            "status": out.get("bonus_status"),
-            "amount": out.get("bonus_amount") or 0,
-            "slot": out.get("bonus_slot"),
-        },
-        "new_balance": out.get("new_balance"),
-    }
+    return res.data
 
 
 def get_status(user_id: int) -> dict | None:
