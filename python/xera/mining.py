@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 
 from main import supabase
 from xera.config import get_config, get_mining_config, get_allocations
-from xera.wallet import get_or_create_wallet
+from xera.launch import LaunchError, is_function_missing, launch_status
 
 DEFAULT_MINING_PERIOD_DAYS = 90
 
@@ -27,90 +27,92 @@ def _remaining_mining_days(mining_cfg: dict) -> int:
     return max((end_date - date.today()).days, 1)
 
 
-def _active_miners_count() -> int:
-    """Count only sessions that are marked ACTIVE and have not expired."""
-    now = datetime.now(timezone.utc).isoformat()
-    res = (
-        supabase.table("xera_mining_sessions")
-        .select("id", count="exact")
-        .eq("status", "ACTIVE")
-        .gt("expires_at", now)
-        .execute()
-    )
-    return max(res.count or 0, 0)
-
-
-def _base_reward_for_active_miners(active_miners: int) -> float:
-    """Base free-mining reward per completed 24-hour session."""
-    if active_miners <= 100:
-        return 10.0
-    if active_miners <= 200:
-        return 8.0
-    if active_miners <= 500:
-        return 5.0
-    if active_miners <= 1000:
-        return 3.0
-    if active_miners <= 1500:
-        return 2.5
-    if active_miners <= 2000:
-        return 2.0
-    if active_miners <= 3000:
-        return 1.5
-    return 1.0
-
-
 def current_rate() -> dict:
-    """Return the live base reward and the active-miner count used to choose it."""
+    """
+    Live base reward for the NEXT session, as calculated by the database
+    (xera_launch_status). Python holds no reward table: the tier schedule and
+    the active-miner count live in Postgres so display and payout cannot drift.
+    """
     alloc = get_allocations()
     mining_cfg = get_mining_config()
 
     remaining_allocation = max(
         float(alloc["mining_allocation"]) - float(alloc["mining_distributed"]), 0.0
     )
-    remaining_days = _remaining_mining_days(mining_cfg)
-    active_miners = _active_miners_count()
-    scheduled_reward = _base_reward_for_active_miners(active_miners)
+    try:
+        status = launch_status(None)
+    except LaunchError:
+        raise MiningError("launch_not_ready")
 
-    # Do not advertise a positive rate if the mining allocation is exhausted.
-    rate = min(scheduled_reward, remaining_allocation) if remaining_allocation > 0 else 0.0
+    scheduled = float(status.get("base_reward_estimate") or 0)
+    rate = min(scheduled, remaining_allocation) if remaining_allocation > 0 else 0.0
 
     return {
         "rate": round(rate, 4),
         "remaining_allocation": round(remaining_allocation, 4),
-        "remaining_days": remaining_days,
-        "active_miners": active_miners,
+        "remaining_days": _remaining_mining_days(mining_cfg),
+        "active_miners": int(status.get("active_miners") or 0),
     }
 
 
+_START_DB_CODES = (
+    "agreement_required", "active_session_exists", "wallet_not_active",
+    "free_mining_closed", "allocation_exhausted",
+)
+
+
 def start_session(user_id: int) -> dict:
+    """
+    Start a session through the single atomic database function. The database
+    checks the agreement for the CURRENT version, picks the tier reward, creates
+    the session and (only after it exists) awards the early-miner bonus.
+    Python sends only the authenticated user id, the session length and the
+    per-session cap - never a rate and never a bonus flag.
+    """
     cfg = get_config()
     if not cfg["system_enabled"] or not cfg["mining_enabled"]:
         raise MiningError("mining_disabled")
 
     mining_cfg = get_mining_config()
-    rate_info = current_rate()
-    if rate_info["rate"] <= 0:
-        raise MiningError("allocation_exhausted")
-
-    get_or_create_wallet(user_id)
 
     try:
-        res = supabase.rpc("xera_start_mining_session", {
+        res = supabase.rpc("xera_start_mining_launch", {
             "p_user_id": user_id,
-            "p_rate": rate_info["rate"],
-            "p_hours": mining_cfg["session_hours"],
+            "p_hours": int(mining_cfg["session_hours"]),
             "p_max_reward": float(mining_cfg["max_reward_per_session"]),
         }).execute()
     except Exception as e:
+        if is_function_missing(e):
+            raise MiningError("launch_not_ready")
         msg = str(e)
-        for code in (
-            "active_session_exists", "wallet_not_active", "free_mining_closed",
-        ):
+        for code in _START_DB_CODES:
             if code in msg:
                 raise MiningError(code)
         raise
 
-    return res.data
+    out = res.data
+    if isinstance(out, list):
+        out = out[0] if out else None
+    # A session is only "started" if the database says it has a session id.
+    if not isinstance(out, dict) or not out.get("session_id"):
+        raise RuntimeError("xera_start_mining_launch returned no session")
+
+    return {
+        "id": out["session_id"],
+        "user_id": out.get("user_id", user_id),
+        "status": out.get("status", "ACTIVE"),
+        "started_at": out.get("started_at"),
+        "expires_at": out.get("expires_at"),
+        "rate_snapshot": out.get("rate_snapshot"),
+        "estimated_reward": out.get("estimated_reward"),
+        "active_miners": out.get("active_miners"),
+        "new_balance": out.get("new_balance"),
+        "bonus": {
+            "status": out.get("bonus_status"),
+            "amount": out.get("bonus_amount"),
+            "slot": out.get("bonus_slot"),
+        },
+    }
 
 
 def get_status(user_id: int) -> dict | None:

@@ -11,6 +11,7 @@ issued by /auth/login. None of these trust a user_id from the request body.
 import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from main import supabase, limiter
@@ -19,6 +20,10 @@ from xera.config import get_config, get_allocations, get_mining_config
 from xera.wallet import get_or_create_wallet, get_transactions
 from xera.mining import start_session, get_status, claim, current_rate, MiningError
 from xera.daily import get_daily_status, claim_daily, DailyClaimError
+from xera import agreement as agreement_mod
+from xera.launch import (
+    LaunchError, accept_agreement, mark_welcome_seen, public_launch_info, user_launch_info,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -56,6 +61,8 @@ _MINING_ERROR_HTTP = {
     "allocation_exhausted":   (409, "The mining allocation for this phase has been fully distributed."),
     "wallet_not_found":       (404, "Wallet not found."),
     "free_mining_closed":     (403, "Free mining has closed — the mining allocation is nearly fully distributed. XERA hashrate is still available."),
+    "agreement_required":     (403, "Please read and accept the XERA Miner Agreement before you start mining."),
+    "launch_not_ready":       (503, "Mining is being updated. Please try again shortly."),
 }
 
 
@@ -122,8 +129,109 @@ def mining_start(request: Request, authorization: str = Header(default="")):
     try:
         session = start_session(user_id)
     except MiningError as e:
-        _raise_mining_error(e, request, user_id)
+        code = str(e)
+        status, message = _MINING_ERROR_HTTP.get(code, (400, "Could not process mining request."))
+        if code in ("active_session_exists", "agreement_required"):
+            _log_security_event(user_id, "DUPLICATE_CLAIM_ATTEMPT" if code == "active_session_exists"
+                                else "MINING_START_WITHOUT_AGREEMENT", request, {"code": code})
+        elif code == "allocation_exhausted":
+            _log_security_event(user_id, "ALLOCATION_EXCEEDED", request, {"code": code})
+        # "detail" keeps the existing frontend error display working; "code" is
+        # what the new onboarding flow switches on (e.g. agreement_required).
+        return JSONResponse(status_code=status, content={"detail": message, "code": code})
     return {"status": "ok", "mining": session}
+
+
+# ------------------------------------------------------------
+# OFFICIAL LAUNCH: agreement, welcome notice, launch status
+# ------------------------------------------------------------
+
+_LAUNCH_ERROR_HTTP = {
+    "agreement_version_mismatch": (409, "The agreement has been updated. Please reload and read the latest version."),
+    "agreement_hash_mismatch":    (409, "The agreement text has changed. Please reload and read the latest version."),
+    "invalid_content_hash":       (409, "The agreement text has changed. Please reload and read the latest version."),
+    "agreement_unavailable":      (503, "The agreement is being updated. Please try again shortly."),
+    "launch_not_ready":           (503, "Mining is being updated. Please try again shortly."),
+    "notice_version_mismatch":    (409, "This notice has been updated. Please reload."),
+    "user_not_found":             (401, "Invalid or expired session. Please log in again."),
+}
+
+
+def _launch_error_response(e: LaunchError) -> JSONResponse:
+    code = str(e)
+    status, message = _LAUNCH_ERROR_HTTP.get(code, (400, "Could not process request."))
+    return JSONResponse(status_code=status, content={"detail": message, "code": code})
+
+
+@router.get("/launch/agreement")
+@limiter.limit("60/minute")
+def launch_agreement(request: Request):
+    """The one authoritative agreement text. Public: it is not account data."""
+    return {"status": "ok", "agreement": agreement_mod.agreement_document()}
+
+
+@router.get("/public/launch")
+@limiter.limit("60/minute")
+def public_launch(request: Request):
+    """Aggregate launch numbers only (slots left, reward estimate). No per-user fields."""
+    try:
+        return {"status": "ok", "launch": public_launch_info()}
+    except LaunchError as e:
+        return _launch_error_response(e)
+
+
+@router.get("/launch/status")
+@limiter.limit("60/minute")
+def launch_status_route(request: Request, authorization: str = Header(default="")):
+    """Aggregate numbers plus the CALLER's own flags. The user id comes from the token only."""
+    user_id = _current_user_id(request, authorization)
+    try:
+        return {"status": "ok", "launch": user_launch_info(user_id)}
+    except LaunchError as e:
+        return _launch_error_response(e)
+
+
+class AcceptAgreementRequest(BaseModel):
+    agreement_version: str = Field(..., min_length=1, max_length=80)
+    content_sha256: str = Field(..., min_length=1, max_length=128)
+    confirmed: bool
+
+
+@router.post("/launch/agreement/accept")
+@limiter.limit("10/minute")
+def launch_agreement_accept(request: Request, data: AcceptAgreementRequest,
+                            authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    if not data.confirmed:
+        return JSONResponse(status_code=400, content={
+            "detail": "Please tick the confirmation box to accept.", "code": "confirmation_required"})
+    try:
+        result = accept_agreement(
+            user_id, data.agreement_version, data.content_sha256.lower(),
+            request.client.host if request.client else None,
+            (request.headers.get("user-agent") or "")[:300] or None,
+        )
+    except LaunchError as e:
+        if str(e) in ("agreement_version_mismatch", "agreement_hash_mismatch", "invalid_content_hash"):
+            _log_security_event(user_id, "AGREEMENT_ACCEPT_REJECTED", request, {"code": str(e)})
+        return _launch_error_response(e)
+    return {"status": "ok", **result}
+
+
+class WelcomeSeenRequest(BaseModel):
+    notice_version: str = Field(..., min_length=1, max_length=80)
+
+
+@router.post("/launch/welcome/seen")
+@limiter.limit("20/minute")
+def launch_welcome_seen(request: Request, data: WelcomeSeenRequest,
+                        authorization: str = Header(default="")):
+    user_id = _current_user_id(request, authorization)
+    try:
+        result = mark_welcome_seen(user_id, data.notice_version)
+    except LaunchError as e:
+        return _launch_error_response(e)
+    return {"status": "ok", **result}
 
 
 class ClaimRequest(BaseModel):
@@ -210,7 +318,11 @@ def ecosystem_links(request: Request):
 def public_stats(request: Request):
     cfg = get_config()
     alloc = get_allocations()
-    rate = current_rate() if cfg["mining_enabled"] else None
+    try:
+        rate = current_rate() if cfg["mining_enabled"] else None
+    except MiningError:
+        # Launch migration not applied yet: public stats must still load.
+        rate = None
 
     # Aggregate counts only — no user ids, emails, or per-account data ever
     # leave this route. count="exact" with no .select() payload columns

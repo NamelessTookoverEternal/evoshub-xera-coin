@@ -8,6 +8,7 @@ let tickHandle = null;
 
 import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
 import { mountGuestBanner } from './guest-access.js';
+import { maybeShowWelcome, startMiningWithOnboarding, resetLaunchSession } from './xera-launch.js';
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -18,7 +19,12 @@ async function req(path, opts = {}) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(opts.headers || {}) }
     });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(typeof d.detail === 'string' && d.detail ? d.detail : 'Request failed');
+    if (!r.ok) {
+        const err = new Error(typeof d.detail === 'string' && d.detail ? d.detail : 'Request failed');
+        err.status = r.status;
+        err.code = typeof d.code === 'string' ? d.code : '';
+        throw err;
+    }
     return d;
 }
 
@@ -80,6 +86,7 @@ function showAuthTab(tab) {
 }
 
 function showLogin(message) {
+    resetLaunchSession();
     localStorage.removeItem('xera_evos_token');
     localStorage.removeItem('xera_evos_user');
     ['user','email','username','user_id','userToken','agentToken'].forEach((k) => localStorage.removeItem(k));
@@ -304,6 +311,7 @@ async function load() {
         renderProfile();
         loadDaily();
         if (!handlePaystackReturn()) loadHashrate();
+        maybeShowWelcome(req);
     } catch (err) {
         showLogin('Please sign in again.');
     }
@@ -500,13 +508,24 @@ function renderMining() {
     }
 }
 
+async function refreshBalance() {
+    try {
+        const w = await req('/api/xera/wallet');
+        $('balance').textContent = fmt(w.balance);
+        $('balanceWallet').textContent = fmt(w.balance);
+    } catch (e) { /* balance refreshes on the next load */ }
+}
+
 async function startOrClaim(btn, errEl) {
     errEl.textContent = '';
     btn.disabled = true;
     try {
         if (!mining) {
-            const d = await req('/api/xera/mining/start', { method: 'POST', body: '{}' });
+            // Agreement first (if the server requires it), then the real start call.
+            const d = await startMiningWithOnboarding(req);
+            if (!d) return; // user closed the agreement: nothing started
             mining = d.mining;
+            refreshBalance(); // a bonus may have been credited
         } else {
             await req('/api/xera/mining/claim', { method: 'POST', body: JSON.stringify({ session_id: mining.id }) });
             mining = null;
