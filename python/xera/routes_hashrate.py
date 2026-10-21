@@ -10,6 +10,7 @@ XERA session token.
 """
 
 import logging
+import re
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -20,6 +21,7 @@ from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera import hashrate
 from xera.hashrate import HashrateError
 from xera.payments.base import PaymentProviderError
+from services.evosgpt.currency import currency_for_country
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -77,6 +79,26 @@ def list_tiers(request: Request):
         "entitlement": hashrate.get_entitlement_state(),
         "payments": hashrate.payment_availability(),
     }
+
+
+@router.get("/currency")
+@limiter.limit("30/minute")
+def visitor_currency(request: Request, country: str = ""):
+    """
+    Display currency for hashrate prices (public, no auth). Prices are stored and BILLED in
+    GHS; this only tells the frontend which currency to show and the GHS -> local rate.
+    `country` (ISO code) comes from the hosting edge when available; otherwise the visitor's
+    IP is looked up. Falls back to GHS (rate 1) whenever the country or rate is unknown.
+    """
+    code = country.strip().upper()
+    if not re.match(r"^[A-Z]{2}$", code):
+        code = ""
+        try:
+            from services.evosgpt.core import get_geo_context  # lazy: heavy module, optional
+            code = (get_geo_context(request).get("country_code") or "").upper()
+        except Exception as exc:
+            logger.warning("XERA hashrate currency: geo lookup unavailable (%s)", exc)
+    return currency_for_country(code)
 
 
 @router.get("/tiers/{tier_id}/preview")

@@ -2,41 +2,89 @@
 body.xl-lock{overflow:hidden}
 .xl-overlay{
     position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
-    padding:16px;background:rgba(2,3,8,.72);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+    padding:16px;background:radial-gradient(ellipse at 50% 20%,rgba(76,126,255,.18),transparent 60%),rgba(2,3,8,.78);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
 }
 .xl-card{
-    width:100%;max-width:520px;max-height:calc(100dvh - 32px);display:flex;flex-direction:column;
-    padding:22px 22px calc(18px + env(safe-area-inset-bottom));overflow-y:auto;outline:none;
-    color:var(--text,#f2f5fa);background:rgba(10,15,30,.96);
-    border:1px solid var(--border-strong,rgba(255,255,255,.14));border-radius:18px;
-    box-shadow:0 24px 70px rgba(0,0,0,.6);
+    position:relative;width:100%;max-width:520px;max-height:calc(100dvh - 32px);display:flex;flex-direction:column;
+    padding:26px 24px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;outline:none;
+    color:var(--text,#f2f5fa);
+    background:linear-gradient(180deg,rgba(24,32,62,.98),rgba(10,15,30,.98) 38%);
+    border:1px solid rgba(120,150,255,.22);border-radius:22px;
+    box-shadow:0 30px 80px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.03) inset,0 0 60px rgba(76,126,255,.12);
 }
-.xl-title{margin:0 0 12px;font-size:1.2rem;line-height:1.25;font-family:var(--font-display,inherit)}
-.xl-p{margin:0 0 12px;font-size:.92rem;line-height:1.55;color:#dbe3f2}
+.xl-card::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;border-radius:22px 22px 0 0;
+    background:linear-gradient(90deg,#664cff,#287eff,#33e6c8)}
+.xl-center{text-align:center}
+.xl-hero{display:flex;justify-content:center;margin:2px 0 12px}
+.xl-hero-icon{display:grid;place-items:center;width:64px;height:64px;font-size:30px;border-radius:20px;
+    background:linear-gradient(135deg,rgba(102,76,255,.35),rgba(40,126,255,.35));
+    border:1px solid rgba(140,170,255,.35);box-shadow:0 8px 28px rgba(76,126,255,.35)}
+.xl-hero-sm .xl-hero-icon{width:52px;height:52px;font-size:24px;border-radius:16px}
+.xl-title{margin:0 0 8px;font-size:1.28rem;line-height:1.25;font-family:var(--font-display,inherit);letter-spacing:-.01em}
+.xl-lead{margin:0 0 16px;text-align:center;font-size:.93rem;line-height:1.5;color:#c4cee6}
+.xl-p{margin:0 0 12px;font-size:.9rem;line-height:1.6;color:#dbe3f2}
+.xl-points{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:10px}
+.xl-point{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-radius:14px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)}
+.xl-point-ico{flex:none;display:grid;place-items:center;width:34px;height:34px;font-size:17px;border-radius:10px;background:rgba(76,126,255,.16)}
+.xl-point b{display:block;font-size:.9rem;margin-bottom:2px}
+.xl-point p{margin:0;font-size:.8rem;line-height:1.5;color:#aebad3}
+.xl-chip{margin:0 0 4px;padding:9px 14px;text-align:center;font-size:.84rem;font-weight:600;border-radius:999px;
+    color:var(--accent-2,#33e6c8);background:rgba(51,230,200,.09);border:1px solid rgba(51,230,200,.25)}
 .xl-note{margin:0 0 12px;font-size:.84rem;color:var(--accent-2,#33e6c8)}
-.xl-bonus{margin:0 0 12px;font-weight:700;color:var(--accent-2,#33e6c8)}
-.xl-hint{margin:0 0 8px;font-size:.82rem;color:var(--text-dim,#838da1)}
+.xl-bonus{margin:0 0 12px;padding:11px 14px;text-align:center;font-weight:700;font-size:.9rem;border-radius:12px;
+    color:#ffe28a;background:rgba(255,204,64,.1);border:1px solid rgba(255,204,64,.3)}
+.xl-fine{margin:0 0 4px;font-size:.74rem;line-height:1.5;text-align:center;color:var(--text-dim,#838da1)}
+.xl-hint{margin:0 0 8px;font-size:.82rem;text-align:center;color:var(--text-dim,#838da1);transition:color .2s}
+.xl-hint-ok{color:var(--accent-2,#33e6c8)}
 .xl-ver{margin:0 0 10px;font-size:.78rem;color:var(--text-dim,#838da1)}
+.xl-progress{height:5px;margin:0 0 10px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.xl-progress-fill{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#664cff,#33e6c8);transition:width .12s linear}
 .xl-scroll{
-    flex:1 1 auto;min-height:160px;max-height:min(46dvh,380px);overflow-y:auto;padding:12px 14px;
-    border:1px solid var(--border,rgba(255,255,255,.08));border-radius:12px;background:rgba(0,0,0,.25);
+    flex:1 1 auto;min-height:160px;max-height:min(44dvh,360px);overflow-y:auto;padding:12px 14px;
+    border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(0,0,0,.28);
     -webkit-overflow-scrolling:touch;
 }
 .xl-scroll:focus-visible,.xl-btn:focus-visible,.xl-check input:focus-visible{outline:2px solid var(--accent,#4c7eff);outline-offset:2px}
-.xl-sec{margin:14px 0 6px;font-size:.95rem}
-.xl-check{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px;font-size:.9rem;line-height:1.4;cursor:pointer}
+.xl-sec{margin:14px 0 6px;font-size:.95rem;color:#fff}
+.xl-check{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px;padding:11px 12px;font-size:.88rem;line-height:1.4;cursor:pointer;
+    border-radius:12px;background:rgba(76,126,255,.1);border:1px solid rgba(76,126,255,.28)}
 .xl-check[hidden]{display:none}
 .xl-check input{width:20px;height:20px;margin-top:1px;flex:none;accent-color:var(--accent,#4c7eff)}
 .xl-error{min-height:1.2em;margin:8px 0 0;font-size:.85rem;color:#ff8a8a}
-.xl-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-.xl-btn{min-height:44px;padding:0 18px;border-radius:12px;font:inherit;font-weight:600;cursor:pointer;border:1px solid transparent}
-.xl-primary{background:var(--accent,#4c7eff);color:#fff}
-.xl-primary:disabled{opacity:.45;cursor:not-allowed}
-.xl-ghost{background:transparent;color:var(--text,#f2f5fa);border-color:var(--border-strong,rgba(255,255,255,.14))}
+.xl-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.xl-actions-full .xl-btn{flex:1 1 100%}
+.xl-btn{min-height:48px;padding:0 20px;border-radius:14px;font:inherit;font-weight:650;cursor:pointer;border:1px solid transparent;transition:transform .12s,filter .12s,opacity .12s}
+.xl-btn:active:not(:disabled){transform:scale(.98)}
+.xl-primary{color:#fff;background:linear-gradient(135deg,#664cff,#287eff);box-shadow:0 8px 22px rgba(60,100,255,.35)}
+.xl-primary:hover:not(:disabled){filter:brightness(1.1)}
+.xl-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.xl-ghost{background:transparent;color:var(--text,#f2f5fa);border-color:rgba(255,255,255,.16)}
+.xl-ghost:hover{background:rgba(255,255,255,.05)}
+/* success */
+.xl-success{display:flex;justify-content:center;margin:2px 0 10px}
+.xl-check-svg{width:76px;height:76px}
+.xl-check-circle{stroke:#33e6c8;stroke-width:2.5;stroke-dasharray:151;stroke-dashoffset:151;stroke-linecap:round}
+.xl-check-tick{stroke:#33e6c8;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40}
+.xl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 12px}
+.xl-stat{padding:11px 14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);text-align:center}
+.xl-stat span{display:block;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim,#838da1);margin-bottom:3px}
+.xl-stat b{font-size:.95rem}
 @media (max-width:480px){
-    .xl-card{padding:18px 16px calc(14px + env(safe-area-inset-bottom))}
-    .xl-actions{flex-direction:column-reverse}
-    .xl-btn{width:100%}
+    .xl-card{padding:22px 16px calc(16px + env(safe-area-inset-bottom));border-radius:20px}
+    .xl-actions:not(.xl-actions-full){flex-direction:column-reverse}
+    .xl-actions:not(.xl-actions-full) .xl-btn{width:100%}
 }
-@media (prefers-reduced-motion:no-preference){.xl-card{animation:xl-in .18s ease-out}}
-@keyframes xl-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:no-preference){
+    .xl-card{animation:xl-in .28s cubic-bezier(.2,.9,.3,1.1)}
+    .xl-point{animation:xl-in .4s ease-out backwards}
+    .xl-point:nth-child(2){animation-delay:.08s}.xl-point:nth-child(3){animation-delay:.16s}
+    .xl-check-circle{animation:xl-draw .6s .1s ease-out forwards}
+    .xl-check-tick{animation:xl-draw .4s .6s ease-out forwards}
+    .xl-hero-icon{animation:xl-float 3s ease-in-out infinite}
+}
+@media (prefers-reduced-motion:reduce){.xl-check-circle,.xl-check-tick{stroke-dashoffset:0}}
+@keyframes xl-in{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes xl-draw{to{stroke-dashoffset:0}}
+@keyframes xl-float{50%{transform:translateY(-4px)}}

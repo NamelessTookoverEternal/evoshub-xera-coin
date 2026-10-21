@@ -16,15 +16,15 @@ import '../css/xera-launch.css';
 
 const WELCOME_COPY = {
     title: 'Welcome to the official XERA mining phase',
-    paragraphs: [
-        'Thank you for being part of the evolving XERA ecosystem. The official mining phase is now live.',
-        'The test period has ended and all test data (balances, sessions, transactions and daily-claim progress) has been reset. Your account was kept.',
-        'The first 100 eligible miners to start a mining session may receive a one-time bonus of 100 XERA. Eligibility is decided by the platform when your session starts and is not guaranteed.',
-        'Your XERA balance is an in-platform balance. On-chain claiming has not launched, and no value, exchange listing or profit is promised.',
+    lead: 'The official mining phase is now live. Thank you for being part of the evolving XERA ecosystem.',
+    points: [
+        { icon: '🔄', title: 'Fresh start', text: 'The test period has ended and all test data (balances, sessions, transactions and daily-claim progress) was reset. Your account was kept.' },
+        { icon: '🎁', title: 'Early-miner bonus', text: 'The first 100 eligible miners to start a mining session may receive a one-time bonus of 100 XERA. Eligibility is decided by the platform when your session starts and is not guaranteed.' },
+        { icon: '🔒', title: 'In-platform balance', text: 'Your XERA balance is an in-platform balance. On-chain claiming has not launched, and no value, exchange listing or profit is promised.' },
     ],
 };
 
-const CONGRATS_COPY = 'Welcome to XERA Mining! Your miner onboarding is complete. Your mining session has started successfully. Your rewards follow the current XERA mining rules. In-platform balances are not yet on-chain tokens, and future claiming will be subject to separately announced requirements.';
+const CONGRATS_COPY = 'Your miner onboarding is complete and your mining session has started successfully. Rewards follow the current XERA mining rules. In-platform balances are not yet on-chain tokens, and future claiming will be subject to separately announced requirements.';
 
 let welcomeChecked = false;
 let flowBusy = false;
@@ -41,6 +41,14 @@ function el(tag, attrs = {}, children = []) {
     for (const c of [].concat(children)) if (c) n.append(c);
     return n;
 }
+
+function svgEl(tag, attrs = {}, children = []) {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+    for (const c of [].concat(children)) if (c) n.append(c);
+    return n;
+}
+const stat = (label, value) => el('div', { class: 'xl-stat' }, [el('span', { text: label }), el('b', { text: value })]);
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -126,10 +134,16 @@ export async function maybeShowWelcome(req) {
             dismissible: false,
             onClose: done,
             content: [
-                el('h2', { id: 'xlWelcomeTitle', class: 'xl-title', text: WELCOME_COPY.title }),
-                ...WELCOME_COPY.paragraphs.map((t) => el('p', { class: 'xl-p', text: t })),
-                slotsLine ? el('p', { class: 'xl-note', text: slotsLine }) : null,
-                el('div', { class: 'xl-actions' }, [
+                el('div', { class: 'xl-hero' }, [el('span', { class: 'xl-hero-icon', 'aria-hidden': 'true', text: '⛏️' })]),
+                el('h2', { id: 'xlWelcomeTitle', class: 'xl-title xl-center', text: WELCOME_COPY.title }),
+                el('p', { class: 'xl-lead', text: WELCOME_COPY.lead }),
+                el('ul', { class: 'xl-points' }, WELCOME_COPY.points.map((p) =>
+                    el('li', { class: 'xl-point' }, [
+                        el('span', { class: 'xl-point-ico', 'aria-hidden': 'true', text: p.icon }),
+                        el('div', {}, [el('b', { text: p.title }), el('p', { text: p.text })]),
+                    ]))),
+                slotsLine ? el('p', { class: 'xl-chip', text: slotsLine }) : null,
+                el('div', { class: 'xl-actions xl-actions-full' }, [
                     el('button', { class: 'xl-btn xl-primary', type: 'button', text: 'Continue to XERA',
                         onclick: async (e) => { e.currentTarget.disabled = true; await markSeen(); close('continue'); } }),
                 ]),
@@ -150,6 +164,8 @@ async function showAgreement(req) {
     return waitForModal((done) => {
         const errBox = el('p', { class: 'xl-error', role: 'alert', 'aria-live': 'assertive' });
         const hint = el('p', { class: 'xl-hint', id: 'xlScrollHint', text: 'Scroll to the end of the agreement to continue.' });
+        const barFill = el('span', { class: 'xl-progress-fill' });
+        const bar = el('div', { class: 'xl-progress', 'aria-hidden': 'true' }, barFill);
         const scroller = el('div', { class: 'xl-scroll', tabindex: '0', role: 'region',
             'aria-label': `${doc.title}, version ${doc.version}`, 'aria-describedby': 'xlScrollHint' });
         scroller.append(el('p', { class: 'xl-ver', text: `Version ${doc.version}` }));
@@ -169,11 +185,14 @@ async function showAgreement(req) {
         let submitting = false;
         const sync = () => { agree.disabled = submitting || !(reachedEnd && cb.checked); };
         const checkEnd = () => {
+            const max = scroller.scrollHeight - scroller.clientHeight;
+            barFill.style.width = `${max <= 0 ? 100 : Math.min(100, Math.round((scroller.scrollTop / max) * 100))}%`;
             if (reachedEnd) return;
             if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 8) {
                 reachedEnd = true;
                 cbRow.hidden = false;
-                hint.textContent = 'Thank you. Tick the box to confirm, then continue.';
+                hint.textContent = '✓ All read. Tick the box to confirm, then continue.';
+                hint.classList.add('xl-hint-ok');
             }
         };
         scroller.addEventListener('scroll', checkEnd, { passive: true });
@@ -184,8 +203,9 @@ async function showAgreement(req) {
             dismissible: true,
             onClose: (reason) => { if (reason !== 'accepted') done(false); },
             content: [
-                el('h2', { id: 'xlAgreeTitle', class: 'xl-title', text: doc.title }),
-                hint, scroller, cbRow, errBox,
+                el('div', { class: 'xl-hero xl-hero-sm' }, [el('span', { class: 'xl-hero-icon', 'aria-hidden': 'true', text: '📜' })]),
+                el('h2', { id: 'xlAgreeTitle', class: 'xl-title xl-center', text: doc.title }),
+                hint, bar, scroller, cbRow, errBox,
                 el('div', { class: 'xl-actions' }, [cancel, agree]),
             ],
         });
@@ -222,11 +242,21 @@ function showCongrats(m) {
         const { close } = openModal({
             labelId: 'xlDoneTitle', dismissible: false, onClose: done,
             content: [
-                el('h2', { id: 'xlDoneTitle', class: 'xl-title', text: 'Mining started' }),
-                el('p', { class: 'xl-p', text: CONGRATS_COPY }),
-                m.estimated_reward != null ? el('p', { class: 'xl-note', text: `Session reward: ${Number(m.estimated_reward).toLocaleString('en-US')} XERA${m.expires_at ? ` · ends ${new Date(m.expires_at).toLocaleString()}` : ''}` }) : null,
-                granted ? el('p', { class: 'xl-bonus', text: `Early-miner bonus credited: ${Number(bonus.amount).toLocaleString('en-US')} XERA` }) : null,
-                el('div', { class: 'xl-actions' }, [
+                el('div', { class: 'xl-success', 'aria-hidden': 'true' }, [
+                    svgEl('svg', { viewBox: '0 0 52 52', class: 'xl-check-svg' }, [
+                        svgEl('circle', { class: 'xl-check-circle', cx: '26', cy: '26', r: '24', fill: 'none' }),
+                        svgEl('path', { class: 'xl-check-tick', fill: 'none', d: 'M14 27l8 8 16-17' }),
+                    ]),
+                ]),
+                el('h2', { id: 'xlDoneTitle', class: 'xl-title xl-center', text: 'Mining started 🎉' }),
+                el('p', { class: 'xl-lead', text: 'Welcome to XERA Mining!' }),
+                el('div', { class: 'xl-stats' }, [
+                    m.estimated_reward != null ? stat('Session reward', `${Number(m.estimated_reward).toLocaleString('en-US')} XERA`) : null,
+                    m.expires_at ? stat('Ends', new Date(m.expires_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })) : null,
+                ]),
+                granted ? el('p', { class: 'xl-bonus', text: `🎁 Early-miner bonus credited: ${Number(bonus.amount).toLocaleString('en-US')} XERA` }) : null,
+                el('p', { class: 'xl-fine', text: CONGRATS_COPY }),
+                el('div', { class: 'xl-actions xl-actions-full' }, [
                     el('button', { class: 'xl-btn xl-primary', type: 'button', text: 'Continue', onclick: () => close('continue') }),
                 ]),
             ],

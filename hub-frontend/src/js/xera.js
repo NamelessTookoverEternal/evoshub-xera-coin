@@ -569,6 +569,58 @@ function hashCurrency(value, currency = 'GHS') {
     return `${currency || 'GHS'} ${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 }
 
+// ---- Visitor currency (display only) ----
+// Prices are stored and billed in GHS (Paystack account currency). We show the visitor's
+// local currency as a reference using the backend's rate; GHS is the fallback whenever the
+// country/rate is unknown, so a made-up price is never shown.
+const HASH_CUR_KEY = 'xera_hash_currency_v1';
+const HASH_CUR_TTL = 60 * 60 * 1000;
+let hashCur = { currency: 'GHS', rate: 1, converted: false, country: '' };
+let hashCurPromise = null;
+
+function loadHashCurrency() {
+    if (hashCurPromise) return hashCurPromise;
+    try {
+        const c = JSON.parse(sessionStorage.getItem(HASH_CUR_KEY) || 'null');
+        if (c && Date.now() - c.at < HASH_CUR_TTL) { hashCur = c.info; return (hashCurPromise = Promise.resolve(hashCur)); }
+    } catch (e) { /* storage blocked */ }
+    hashCurPromise = (async () => {
+        try {
+            let code = '';
+            try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 2500);
+                const r = await fetch('/api/country', { cache: 'no-store', signal: ctrl.signal });
+                clearTimeout(t);
+                if (r.ok) code = String((await r.json()).country || '').trim().toUpperCase();
+            } catch (e) { /* edge unavailable: backend looks up the IP */ }
+            const r = await fetch(`${API}/api/xera/hashrate/currency${/^[A-Z]{2}$/.test(code) ? `?country=${code}` : ''}`);
+            const d = await r.json();
+            if (r.ok && d && d.currency && Number(d.rate) > 0) {
+                hashCur = { currency: d.currency, rate: Number(d.rate), converted: !!d.converted, country: d.country || code };
+                try { sessionStorage.setItem(HASH_CUR_KEY, JSON.stringify({ at: Date.now(), info: hashCur })); } catch (e) { /* ignore */ }
+            }
+        } catch (e) { /* stay on GHS */ }
+        return hashCur;
+    })();
+    return hashCurPromise;
+}
+
+/** {main, sub}: main is what the card shows; sub is the exact GHS charge when converted. */
+function hashPriceParts(value, currency = 'GHS') {
+    const ghs = hashCurrency(value, currency);
+    if (!hashCur.converted || hashCur.currency === 'GHS' || (currency || 'GHS') !== 'GHS') return { main: ghs, sub: '' };
+    const v = Number(value || 0) * hashCur.rate;
+    try {
+        const main = '≈ ' + new Intl.NumberFormat(undefined, {
+            style: 'currency', currency: hashCur.currency, maximumFractionDigits: v >= 100 ? 0 : 2,
+        }).format(v);
+        return { main, sub: `Billed as ${ghs}` };
+    } catch (e) {
+        return { main: ghs, sub: '' };
+    }
+}
+
 function setHashrateNotice(message) {
     const el = $('hashrateNotice');
     if (!el) return;
@@ -624,7 +676,7 @@ function renderHashrateCards(tiers, state) {
         const maxReward = tier ? Number(tier.maximum_entitlement ?? daily * days) : 0;
         const fits = !!tier && !!tier.enabled && maxReward <= remainingAlloc;
         const canBuy = fits && hashratePayments.paystack;
-        const price = tier ? hashCurrency(tier.price, tier.currency) : 'Unavailable';
+        const pp = tier ? hashPriceParts(tier.price, tier.currency) : { main: 'Unavailable', sub: '' };
 
         let label = 'Buy Hashrate →';
         if (!tier) label = 'Coming soon';
@@ -646,7 +698,7 @@ function renderHashrateCards(tiers, state) {
               <div class="hashrate-stat"><span>Max reward</span><b>${tier ? esc(fmt(maxReward)) + ' XERA' : '—'}</b></div>
             </div>
             <div class="hashrate-price">
-              <div><small>Total price</small><strong>${esc(price)}</strong></div>
+              <div><small>Total price</small><strong>${esc(pp.main)}</strong>${pp.sub ? `<small class="hashrate-price-sub">${esc(pp.sub)}</small>` : ''}</div>
               <button class="hashrate-buy" type="button" ${canBuy ? '' : 'disabled'}>${esc(label)}</button>
             </div>
           </div>`;
@@ -673,6 +725,7 @@ async function doLoadHashrate() {
     const [catalogRes, sessionsRes] = await Promise.allSettled([
         req('/api/xera/hashrate/tiers'),
         req('/api/xera/hashrate/sessions'),
+        loadHashCurrency(), // never rejects; resolves before the cards render so the price doesn't flip
     ]);
 
     if (catalogRes.status === 'fulfilled') {
@@ -697,7 +750,8 @@ async function doLoadHashrate() {
 async function openHashratePurchase(tier, label) {
     if (hashratePurchasing) return;
     $('hashrateError').textContent = '';
-    const ok = window.confirm(`Buy ${label} hashrate for ${hashCurrency(tier.price, tier.currency)}?\n\nYou'll be taken to Paystack to complete the payment.`);
+    const pp = hashPriceParts(tier.price, tier.currency);
+    const ok = window.confirm(`Buy ${label} hashrate for ${pp.main}?${pp.sub ? `\n(${pp.sub}; your bank converts at its own rate.)` : ''}\n\nYou'll be taken to Paystack to complete the payment.`);
     if (!ok) return;
 
     // One purchase at a time: every request reserves the full 30-day

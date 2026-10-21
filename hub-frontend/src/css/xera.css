@@ -1276,6 +1276,7 @@ body{
 .hashrate-price{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto}
 .hashrate-price small{display:block;color:var(--text-dim);font-size:.62rem}
 .hashrate-price strong{font-family:var(--font-display);font-size:1rem}
+.hashrate-price small.hashrate-price-sub{margin-top:2px;font-size:.58rem;opacity:.85}
 .hashrate-buy{flex:1 1 auto;border:0;border-radius:10px;padding:9px 10px;color:#fff;background:linear-gradient(135deg,#664cff,#287eff);font-weight:750;font-size:.68rem;cursor:pointer;white-space:nowrap}
 .hashrate-buy:hover{filter:brightness(1.08)}
 .hashrate-buy:disabled{opacity:.4;cursor:not-allowed;filter:none}
