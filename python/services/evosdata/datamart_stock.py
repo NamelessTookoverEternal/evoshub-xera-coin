@@ -216,22 +216,27 @@ def reference_prices() -> Dict[tuple, float]:
     return mp
 
 
-def routed_providers() -> Optional[Dict[str, set]]:
-    """{NETWORK: {active providers}} from provider_routes; None if unreadable."""
+def routed_providers() -> Optional[Dict[str, List[str]]]:
+    """{NETWORK: [active providers, highest priority first]} from provider_routes;
+    None if unreadable."""
     now = time.time()
     with _lock:
         if _route_cache["map"] is not None and now - _route_cache["ts"] < _PRICE_TTL:
             return _route_cache["map"]
     try:
-        rows = _db().table("provider_routes").select("network, provider, active").execute().data or []
+        rows = _db().table("provider_routes").select("network, provider, active, priority").execute().data or []
     except Exception as exc:
         logger.warning("STOCK: couldn't read provider_routes (%s)", exc)
         return None
-    mp: Dict[str, set] = {}
+    rows = sorted(rows, key=lambda r: _num(r.get("priority")) if _num(r.get("priority")) is not None else 999)
+    mp: Dict[str, List[str]] = {}
     for r in rows:
         if r.get("active") is False:
             continue
-        mp.setdefault(norm_network(r.get("network")), set()).add(str(r.get("provider", "")).strip().upper())
+        prov = str(r.get("provider", "")).strip().upper()
+        chain = mp.setdefault(norm_network(r.get("network")), [])
+        if prov and prov not in chain:
+            chain.append(prov)
     with _lock:
         _route_cache["map"] = mp
         _route_cache["ts"] = now
@@ -241,16 +246,19 @@ def routed_providers() -> Optional[Dict[str, set]]:
 def _decide(network, bundle, wallet, prices, routes) -> tuple:
     """(status, reason). The single decision used by listings, admin and checkout.
 
-    - another active provider can fulfil the network -> available (DataMart's
-      wallet is not the only way to deliver it)
+    - the network's FIRST-choice provider is not DataMart -> available (the DataMart
+      wallet doesn't gate it). Lower-priority fallback providers do NOT count: orders
+      go to DataMart first, so when its wallet can't cover a bundle it must show as
+      out of stock even if a fallback exists.
     - no fresh DataMart reading, or no reference price -> unknown (never out)
     - otherwise the wallet either covers the price or it doesn't
     """
     net = norm_network(network)
-    if routes and any(p != "DATAMART" for p in routes.get(net, ())):
-        return STATUS_AVAILABLE, "fallback_provider"
     if routes is None:
         return STATUS_UNKNOWN, "routes_unreadable"
+    chain = routes.get(net) or []
+    if chain and chain[0] != "DATAMART":
+        return STATUS_AVAILABLE, "primary_provider_not_datamart"
     if not gating_active(wallet):
         return STATUS_UNKNOWN, "supplier_unverified"
     price = prices.get((net, norm_bundle(bundle)))

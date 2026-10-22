@@ -36,6 +36,19 @@ def background_jobs_enabled() -> bool:
     return os.getenv("EVOSDATA_BACKGROUND_JOBS", "true").strip().lower() not in ("0", "false", "no", "off")
 
 
+def stock_poller_enabled() -> bool:
+    """The DataMart wallet poller feeds automatic out-of-stock. It only READS DataMart's balance
+    and writes one table row, so it is safe to run even when the retry loops are switched off.
+    Without it the balance goes stale after 30 minutes and every bundle shows as in stock."""
+    return os.getenv("EVOSDATA_STOCK_POLLER", "true").strip().lower() not in ("0", "false", "no", "off")
+
+
+async def _start_stock_poller():
+    import asyncio
+    from services.evosdata import datamart_stock
+    asyncio.create_task(datamart_stock.poller_loop())
+
+
 def evosdata_enabled() -> bool:
     return os.getenv("EVOSDATA_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
 
@@ -81,6 +94,10 @@ def mount_evosdata(app: FastAPI, prefix: str = PREFIX) -> bool:
         app.on_event("startup")(core.startup_event)
     else:
         logger.warning("EVOSDATA: background retry jobs disabled (EVOSDATA_BACKGROUND_JOBS=false)")
+        if stock_poller_enabled():
+            # Retry loops are off, but automatic out-of-stock still needs a fresh wallet balance.
+            app.on_event("startup")(_start_stock_poller)
+            logger.info("EVOSDATA: DataMart stock poller still running (EVOSDATA_STOCK_POLLER)")
 
     app.include_router(router, prefix=prefix, tags=["evosdata"])
 

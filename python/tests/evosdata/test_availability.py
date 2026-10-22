@@ -161,9 +161,17 @@ def test_unknown_blocks_purchase_when_switch_on(env, monkeypatch):
     assert not ds.bundle_in_stock("MTN", "999GB")
 
 
-def test_fallback_provider_keeps_network_sellable(env):
+def test_fallback_provider_does_not_mask_out_of_stock(env):
+    # DataMart is first choice; a lower-priority fallback must not hide a wallet shortfall.
     add(env, "MTN", "50GB", 200); wallet(env, 5)
     env.t["provider_routes"].append({"network": "MTN", "provider": "SWIFT_DATA_LINK", "priority": 2, "active": True})
+    reset()
+    assert status("MTN", "50GB") == "out_of_stock"
+
+
+def test_non_datamart_primary_is_not_gated_by_wallet(env):
+    add(env, "MTN", "50GB", 200); wallet(env, 5)
+    env.t["provider_routes"].append({"network": "MTN", "provider": "SWIFT_DATA_LINK", "priority": 0, "active": True})
     reset()
     assert status("MTN", "50GB") == "available"
 

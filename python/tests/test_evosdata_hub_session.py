@@ -121,7 +121,7 @@ def test_background_jobs_toggle(monkeypatch):
     mount_evosdata(app_on)
     monkeypatch.setenv("EVOSDATA_BACKGROUND_JOBS", "false")
     mount_evosdata(app_off)
-    assert len(app_on.router.on_startup) >= 1 and len(app_off.router.on_startup) == 0
+    assert len(app_on.router.on_startup) >= 1 and len(app_off.router.on_startup) == 1  # only the DataMart stock poller
     monkeypatch.setenv("EVOSDATA_ENABLED", "false")
     app_dis = FastAPI()
     assert mount_evosdata(app_dis) is False and not any(getattr(r, "path", "").startswith("/api/evosdata") for r in app_dis.routes)
