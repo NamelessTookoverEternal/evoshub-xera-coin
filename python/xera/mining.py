@@ -116,12 +116,15 @@ def start_session(user_id: int) -> dict:
 
 
 def get_status(user_id: int) -> dict | None:
+    # Returns the user's ACTIVE session even after expires_at has passed. An
+    # expired-but-unclaimed session still occupies the one-active-session-per-user
+    # slot (xera_one_active_session_per_user is keyed on status only), so it must
+    # reach the client as "Session complete / Claim XERA" instead of being hidden.
     res = (
         supabase.table("xera_mining_sessions")
         .select("*")
         .eq("user_id", user_id)
         .eq("status", "ACTIVE")
-        .gt("expires_at", datetime.now(timezone.utc).isoformat())
         .order("created_at", desc=True)
         .limit(1)
         .execute()
