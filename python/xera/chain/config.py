@@ -15,6 +15,10 @@ of XERA's tunables do (see xera/config.py) — an admin updating a deployed
 contract address takes effect on the next request, not after a redeploy.
 """
 
+import contextvars
+import os
+from contextlib import contextmanager
+
 from main import supabase
 
 
@@ -32,9 +36,29 @@ def get_chain_config(chain: str) -> dict:
     return res.data[0]
 
 
+# Admin pilot: lets an authenticated admin's own claim run while on-chain claiming
+# is still closed to users. Entered ONLY by routes_admin_chain.py (after the admin
+# token + live admin_agents check) and only when XERA_ADMIN_ONCHAIN_PILOT=true.
+# It never bypasses the distributor-address check. User routes never set it.
+_admin_pilot = contextvars.ContextVar("xera_admin_pilot", default=False)
+
+
+def admin_pilot_enabled() -> bool:
+    return os.getenv("XERA_ADMIN_ONCHAIN_PILOT", "false").strip().lower() in ("1", "true", "yes")
+
+
+@contextmanager
+def admin_pilot_mode():
+    token = _admin_pilot.set(admin_pilot_enabled())
+    try:
+        yield
+    finally:
+        _admin_pilot.reset(token)
+
+
 def require_onchain_enabled(chain: str) -> dict:
     cfg = get_chain_config(chain)
-    if not cfg.get("onchain_enabled"):
+    if not cfg.get("onchain_enabled") and not _admin_pilot.get():
         raise ChainConfigError("onchain_disabled")
     if not cfg.get("xera_distributor_address"):
         raise ChainConfigError("distributor_not_configured")

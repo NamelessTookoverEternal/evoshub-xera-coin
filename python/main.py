@@ -26,6 +26,7 @@ from utils.rate_limit import limiter
 from utils.xera_supabase import supabase
 from xera.routes import router as xera_router
 from xera.routes_admin import router as xera_admin_router
+from xera.routes_admin_chain import router as xera_admin_chain_router
 from xera.routes_auth import router as xera_auth_router
 from xera.routes_chain import router as xera_chain_router
 from xera.routes_hashrate import router as xera_hashrate_router
@@ -125,6 +126,7 @@ app.include_router(website_requests.router, prefix="/api")
 app.include_router(xera_auth_router, prefix="/api/xera/auth", tags=["xera-auth"])
 app.include_router(xera_router, prefix="/api/xera", tags=["xera"])
 app.include_router(xera_admin_router, prefix="/api/admin/xera", tags=["xera-admin"])
+app.include_router(xera_admin_chain_router, prefix="/api/admin/xera/pilot", tags=["xera-admin-pilot"])
 app.include_router(xera_chain_router, prefix="/api/xera", tags=["xera-chain"])
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])

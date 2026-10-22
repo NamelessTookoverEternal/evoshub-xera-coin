@@ -16,7 +16,13 @@ import { appKitConfigured, connectWithAppKit, restoredAppKitProvider, disconnect
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
-const token = () => localStorage.getItem('xera_evos_token') || '';
+// The admin pilot page (admin-xera-wallet.html) sets window.XERA_CHAIN_CONFIG before this
+// module loads so the SAME wallet/claim UI talks to the admin API with the admin token:
+//   { prefix: '/api/admin/xera/pilot', getToken: () => '...', noMigration: true, autoOpen: true }
+// Without it (the normal /xera page) everything behaves exactly as before.
+const CFG = window.XERA_CHAIN_CONFIG || {};
+const PFX = CFG.prefix || '/api/xera';
+const token = () => (CFG.getToken ? CFG.getToken() : localStorage.getItem('xera_evos_token')) || '';
 
 // ---------------------------------------------------------------- helpers
 
@@ -49,6 +55,7 @@ async function req(path, opts = {}) {
         const detail = typeof d.detail === 'string' ? d.detail : 'Something went wrong. Please check the details and try again.';
         const err = new Error(detail);
         err.status = r.status;
+        if (r.status === 401 && CFG.onUnauthorized) CFG.onUnauthorized();
         throw err;
     }
     return d;
@@ -118,7 +125,7 @@ function explorerTx(chain, hash) {
 async function loadNetworkConfig() {
     if (state.network) return state.network;
     try {
-        const { bnb } = await req('/api/xera/chain/config');
+        const { bnb } = await req(PFX + '/chain/config');
         state.network = bnb;
     } catch (_e) {
         state.network = null;
@@ -373,7 +380,7 @@ function setBusy(chain, value) {
 
 async function refreshWallets() {
     try {
-        const { wallets } = await req('/api/xera/wallet/linked');
+        const { wallets } = await req(PFX + '/wallet/linked');
         state.wallets = { BNB: null, TON: null };
         for (const w of wallets) state.wallets[w.chain] = w;
     } catch (_err) {
@@ -410,7 +417,7 @@ async function addManualWallet(chain, input) {
     }
     setBusy(chain, true);
     try {
-        const res = await req('/api/xera/wallet/manual', { method: 'POST', body: JSON.stringify({ chain, address: value }) });
+        const res = await req(PFX + '/wallet/manual', { method: 'POST', body: JSON.stringify({ chain, address: value }) });
         state.manualFormOpen[chain] = false;
         setNotice(res.notice || 'Wallet address added. This address has not been cryptographically verified as wallet ownership.');
     } catch (err) {
@@ -427,7 +434,7 @@ async function removeWallet(chain, connected) {
     if (!window.confirm(what)) return;
     setBusy(chain, true);
     try {
-        await req(`/api/xera/wallet/${chain}`, { method: 'DELETE' });
+        await req(`${PFX}/wallet/${chain}`, { method: 'DELETE' });
         if (chain === 'TON' && tonUI && tonUI.connected) { try { await tonUI.disconnect(); } catch (_e) { /* wallet session already gone */ } }
         if (chain === 'BNB') { state.provider = null; state.providerChainId = null; renderNetworkBanner(); await disconnectAppKit(); }
         setNotice(connected ? 'Wallet disconnected.' : 'Address removed.');
@@ -523,9 +530,9 @@ async function linkWithProvider(entry, knownAddress, knownChainId) {
     // Linking proves ownership of the ADDRESS by signing a message — it moves no
     // funds and doesn't depend on the network, so a wrong network doesn't block it.
     // (It does block settling a claim; see settleClaim.)
-    const nonceRes = await req('/api/xera/wallet/link/nonce', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address }) });
+    const nonceRes = await req(PFX + '/wallet/link/nonce', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address }) });
     const signature = await provider.request({ method: 'personal_sign', params: [utf8ToHex(nonceRes.message_to_sign), address] });
-    await req('/api/xera/wallet/link/verify', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address: nonceRes.address || address, nonce: nonceRes.nonce, signature }) });
+    await req(PFX + '/wallet/link/verify', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address: nonceRes.address || address, nonce: nonceRes.nonce, signature }) });
     setNotice('BNB wallet connected and verified.');
 }
 
@@ -550,7 +557,7 @@ function getTonUI() {
             return;
         }
         try {
-            await req('/api/xera/wallet/link/verify', {
+            await req(PFX + '/wallet/link/verify', {
                 method: 'POST',
                 body: JSON.stringify({
                     chain: 'TON',
@@ -595,7 +602,7 @@ async function connectTonWallet() {
         // The SERVER issues the proof payload before the wallet connects, so the
         // ton_proof the wallet signs embeds our single-use nonce (never a
         // client-chosen one).
-        const nonceRes = await req('/api/xera/wallet/link/nonce', { method: 'POST', body: JSON.stringify({ chain: 'TON' }) });
+        const nonceRes = await req(PFX + '/wallet/link/nonce', { method: 'POST', body: JSON.stringify({ chain: 'TON' }) });
         state.pendingTonNonce = nonceRes.ton_proof_payload;
         ui.setConnectRequestParameters({ state: 'ready', value: { tonProof: nonceRes.ton_proof_payload } });
         await ui.openModal();
@@ -677,7 +684,7 @@ async function loadClaimables({ keepError = false } = {}) {
     if (!keepError) $('chainClaimError').textContent = '';
     const list = $('chainClaimableList');
     try {
-        const ov = await req('/api/xera/claim/overview');
+        const ov = await req(PFX + '/claim/overview');
         state.claimOverview = ov;
         $('chainClaimableAmount').textContent = `${trimNum(ov.claimable)} XERA`;
         list.replaceChildren();
@@ -734,7 +741,7 @@ function renderClaimRow(c) {
 async function confirmSaved(ref, hash) {
     $('chainClaimError').textContent = '';
     try {
-        await req('/api/xera/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: ref, transaction_hash: hash }) });
+        await req(PFX + '/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: ref, transaction_hash: hash }) });
         forgetPendingTx(ref);
         setNotice('Settlement confirmed on-chain.');
         await Promise.all([loadClaimables(), loadVestingStatus()]);
@@ -816,7 +823,7 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
 
         if (button) button.textContent = 'Waiting for network…';
         await tx.wait();
-        await req('/api/xera/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, transaction_hash: tx.hash }) });
+        await req(PFX + '/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, transaction_hash: tx.hash }) });
         forgetPendingTx(referenceId);
         signedClaims.delete(referenceId);
         setNotice(`Moved on-chain. Transaction ${shorten(tx.hash)}`);
@@ -838,14 +845,14 @@ function settleAmount() {
     if (amountToCents(text) === null) { updateClaimPreview(); return; }
     return settleWithWallet({
         busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet',
-        fetchClaim: async (chain) => (await req('/api/xera/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text }) })).claim,
+        fetchClaim: async (chain) => (await req(PFX + '/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text }) })).claim,
     });
 }
 
 function retryClaim(referenceId, button) {
     return settleWithWallet({
         busyKey: referenceId, button, idleLabel: 'Try again', knownRef: referenceId,
-        fetchClaim: async (chain) => (await req('/api/xera/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain }) })).claim,
+        fetchClaim: async (chain) => (await req(PFX + '/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain }) })).claim,
     });
 }
 
@@ -865,7 +872,7 @@ const DISTRIBUTOR_CLAIM_ABI = 'function claim(address user,uint256 amount,bytes3
 async function loadVestingStatus() {
     const chain = $('chainSelect').value;
     try {
-        const { vesting } = await req(`/api/xera/onchain/status?chain=${chain}`);
+        const { vesting } = await req(`${PFX}/onchain/status?chain=${chain}`);
         $('chainReleasable').textContent = vesting ? `${fmtXera(vesting.releasable_wei)} XERA` : '—';
         $('chainLocked').textContent = vesting ? `${fmtXera(vesting.locked_remaining_wei)} XERA` : '—';
     } catch (_err) {
@@ -878,9 +885,10 @@ async function loadVestingStatus() {
 
 async function loadMigrationStatus() {
     const block = $('chainMigrationBlock');
+    if (!block || CFG.noMigration) return;   // admin pilot has no legacy-migration step
     block.replaceChildren();
     try {
-        const { migration } = await req('/api/xera/migration/status');
+        const { migration } = await req(PFX + '/migration/status');
         if (!migration.has_legacy_balance) {
             block.append(h('p', { class: 'chain-empty', text: 'No pre-blockchain legacy balance found for this account.' }));
             return;
@@ -912,7 +920,7 @@ async function claimLegacyMigration() {
         if (state.network && state.providerChainId !== state.network.chain_id) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
         }
-        const { claim } = await req('/api/xera/migration/claim/prepare', { method: 'POST', body: JSON.stringify({ chain: 'BNB' }) });
+        const { claim } = await req(PFX + '/migration/claim/prepare', { method: 'POST', body: JSON.stringify({ chain: 'BNB' }) });
         const { BrowserProvider, Contract } = await getEthers();
         const signer = await new BrowserProvider(entry.provider).getSigner();
         const abi = 'function claim(uint256 leafIndex,address account,uint256 amount,bytes32[] proof)';
@@ -920,7 +928,7 @@ async function claimLegacyMigration() {
         const account = await signer.getAddress();
         const tx = await contract.claim(claim.leaf_index, account, claim.amount_wei, claim.merkle_proof);
         await tx.wait();
-        await req('/api/xera/migration/claim/confirm', { method: 'POST', body: JSON.stringify({ chain: 'BNB', transaction_hash: tx.hash }) });
+        await req(PFX + '/migration/claim/confirm', { method: 'POST', body: JSON.stringify({ chain: 'BNB', transaction_hash: tx.hash }) });
         await loadMigrationStatus();
     } catch (err) {
         block.append(h('p', { class: 'banner-error', text: userMessage(err, 'Legacy claim failed. Please try again.') }));
@@ -979,6 +987,7 @@ function initChainPanel() {
     document.querySelectorAll('[data-tab="chain"], [data-goto="chain"]').forEach((btn) => {
         btn.addEventListener('click', () => { openChainTab(); });
     });
+    if (CFG.autoOpen) openChainTab();
 }
 
 if (document.readyState === 'loading') {

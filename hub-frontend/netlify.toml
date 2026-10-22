@@ -59,12 +59,20 @@
   to = "/business-tools.html"
   status = 200
 [[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+[[redirects]]
   from = "/admin-login"
   to = "/admin-login.html"
   status = 200
 [[redirects]]
   from = "/admin-website-chat"
   to = "/admin-website-chat.html"
+  status = 200
+[[redirects]]
+  from = "/admin-xera-wallet"
+  to = "/admin-xera-wallet.html"
   status = 200
 [[redirects]]
   from = "/xera"
