@@ -17,15 +17,6 @@
   .pilot-chains{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   @media (max-width:420px){.pilot-chains{grid-template-columns:1fr}}
 </style>
-<!-- Must run BEFORE the module: points the shared wallet/claim UI at the admin API. -->
-<script>
-  window.XERA_CHAIN_CONFIG = {
-    prefix: '/api/admin/xera/pilot',
-    noMigration: true,
-    getToken: function () { try { return sessionStorage.getItem('evoshub_admin_token') || ''; } catch (e) { return ''; } },
-    onUnauthorized: function () { try { sessionStorage.removeItem('evoshub_admin_token'); } catch (e) {} location.href = '/admin-login.html'; }
-  };
-</script>
 </head>
 <body>
 <main class="pilot-wrap">
@@ -86,7 +77,7 @@
       <button type="button" class="btn chain-claim-submit" id="chainClaimSubmit" disabled>Move to wallet</button>
       <p class="chain-manual-hint">
         <b>25%</b> arrives in the wallet right away; the other <b>75%</b> is locked in vesting.
-        The amount is taken off your in-app balance. You need some XERA first: mine or claim daily on /xera with this account.
+        The amount is taken off your in-app balance and sent by the server (no wallet app needed). You need some XERA first: mine or claim daily on /xera with this account.
       </p>
     </div>
 

@@ -16,11 +16,20 @@ import { appKitConfigured, connectWithAppKit, restoredAppKitProvider, disconnect
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
-// The admin pilot page (admin-xera-wallet.html) sets window.XERA_CHAIN_CONFIG before this
-// module loads so the SAME wallet/claim UI talks to the admin API with the admin token:
-//   { prefix: '/api/admin/xera/pilot', getToken: () => '...', noMigration: true, autoOpen: true }
-// Without it (the normal /xera page) everything behaves exactly as before.
-const CFG = window.XERA_CHAIN_CONFIG || {};
+// Admin pilot mode. The admin page (admin-xera-wallet.html) must NOT depend on an inline
+// script having run first: some in-app wallet browsers (e.g. SafePal) don't apply it, which
+// left this module in user mode calling the user routes with no user token ("invalid token").
+// So the mode is decided here, from the page URL, and window.XERA_CHAIN_CONFIG is only an
+// optional override. Normal /xera behaviour is unchanged.
+const ADMIN_PAGE = /\/admin-xera-wallet(\.html)?\/?$/.test(location.pathname);
+const ADMIN_DEFAULTS = {
+    prefix: '/api/admin/xera/pilot',
+    noMigration: true,
+    relay: true,                      // claims are sent by the server's relayer wallet
+    getToken: () => { try { return sessionStorage.getItem('evoshub_admin_token') || ''; } catch (e) { return ''; } },
+    onUnauthorized: () => { try { sessionStorage.removeItem('evoshub_admin_token'); } catch (e) { /* ignore */ } location.href = '/admin-login.html'; },
+};
+const CFG = { ...(ADMIN_PAGE ? ADMIN_DEFAULTS : {}), ...(window.XERA_CHAIN_CONFIG || {}) };
 const PFX = CFG.prefix || '/api/xera';
 const token = () => (CFG.getToken ? CFG.getToken() : localStorage.getItem('xera_evos_token')) || '';
 
@@ -839,10 +848,44 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
     }
 }
 
+// Admin pilot: the server's relayer wallet sends the transaction, so no wallet browser is needed.
+// The backend reserves + signs the claim for THIS admin's verified wallet, simulates it, sends it,
+// waits for it to mine and confirms it. Nothing is debited if the send is refused.
+async function settleViaRelayer({ busyKey, button, idleLabel, body }) {
+    const errEl = $('chainClaimError');
+    errEl.textContent = '';
+    clearMessages();
+    if ($('chainSelect').value !== 'BNB') { errEl.textContent = 'Automatic sending supports BNB Smart Chain only for now. Please choose BNB.'; return; }
+    const wallet = state.wallets.BNB;
+    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected (or added) before you can move XERA to it.'; return; }
+    if (!wallet.verified) { errEl.textContent = 'Your BNB address was added manually and has not been verified. Connect the wallet and sign the ownership request first.'; return; }
+    if (inFlight.has(busyKey)) return;
+    inFlight.add(busyKey);
+    if (button) { button.disabled = true; button.textContent = 'Sending…'; }
+    try {
+        const res = await req(PFX + '/claim/relay', { method: 'POST', body: JSON.stringify({ chain: 'BNB', ...body }) });
+        if (res.confirmed) {
+            setNotice(`Moved on-chain. Transaction ${shorten(res.transaction_hash)}`);
+            window.open(explorerTx('BNB', res.transaction_hash), '_blank', 'noopener');
+            const amt = $('chainClaimAmount'); if (amt) amt.value = '';
+        } else {
+            rememberPendingTx(res.reference_id, res.transaction_hash);
+            setNotice(`Sent (${shorten(res.transaction_hash)}). Waiting for the network; use “Confirm settlement” under your claims in a minute.`);
+        }
+    } catch (err) {
+        errEl.textContent = userMessage(err, 'Could not send this claim. Your XERA has not been lost; see “Your on-chain claims”.');
+    } finally {
+        inFlight.delete(busyKey);
+        if (button && idleLabel) { button.textContent = idleLabel; }
+        await Promise.all([loadClaimables({ keepError: true }), loadVestingStatus()]);
+    }
+}
+
 function settleAmount() {
     const input = $('chainClaimAmount');
     const text = input.value.trim();
     if (amountToCents(text) === null) { updateClaimPreview(); return; }
+    if (CFG.relay) return settleViaRelayer({ busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet', body: { amount: text } });
     return settleWithWallet({
         busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet',
         fetchClaim: async (chain) => (await req(PFX + '/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text }) })).claim,
@@ -850,6 +893,7 @@ function settleAmount() {
 }
 
 function retryClaim(referenceId, button) {
+    if (CFG.relay) return settleViaRelayer({ busyKey: referenceId, button, idleLabel: 'Try again', body: { reference_id: referenceId } });
     return settleWithWallet({
         busyKey: referenceId, button, idleLabel: 'Try again', knownRef: referenceId,
         fetchClaim: async (chain) => (await req(PFX + '/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain }) })).claim,

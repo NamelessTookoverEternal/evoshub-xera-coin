@@ -49,6 +49,10 @@ async function init() {
     $('pilotFlag').textContent = on
       ? 'Claim signing is enabled for admins. You can link wallets and try a claim.'
       : 'You can link wallets, but claim signing is off. Set XERA_ADMIN_ONCHAIN_PILOT=true on the backend to try a claim.';
+    const rl = s.relayer || {};
+    $('pilotFlag').textContent += rl.configured
+      ? ` Automatic sending is ready (gas wallet ${rl.address.slice(0, 6)}…${rl.address.slice(-4)}). Keep it funded with a little tBNB.`
+      : ' Automatic sending is NOT set up: add XERA_RELAYER_PRIVATE_KEY (or XERA_RELAYER_USE_SIGNER=true on testnet) on the backend.';
     $('pilotChains').replaceChildren(chainBox('BNB', s.chains.BNB), chainBox('TON', s.chains.TON));
     $('pilotStatus').hidden = false;
   } catch (e) { /* the panel below still works and reports its own errors */ }

@@ -36,6 +36,8 @@ from xera.chain.config import (
     get_chain_config, bnb_network_public, ChainConfigError, admin_pilot_enabled, admin_pilot_mode,
 )
 from xera.chain.onchain_indexer import get_vesting_status, IndexerError
+from xera.chain import relayer
+from pydantic import BaseModel, Field
 from xera.routes_chain import (
     _WALLET_ERROR_HTTP, _CLAIM_ERROR_HTTP,
     WalletLinkNonceRequest, WalletLinkVerifyRequest, ManualWalletRequest,
@@ -89,7 +91,12 @@ def pilot_status(request: Request, authorization: str = Header(default="")):
             }
         except ChainConfigError:
             chains[chain] = {"distributor_configured": False, "user_claims_open": False}
-    return {"status": "ok", "admin_id": admin_id, "pilot_enabled": admin_pilot_enabled(), "chains": chains}
+    try:
+        relayer_addr = relayer.relayer_address()
+    except Exception:
+        relayer_addr = None
+    return {"status": "ok", "admin_id": admin_id, "pilot_enabled": admin_pilot_enabled(), "chains": chains,
+            "relayer": {"configured": bool(relayer_addr), "address": relayer_addr}}
 
 
 @router.get("/chain/config")
@@ -219,6 +226,75 @@ def pilot_claim_retry(request: Request, data: ClaimRetryRequest, authorization: 
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
     _audit(admin_id, "ADMIN_PILOT_CLAIM_RETRIED", {"chain": data.chain.upper(), "reference_id": data.reference_id})
     return {"status": "ok", "claim": result}
+
+
+_RELAY_ERROR_HTTP = {
+    "relayer_not_configured": (503, "Automatic sending is not set up yet: the relayer gas wallet key is missing on the server."),
+    "relayer_unfunded":       (503, "The relayer wallet has no gas. Send it a little tBNB, then try again."),
+    "claim_would_revert":     (409, "The contract would reject this claim, so nothing was sent. Check that the distributor holds XERA and has its vesting role."),
+    "gas_price_too_high":     (503, "Network gas is above the relayer limit right now. Try again shortly."),
+    "wrong_network":          (503, "The server's BNB network does not match this claim."),
+    "bnb_rpc_not_configured": (503, "Blockchain access is not configured on the server."),
+    "relay_failed":           (502, "Could not send the transaction. Your balance is held; use Try again."),
+    "unsupported_chain":      (400, "Automatic sending supports BNB Smart Chain only for now."),
+}
+
+
+class RelayRequest(BaseModel):
+    chain: str = Field(..., pattern="^(BNB|bnb)$")
+    amount: str | None = Field(default=None, min_length=1, max_length=32)       # new claim
+    reference_id: str | None = Field(default=None, min_length=1, max_length=128)  # retry of a held claim
+
+
+@router.post("/claim/relay")
+@limiter.limit("5/minute")
+def pilot_claim_relay(request: Request, data: RelayRequest, authorization: str = Header(default="")):
+    """
+    Reserve + sign a claim for the signed-in admin's own verified wallet, then submit it
+    from the relayer gas wallet and confirm it. The admin needs no wallet browser.
+    Either `amount` (new claim) or `reference_id` (retry of a failed/expired one).
+    """
+    admin_id = _admin_id(authorization)
+    _require_pilot()
+    if bool(data.amount) == bool(data.reference_id):
+        raise HTTPException(status_code=400, detail="Send either an amount or a reference_id.")
+    try:
+        relayer.relayer_address()            # fail BEFORE reserving anything if there is no gas wallet
+    except relayer.RelayerError as e:
+        status, message = _RELAY_ERROR_HTTP.get(str(e), (503, "Automatic sending is unavailable."))
+        raise HTTPException(status_code=status, detail=message)
+
+    try:
+        with admin_pilot_mode():
+            claim = (retry_claim(admin_id, data.reference_id, data.chain) if data.reference_id
+                     else sign_amount_claim(admin_id, data.chain, data.amount))
+    except ClaimError as e:
+        status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not sign claim."))
+        raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
+
+    ref = claim["reference_id"]
+    try:
+        tx_hash = relayer.submit_bnb_claim(claim)
+    except relayer.RelayerError as e:
+        try:   # nothing was sent: release the reservation so "Try again" works immediately
+            supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": ref}).execute()
+        except Exception:
+            pass
+        status, message = _RELAY_ERROR_HTTP.get(str(e), (502, "Could not send the transaction."))
+        _audit(admin_id, "ADMIN_PILOT_CLAIM_RELAY_FAILED", {"reference_id": ref, "reason": str(e)})
+        raise HTTPException(status_code=status, detail=message)
+
+    _audit(admin_id, "ADMIN_PILOT_CLAIM_RELAYED", {"reference_id": ref, "transaction_hash": tx_hash, "chain": "BNB"})
+    confirmed = None
+    if relayer.wait_for_receipt(tx_hash):
+        try:
+            with admin_pilot_mode():
+                confirmed = confirm_claim(admin_id, ref, tx_hash)
+            _audit(admin_id, "ADMIN_PILOT_CLAIM_CONFIRMED", {"reference_id": ref, "transaction_hash": tx_hash})
+        except ClaimError:
+            confirmed = None                 # the page offers "Confirm settlement" with this hash
+    return {"status": "ok", "reference_id": ref, "transaction_hash": tx_hash,
+            "confirmed": bool(confirmed), "claim": confirmed}
 
 
 @router.get("/onchain/status")
