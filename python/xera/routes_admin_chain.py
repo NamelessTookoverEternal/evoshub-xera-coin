@@ -312,7 +312,14 @@ def pilot_claim_relay(request: Request, data: RelayRequest, authorization: str =
 def pilot_onchain_status(request: Request, chain: str = "BNB", authorization: str = Header(default="")):
     admin_id = _admin_id(authorization)
     chain = chain.upper()
-    wallet = next((w for w in get_linked_wallets(admin_id) if w["chain"] == chain), None)
+    try:
+        wallets = get_linked_wallets(admin_id)
+    except Exception:   # dropped keep-alive connection to Supabase: one retry, then a calm empty answer
+        try:
+            wallets = get_linked_wallets(admin_id)
+        except Exception:
+            return {"status": "ok", "chain": chain, "linked_wallet": None, "vesting": None}
+    wallet = next((w for w in wallets if w["chain"] == chain), None)
     vesting = None
     if wallet:
         try:
