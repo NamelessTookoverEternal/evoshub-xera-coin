@@ -313,3 +313,17 @@ def test_relayer_key_rules(rl):
     rl.mp.setenv("XERA_BNB_CHAIN_ID", "56")
     with pytest.raises(rl.r.RelayerError):
         rl.r.relayer_address()                                         # never on mainnet
+
+
+def test_relay_retry_works_with_real_retry_claim_shape_and_releases_stuck_claim(api):
+    """retry_claim's BNB result has NO reference_id key (this caused a live KeyError/500)."""
+    calls = _relay_env(api)
+    shape = {k: v for k, v in CLAIM.items() if k != "reference_id"}
+    api.monkeypatch.setattr(api.mod, "retry_claim", lambda uid, ref, chain: dict(shape))
+    api.fake.store.setdefault("xera_onchain_claims", []).append(
+        {"reference_id": "REF9", "user_id": 7, "status": "SIGNED", "transaction_hash": None})
+    r = _call(api, "post", "/claim/relay", api.admin(7), {"chain": "BNB", "reference_id": "REF9"})
+    assert r.status_code == 200, r.text
+    assert r.json()["reference_id"] == "REF9" and r.json()["confirmed"] is True
+    assert calls["submit"][0]["reference_id"] == "REF9"
+    assert calls["audit_failed"] == ["REF9"]          # stuck SIGNED claim was released before retrying

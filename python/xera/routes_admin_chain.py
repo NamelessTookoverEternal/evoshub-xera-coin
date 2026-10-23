@@ -264,6 +264,15 @@ def pilot_claim_relay(request: Request, data: RelayRequest, authorization: str =
         status, message = _RELAY_ERROR_HTTP.get(str(e), (503, "Automatic sending is unavailable."))
         raise HTTPException(status_code=status, detail=message)
 
+    if data.reference_id:
+        # A claim left SIGNED by an earlier failed relay was never sent by the relayer: release it so it can be retried.
+        try:
+            row = supabase.table("xera_onchain_claims").select("user_id,status,transaction_hash").eq(
+                "reference_id", data.reference_id).limit(1).execute().data
+            if row and row[0]["user_id"] == admin_id and row[0]["status"] == "SIGNED" and not row[0].get("transaction_hash"):
+                supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": data.reference_id}).execute()
+        except Exception:
+            pass
     try:
         with admin_pilot_mode():
             claim = (retry_claim(admin_id, data.reference_id, data.chain) if data.reference_id
@@ -272,7 +281,8 @@ def pilot_claim_relay(request: Request, data: RelayRequest, authorization: str =
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not sign claim."))
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
 
-    ref = claim["reference_id"]
+    ref = claim.get("reference_id") or data.reference_id
+    claim = {**claim, "reference_id": ref}
     try:
         tx_hash = relayer.submit_bnb_claim(claim)
     except relayer.RelayerError as e:
