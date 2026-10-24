@@ -99,12 +99,8 @@ function renderNotifications() {
     const list = $('notifList');
     list.replaceChildren();
     const items = notificationItems();
-    if (!items.length) { list.appendChild(el('p', 'rd-empty', 'No new notifications.')); if ($('notifBadge')) $('notifBadge').hidden = true; if ($('notifLabel')) $('notifLabel').textContent = 'All clear'; return; }
-    const n = items.length;
-    const badge = $('notifBadge'), label = $('notifLabel');
-    if (badge) { badge.textContent = n > 9 ? '9+' : String(n); badge.hidden = n === 0; }
-    if (label) label.textContent = n === 0 ? 'All clear' : `${n} update${n === 1 ? '' : 's'}`;
-    items.slice(0, 50).forEach((it) => {
+    if (!items.length) { list.appendChild(el('p', 'rd-empty', 'No new notifications.')); return; }
+    items.slice(0, 6).forEach((it) => {
         const row = el('div', 'rd-notif');
         row.dataset.tone = it.tone || 'neutral';
         row.appendChild(el('span', 'rd-notif-dot'));
@@ -171,13 +167,39 @@ function openFee() {
     const status = $('feeModalStatus');
     status.textContent = `Status: ${(FEE_VIEW[f.status] || FEE_VIEW.UNPAID).label}`;
     const pay = $('feePay');
-    // No payment route exists yet, so this button can never start a charge.
-    pay.disabled = true;
-    pay.textContent = f.status === 'PAID' ? 'Already paid' : 'Payment not open yet';
+    // The server decides whether collection is open (XERA_FEE_COLLECTION_ENABLED) and builds the
+    // invoice; this button only asks it to. The amount is never sent from here.
+    const canPay = f.collection_enabled && f.status !== 'PAID';
+    pay.disabled = !canPay;
+    pay.textContent = f.status === 'PAID' ? 'Already paid' : (f.collection_enabled ? 'Pay with USDT (BNB Smart Chain)' : 'Payment not open yet');
     $('feeRefund').textContent = f.collection_enabled
         ? 'Refund policy: shown here before any payment is taken.'
         : 'Refund policy: will be shown here, and must be accepted, before payment opens. Nothing is charged today.';
     open('feeModal');
+}
+
+async function startFeePayment() {
+    const pay = $('feePay');
+    const status = $('feeModalStatus');
+    pay.disabled = true;
+    try {
+        const d = await ctx.req('/api/xera/fee/pay', { method: 'POST' });
+        const url = d?.payment?.invoice_url;
+        if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('Payment session was not created.');
+        window.location.href = url;   // leave the button disabled while the browser navigates away
+    } catch (e) {
+        status.textContent = e.message || 'Could not start the payment. Please try again.';
+        pay.disabled = false;
+    }
+}
+
+// Back from the USDT checkout (?fee=return): the webhook marks the fee paid, so re-read the
+// server's answer a few times instead of showing a stale "unpaid".
+function pollAfterFeeReturn(attempt = 0) {
+    refresh().then(() => {
+        if (state && state.fee.status === 'PAID') return;
+        if (attempt < 12) setTimeout(() => pollAfterFeeReturn(attempt + 1), 5000);
+    });
 }
 
 // ---------------------------------------------------------------- requirements dialog
@@ -215,6 +237,7 @@ function wire() {
     wired = true;
     $('kycCard').addEventListener('click', () => state && openKyc());
     $('feeCard').addEventListener('click', () => state && openFee());
+    $('feePay').addEventListener('click', startFeePayment);
     $('kycForm').addEventListener('submit', submitKyc);
     [['kycLater', 'kycModal'], ['kycClose', 'kycModal'], ['feeCancel', 'feeModal'], ['feeClose', 'feeModal'], ['reqClose', 'reqModal'], ['reqLater', 'reqModal']]
         .forEach(([btn, modal]) => { const b = $(btn); if (b) b.addEventListener('click', () => close(modal)); });
@@ -225,7 +248,9 @@ export function initReadiness(c) {
     if (!$('readinessCards')) return;
     ctx = c;
     wire();
-    refresh();
+    const returning = new URLSearchParams(location.search).get('fee') === 'return';
+    if (returning) history.replaceState({}, '', location.pathname + location.hash);
+    if (returning) pollAfterFeeReturn(); else refresh();
     clearInterval(localTimer);
     localTimer = setInterval(() => { if (state) renderNotifications(); }, 30000);
 }

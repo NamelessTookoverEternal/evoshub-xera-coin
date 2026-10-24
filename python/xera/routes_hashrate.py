@@ -40,7 +40,7 @@ _HASHRATE_ERROR_HTTP = {
     "tier_disabled":                     (403, "This hashrate tier is not currently available."),
     "insufficient_mining_allocation":    (409, "Hashrate unavailable — insufficient remaining mining allocation for the full 30-day session."),
     "invalid_payment_method":            (400, "Unsupported payment method."),
-    "crypto_payments_not_yet_configured":(403, "Crypto payment for hashrate isn't available yet — please use Paystack."),
+    "crypto_payments_not_yet_configured":(403, "USDT payment isn't available yet — please use Paystack."),
     "hashrate_payments_not_enabled":     (403, "Hashrate payments are not enabled in this environment."),
     "reference_already_used":            (409, "Purchase already in progress."),
     "session_not_found":                 (404, "Hashrate session not found."),
@@ -187,4 +187,50 @@ async def paystack_webhook(request: Request, x_paystack_signature: str = Header(
         status, message = _HASHRATE_ERROR_HTTP.get(str(e), (400, str(e)))
         raise HTTPException(status_code=status, detail=message)
 
+    return {"ok": True, **result}
+
+
+@router.post("/webhooks/nowpayments", include_in_schema=False)
+@limiter.limit("120/minute")
+async def nowpayments_webhook(request: Request, x_nowpayments_sig: str = Header(default="")):
+    """
+    NOWPayments IPN for BOTH hashrate purchases and the one-time transfer fee, routed by
+    order_id prefix. Authenticated by HMAC signature; money is then re-verified against
+    NOWPayments' API before anything is credited.
+    """
+    from xera import readiness
+    from xera.payments import nowpayments_provider as np
+
+    raw_body = await request.body()
+    try:
+        signature_ok = np.verify_ipn_signature(raw_body, x_nowpayments_sig)
+    except PaymentProviderError:
+        # IPN secret not configured: fail closed.
+        raise HTTPException(status_code=503, detail="Crypto payments are not configured.")
+    if not signature_ok:
+        raise HTTPException(status_code=401, detail="Invalid webhook signature.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Invalid JSON body.")
+
+    order_id = payload.get("order_id") or ""
+    try:
+        if readiness.is_fee_reference(order_id):
+            result = await run_in_threadpool(readiness.handle_fee_ipn, payload)
+        else:
+            result = await run_in_threadpool(hashrate.handle_nowpayments_ipn, payload)
+    except readiness.ReadinessError as e:
+        if str(e) == "fee_amount_mismatch":
+            return {"ok": True, "handled": False}   # logged CRITICAL for manual review; retrying cannot fix it
+        raise HTTPException(status_code=400, detail=str(e))
+    except HashrateError as e:
+        status, message = _HASHRATE_ERROR_HTTP.get(str(e), (400, str(e)))
+        raise HTTPException(status_code=status, detail=message)
+    except PaymentProviderError as e:
+        # NOWPayments' API was unreachable: 502 makes them retry the IPN later.
+        logger.error("XERA NOWPayments IPN verify failed: %s", e)
+        raise HTTPException(status_code=502, detail="Could not verify the payment right now.")
     return {"ok": True, **result}

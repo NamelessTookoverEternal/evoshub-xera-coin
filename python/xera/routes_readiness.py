@@ -65,6 +65,29 @@ def get_readiness(request: Request, authorization: str = Header(default="")):
     return {"status": "ok", **readiness.readiness_summary(user_id)}
 
 
+_FEE_ERROR_HTTP = {
+    "fee_collection_not_enabled":          (403, "The processing fee isn't open for payment yet."),
+    "crypto_payments_not_yet_configured":  (403, "USDT payment isn't available yet."),
+    "fee_currency_unsupported":            (403, "USDT payment isn't available for this fee yet."),
+    "fee_unavailable":                     (503, "Fee status is temporarily unavailable. Please try again shortly."),
+    "fee_already_paid":                    (409, "Your processing fee is already paid."),
+    "fee_provider_unavailable":            (502, "Payment provider is unavailable right now. Please try again shortly."),
+}
+
+
+@router.post("/fee/pay")
+@limiter.limit("5/minute")
+def fee_pay(request: Request, authorization: str = Header(default="")):
+    """Start the one-time fee payment (USDT on BNB). The amount comes from server config, never the request."""
+    user_id = _current_user_id(authorization)
+    try:
+        result = readiness.start_fee_payment(user_id)
+    except readiness.FeePaymentError as e:
+        status, message = _FEE_ERROR_HTTP.get(str(e), (400, "Could not start the payment."))
+        raise HTTPException(status_code=status, detail=message)
+    return {"status": "ok", "payment": result}
+
+
 class KycSubmitRequest(BaseModel):
     # Deliberately NO status field: a client can submit details, never a result.
     legal_name: str = Field(..., min_length=3, max_length=120)

@@ -36,7 +36,7 @@ async function req(path, opts = {}) {
 // enforces the same rules; this only decides what to show.
 const isGuest = () => !token() || isExpired(token());
 const askSignIn = (action) => requireAuthFor(action, { next: '/xera' });
-const GATED_TABS = { wallet: 'view your wallet', activity: 'see your activity', rewards: 'see your rewards', notifications: 'see your notifications', profile: 'view your profile' };
+const GATED_TABS = { wallet: 'view your wallet', activity: 'see your activity', rewards: 'see your rewards', profile: 'view your profile' };
 let signedIn = false;
 
 function clearSession() {
@@ -350,19 +350,6 @@ function fmtDateTime(d) {
     return d.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-function fmtClock(ms) {
-    const s = Math.max(0, Math.floor(ms / 1000));
-    return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-}
-
-// Dashboard square: time spent in the current mining status + the amount calculated so far.
-function setDashSquare(elapsed, earned, label, state) {
-    if ($('miningElapsedDash')) $('miningElapsedDash').textContent = elapsed;
-    if ($('miningEarnedDash')) $('miningEarnedDash').textContent = earned;
-    if ($('miningEarnLabelDash')) $('miningEarnLabelDash').textContent = label;
-    if ($('miningCardDash')) $('miningCardDash').dataset.state = state;
-}
-
 function renderMining() {
     const btn = $('miningAction');
     const btnDash = $('miningActionDash');
@@ -377,7 +364,6 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot';
         $('rewardText').textContent = 'The server controls the mining timer.';
         $('rewardTextDash').textContent = '';
-        setDashSquare('--:--:--', '0 XERA', 'Earned so far', 'idle');
         $('miningMeta').hidden = true;
         [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
         return;
@@ -406,7 +392,6 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot ready';
         $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
-        setDashSquare(fmtClock(end - start), `${fmt(mining.estimated_reward)} XERA`, 'Ready to claim', 'ready');
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
     } else {
         setRing(fraction, false);
@@ -423,7 +408,6 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot active';
         $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
         $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
-        setDashSquare(fmtClock(now - start), `+${fmt(mining.estimated_reward * fraction)} XERA`, 'Earned so far', 'active');
         [btn, btnDash].forEach((b) => { b.textContent = 'Mining active'; b.classList.remove('ready'); b.disabled = true; });
     }
 }
@@ -596,14 +580,14 @@ function renderHashrateCards(tiers, state) {
         const days = tier ? Number(tier.duration_days || 30) : 30;
         const maxReward = tier ? Number(tier.maximum_entitlement ?? daily * days) : 0;
         const fits = !!tier && !!tier.enabled && maxReward <= remainingAlloc;
-        const canBuy = fits && hashratePayments.paystack;
+        const canBuy = fits && (hashratePayments.paystack || hashratePayments.crypto);
         const pp = tier ? hashPriceParts(tier.price, tier.currency) : { main: 'Unavailable', sub: '' };
 
         let label = 'Buy Hashrate →';
         if (!tier) label = 'Coming soon';
         else if (!tier.enabled) label = 'Unavailable';
         else if (!fits) label = 'Allocation full';
-        else if (!hashratePayments.paystack) label = 'Opening soon';
+        else if (!hashratePayments.paystack && !hashratePayments.crypto) label = 'Opening soon';
 
         card.innerHTML = `
           <div class="hashrate-card-art">
@@ -669,13 +653,42 @@ async function doLoadHashrate() {
     }
 }
 
+// USDT (BNB Smart Chain) is the main rail; Paystack stays as the alternative.
+// Resolves 'CRYPTO' | 'PAYSTACK' | null (cancelled). Only offers rails the server says are on.
+function chooseHashratePayment(label, pp) {
+    const { crypto, paystack } = hashratePayments;
+    if (crypto && !paystack) return Promise.resolve(window.confirm(`Buy ${label} hashrate for ${pp.main}?\n\nYou'll pay in USDT on BNB Smart Chain (BEP-20). The exact USD amount is shown at checkout.`) ? 'CRYPTO' : null);
+    if (!crypto) return Promise.resolve(window.confirm(`Buy ${label} hashrate for ${pp.main}?${pp.sub ? `\n(${pp.sub}; your bank converts at its own rate.)` : ''}\n\nYou'll be taken to Paystack to complete the payment.`) ? 'PAYSTACK' : null);
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal-card" role="dialog" aria-modal="true" aria-label="Choose payment method">
+            <h2>Buy ${esc(label)} hashrate</h2>
+            <p class="rd-fine">${esc(pp.main)}</p>
+            <div class="modal-actions" style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+              <button type="button" class="btn" data-m="CRYPTO">Pay with USDT (BNB Smart Chain)</button>
+              <button type="button" class="btn btn-ghost" data-m="PAYSTACK">Pay with Paystack (card / mobile money)</button>
+              <button type="button" class="btn btn-ghost" data-m="">Cancel</button>
+            </div>
+          </div>`;
+        const done = (m) => { overlay.remove(); resolve(m || null); };
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) return done(null);
+            const b = e.target.closest('button[data-m]');
+            if (b) done(b.dataset.m);
+        });
+        document.body.appendChild(overlay);
+    });
+}
+
 async function openHashratePurchase(tier, label) {
     if (!askSignIn('buy hashrate')) return;
     if (hashratePurchasing) return;
     $('hashrateError').textContent = '';
     const pp = hashPriceParts(tier.price, tier.currency);
-    const ok = window.confirm(`Buy ${label} hashrate for ${pp.main}?${pp.sub ? `\n(${pp.sub}; your bank converts at its own rate.)` : ''}\n\nYou'll be taken to Paystack to complete the payment.`);
-    if (!ok) return;
+    const method = await chooseHashratePayment(label, pp);
+    if (!method) return;
 
     // One purchase at a time: every request reserves the full 30-day
     // entitlement server-side, so a double-click would park allocation twice.
@@ -686,9 +699,9 @@ async function openHashratePurchase(tier, label) {
     try {
         const d = await req('/api/xera/hashrate/purchase', {
             method: 'POST',
-            body: JSON.stringify({ tier_id: tier.id, payment_method: 'PAYSTACK' })
+            body: JSON.stringify({ tier_id: tier.id, payment_method: method })
         });
-        const url = d?.payment?.authorization_url;
+        const url = d?.payment?.invoice_url || d?.payment?.authorization_url;
         if (typeof url !== 'string' || !url.startsWith('https://')) throw new Error('Payment session was not created.');
         window.location.href = url; // leave the buttons disabled while the browser navigates away
     } catch (err) {
@@ -771,7 +784,8 @@ function renderHashrateSessions(sessions) {
 function handlePaystackReturn() {
     const params = new URLSearchParams(location.search);
     const ref = params.get('reference') || params.get('trxref') || '';
-    if (!ref.startsWith('xera-hr-')) return false;
+    // Paystack returns with ?reference=xera-hr-…; the USDT checkout returns with ?pay=crypto.
+    if (!ref.startsWith('xera-hr-') && params.get('pay') !== 'crypto') return false;
 
     history.replaceState({}, '', location.pathname + location.hash);
     switchTab('hashrate');
@@ -788,7 +802,7 @@ async function pollHashrateActivation(attempt) {
         return;
     }
     if (attempt >= 12) {
-        setHashrateNotice("Still waiting for Paystack to confirm. Your hashrate activates automatically once it does — check back in a minute.");
+        setHashrateNotice("Still waiting for the payment to confirm. Your hashrate activates automatically once it does — check back in a minute.");
         return;
     }
     hashratePollTimer = setTimeout(() => pollHashrateActivation(attempt + 1), 5000);

@@ -29,6 +29,7 @@ import os
 from main import supabase
 from xera.payments.paystack_provider import PaystackHashrateProvider, new_reference
 from xera.payments.crypto_provider import CryptoHashrateProvider, crypto_payments_enabled
+from xera.payments import nowpayments_provider as nowpayments
 from xera.payments.base import PaymentProviderError
 
 
@@ -151,12 +152,28 @@ def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
     row = res.data[0] if isinstance(res.data, list) else res.data
 
     try:
+        charge_amount, charge_currency = row["price"], row["currency"]
+        if payment_method == "CRYPTO":
+            # Crypto is charged in USD. Fix the USD amount NOW and store it on the
+            # payment row: the database later checks NOWPayments' confirmed price
+            # against this stored figure, never against a live (moving) rate.
+            cents, charge_currency = nowpayments.to_charge(row["price"], row["currency"])
+            try:
+                supabase.table("xera_hashrate_payments").update({
+                    "charge_amount_minor": cents,
+                    "charge_currency": charge_currency,
+                    "asset": nowpayments.ASSET_LABEL,
+                }).eq("reference", reference).execute()
+            except Exception as e:
+                raise PaymentProviderError("crypto_charge_not_recorded") from e
+            charge_amount = cents / 100
+
         provider_init = provider.initialize(
             reference=reference,
-            amount=row["price"],
-            currency=row["currency"],
+            amount=charge_amount,
+            currency=charge_currency,
             user_id=user_id,
-            metadata={"session_id": row["session_id"], "tier_id": tier_id},
+            metadata={"session_id": row["session_id"], "tier_id": tier_id, "product": "xera_hashrate"},
             email=email,
         )
     except PaymentProviderError:
@@ -165,7 +182,7 @@ def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
         _release(reference, "FAILED")
         raise
 
-    return {
+    result = {
         "session_id": row["session_id"],
         "payment_id": row["payment_id"],
         "reference": reference,
@@ -174,6 +191,9 @@ def purchase(user_id: int, tier_id: int, payment_method: str) -> dict:
         "currency": row["currency"],
         "payment": provider_init,
     }
+    if payment_method == "CRYPTO":
+        result["charge"] = {"amount": charge_amount, "currency": charge_currency, "asset": nowpayments.ASSET_LABEL}
+    return result
 
 
 def _release(reference: str, status: str) -> dict:
@@ -269,6 +289,60 @@ def handle_paystack_webhook(raw_body: bytes, signature_header: str, payload: dic
 
     return {"handled": False}
 
+
+def handle_nowpayments_ipn(payload: dict) -> dict:
+    """
+    Hashrate side of a NOWPayments IPN. The caller has ALREADY verified the signature.
+    Activation never rests on the IPN body: a `finished` status only triggers a fresh
+    server-side read of the payment from NOWPayments' API.
+    """
+    reference = payload.get("order_id") or ""
+    if not nowpayments_is_hashrate_reference(reference):
+        return {"handled": False}
+
+    status = str(payload.get("payment_status", "")).lower()
+    provider = _PROVIDERS["CRYPTO"]
+
+    if status == nowpayments.PAID_STATUS:
+        verified = provider.verify(reference=reference, payment_id=payload.get("payment_id"))
+        if not verified["confirmed"]:
+            raise HashrateError("payment_verification_failed")
+        try:
+            result = confirm_payment(
+                reference,
+                tx_hash=verified.get("tx_hash"),
+                raw_webhook=payload,
+                verified_amount_minor=verified.get("amount_minor"),
+                verified_currency=verified.get("currency"),
+            )
+        except HashrateError as e:
+            if str(e) == "late_payment_no_capacity":
+                logger.critical("XERA hashrate: PAID (USDT) but cannot activate (allocation full) — refund required. reference=%s", reference)
+                return {"handled": True, "needs_refund": True}
+            raise
+        return {"handled": True, "session": result}
+
+    if status in nowpayments.FAILED_STATUSES or status == nowpayments.EXPIRED_STATUS:
+        try:
+            result = _release(reference, "EXPIRED" if status == nowpayments.EXPIRED_STATUS else "FAILED")
+        except Exception as e:
+            # An already-confirmed payment can't be released; that is not a webhook error.
+            if "cannot_release_confirmed_payment" in str(e):
+                logger.error("XERA hashrate: NOWPayments reported %s for an already-confirmed payment %s", status, reference)
+                return {"handled": False}
+            raise
+        return {"handled": True, "session": result}
+
+    if status == "partially_paid":
+        # The customer sent less than the invoice. Nothing activates; they can top up on
+        # the same invoice, and a later `finished` still confirms this payment.
+        logger.warning("XERA hashrate: partially paid USDT invoice, reference=%s", reference)
+    return {"handled": False}
+
+
+def nowpayments_is_hashrate_reference(reference) -> bool:
+    from xera.payments.paystack_provider import is_xera_hashrate_reference
+    return is_xera_hashrate_reference(reference)
 
 
 def claim_reward(user_id: int, session_id: int) -> dict:

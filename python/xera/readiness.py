@@ -19,6 +19,7 @@ Rules this module enforces (they are the security boundary, not the UI):
 
 import logging
 import os
+import uuid
 from datetime import datetime, timezone
 
 from main import supabase
@@ -178,6 +179,149 @@ def notify(user_id: int, kind: str, title: str, body: str = "", dedupe_key: str 
         }).execute()
     except Exception as exc:
         logger.warning("xera notification write failed: %s", exc)
+
+
+# ------------------------------------------------------------ fee payment
+
+FEE_REF_PREFIX = "xera-fee-"
+
+
+class ReadinessError(Exception):
+    """Short machine-readable code from the fee webhook paths; routes map it to HTTP."""
+
+
+class FeePaymentError(Exception):
+    """Short machine-readable code for starting a fee payment; the route maps it to HTTP."""
+
+
+def new_fee_reference(user_id: int) -> str:
+    # The user id is only a routing hint. A fee is never credited until NOWPayments/Paystack
+    # itself confirms a payment with this exact order id, and only we can create those.
+    return f"{FEE_REF_PREFIX}{int(user_id)}-{uuid.uuid4().hex}"
+
+
+def is_fee_reference(reference) -> bool:
+    return isinstance(reference, str) and reference.startswith(FEE_REF_PREFIX)
+
+
+def _fee_reference_user_id(reference: str):
+    try:
+        return int(reference[len(FEE_REF_PREFIX):].split("-", 1)[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def _write_fee_row(user_id: int, patch: dict) -> None:
+    patch = {**patch, "updated_at": _now()}
+    existing = supabase.table("xera_transfer_fee").select("user_id").eq("user_id", user_id).limit(1).execute()
+    if existing.data:
+        supabase.table("xera_transfer_fee").update(patch).eq("user_id", user_id).execute()
+    else:
+        supabase.table("xera_transfer_fee").insert({"user_id": user_id, **patch}).execute()
+
+
+def start_fee_payment(user_id: int) -> dict:
+    """Create a USDT (BEP-20) invoice for the one-time fee. Returns where to send the customer."""
+    from xera.payments.base import PaymentProviderError
+    from xera.payments.crypto_provider import CryptoHashrateProvider, crypto_payments_enabled
+    from xera.payments.nowpayments_provider import CHARGE_CURRENCY
+
+    cfg = fee_config()
+    if not cfg["collection_enabled"]:
+        raise FeePaymentError("fee_collection_not_enabled")
+    if cfg["currency"] != CHARGE_CURRENCY:
+        raise FeePaymentError("fee_currency_unsupported")   # crypto invoices are priced in USD
+    if not crypto_payments_enabled():
+        raise FeePaymentError("crypto_payments_not_yet_configured")
+    current = get_fee(user_id)
+    if current.get("unavailable"):
+        raise FeePaymentError("fee_unavailable")
+    if current["status"] == "PAID":
+        raise FeePaymentError("fee_already_paid")
+
+    reference = new_fee_reference(user_id)
+    try:
+        init = CryptoHashrateProvider().initialize(
+            reference=reference, amount=cfg["amount_minor"] / 100, currency=CHARGE_CURRENCY,
+            user_id=user_id, metadata={"product": "xera_transfer_fee"},
+        )
+    except PaymentProviderError as exc:
+        logger.error("XERA fee payment init failed for user %s: %s", user_id, exc)
+        raise FeePaymentError("fee_provider_unavailable")
+
+    try:
+        _write_fee_row(user_id, {"status": "PENDING", "provider": "CRYPTO"})
+    except Exception as exc:   # cosmetic status only; the payment itself does not depend on it
+        logger.warning("xera_transfer_fee PENDING write failed: %s", exc)
+    return {"invoice_url": init["invoice_url"], "reference": reference,
+            "amount_minor": cfg["amount_minor"], "currency": cfg["currency"], "asset": init["asset"]}
+
+
+def _mark_fee_paid(user_id: int, reference: str, provider_name: str, amount_minor: int, currency: str) -> dict:
+    existing = _first(supabase.table("xera_transfer_fee").select("*").eq("user_id", user_id).limit(1).execute())
+    if existing and existing.get("status") == "PAID":
+        if existing.get("payment_reference") == reference:
+            return {"handled": True, "already_paid": True}       # webhook retry
+        logger.critical("XERA fee: user %s paid the fee a SECOND time (ref=%s) — refund required", user_id, reference)
+        return {"handled": True, "needs_refund": True}
+    _write_fee_row(user_id, {
+        "status": "PAID", "amount_minor": amount_minor, "currency": currency, "provider": provider_name,
+        "payment_reference": reference, "paid_at": _now(),
+    })
+    notify(user_id, "fee_paid", "Processing fee received", "Your one-time processing fee is confirmed.",
+           dedupe_key=f"fee_paid:{reference}")
+    return {"handled": True, "paid": True}
+
+
+def _check_fee_amount(verified: dict, reference: str) -> None:
+    cfg = fee_config()
+    if verified.get("amount_minor") != cfg["amount_minor"] or (verified.get("currency") or "").upper() != cfg["currency"]:
+        logger.critical("XERA fee: confirmed payment amount/currency does not match config (ref=%s, got %s %s) — manual review",
+                        reference, verified.get("amount_minor"), verified.get("currency"))
+        raise ReadinessError("fee_amount_mismatch")
+
+
+def handle_fee_ipn(payload: dict) -> dict:
+    """NOWPayments IPN for a fee invoice. The caller has ALREADY verified the IPN signature."""
+    from xera.payments import nowpayments_provider as np
+    from xera.payments.crypto_provider import CryptoHashrateProvider
+
+    reference = payload.get("order_id") or ""
+    user_id = _fee_reference_user_id(reference) if is_fee_reference(reference) else None
+    if user_id is None:
+        return {"handled": False}
+    status = str(payload.get("payment_status", "")).lower()
+
+    if status == np.PAID_STATUS:
+        verified = CryptoHashrateProvider().verify(reference=reference, payment_id=payload.get("payment_id"))
+        if not verified["confirmed"]:
+            raise ReadinessError("payment_verification_failed")
+        _check_fee_amount(verified, reference)
+        return _mark_fee_paid(user_id, reference, "CRYPTO", verified["amount_minor"], verified["currency"])
+
+    if status in np.FAILED_STATUSES or status == np.EXPIRED_STATUS:
+        row = _first(supabase.table("xera_transfer_fee").select("*").eq("user_id", user_id).limit(1).execute())
+        if row and row.get("status") == "PENDING":
+            _write_fee_row(user_id, {"status": "FAILED"})
+        return {"handled": True}
+    return {"handled": False}
+
+
+def handle_fee_webhook(raw_body: bytes, signature_header: str, payload: dict) -> dict:
+    """Paystack webhook for a fee reference (the Paystack route hands these over)."""
+    from xera.payments.paystack_provider import PaystackHashrateProvider, verify_webhook_signature
+    if not verify_webhook_signature(raw_body, signature_header):
+        raise ReadinessError("invalid_webhook_signature")
+    data = payload.get("data") or {}
+    reference = data.get("reference", "")
+    user_id = _fee_reference_user_id(reference) if is_fee_reference(reference) else None
+    if user_id is None or payload.get("event") != "charge.success":
+        return {"handled": False}
+    verified = PaystackHashrateProvider().verify(reference=reference)
+    if not verified["confirmed"]:
+        raise ReadinessError("payment_verification_failed")
+    _check_fee_amount(verified, reference)
+    return _mark_fee_paid(user_id, reference, "PAYSTACK", verified["amount_minor"], verified["currency"])
 
 
 # ------------------------------------------------------------ KYC workflow (manual review)
