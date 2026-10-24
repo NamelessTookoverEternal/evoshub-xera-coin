@@ -7,8 +7,9 @@ let dailyData = null;
 let tickHandle = null;
 
 import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
-import { mountGuestBanner } from './guest-access.js';
+import { mountGuestBanner, requireAuthFor } from './guest-access.js';
 import { maybeShowWelcome, startMiningWithOnboarding, resetLaunchSession } from './xera-launch.js';
+import { initReadiness, resetReadiness } from './xera-readiness.js';
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -28,140 +29,41 @@ async function req(path, opts = {}) {
     return d;
 }
 
-// ================= REFERRALS =================
-// The invite code comes from /xera/invite?ref=CODE (or /xera?ref=CODE). It is kept in
-// localStorage so it survives the "install the app" step, then pre-fills sign-up.
+// ================= GUEST MODE =================
+// Sign-in lives on the shared Hub page (/login). XERA is open to guests: they can browse the
+// dashboard and the public hashrate plans. Anything personal (mining, wallet, activity,
+// rewards, profile, buying) asks them to sign in and then returns them here. The backend
+// enforces the same rules; this only decides what to show.
+const isGuest = () => !token() || isExpired(token());
+const askSignIn = (action) => requireAuthFor(action, { next: '/xera' });
+const GATED_TABS = { wallet: 'view your wallet', activity: 'see your activity', rewards: 'see your rewards', profile: 'view your profile' };
+let signedIn = false;
 
-const REF_KEY = 'xera_ref';
-const REF_RE = /^[A-Za-z0-9_-]{3,64}$/;
-const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } };
-const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) { /* storage blocked */ } };
-
-function captureRefFromUrl() {
-    const params = new URLSearchParams(location.search);
-    const fromUrl = (params.get('ref') || '').trim();
-    if (REF_RE.test(fromUrl)) lsSet(REF_KEY, fromUrl);
-    if (params.has('ref')) {
-        params.delete('ref');
-        const qs = params.toString();
-        history.replaceState({}, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
-    }
-    const saved = lsGet(REF_KEY);
-    return REF_RE.test(saved) ? saved : '';
-}
-
-let refCheckTimer = null;
-async function checkRefInput() {
-    const code = $('regRef').value.trim();
-    const hint = $('regRefHint');
-    hint.textContent = '';
-    if (!code) return;
-    if (!REF_RE.test(code)) { hint.textContent = 'Codes use letters, numbers, dashes and underscores.'; return; }
-    try {
-        const d = await fetch(API + '/api/xera/referral/validate?code=' + encodeURIComponent(code)).then((r) => r.json());
-        if ($('regRef').value.trim() !== code) return; // typed on since
-        hint.textContent = d.valid ? `Invited by ${d.inviter} ✓` : "We don't recognise that code — you can still sign up without it.";
-    } catch (e) { /* offline: stay quiet, signup still works */ }
-}
-
-function prefillRef(code) {
-    if (!code) return;
-    $('regRef').value = code;
-    checkRefInput();
-}
-
-// ================= AUTH VIEW (login / register tabs) =================
-
-function showAuthTab(tab) {
-    const isLogin = tab === 'login';
-    $('tabLogin').classList.toggle('active', isLogin);
-    $('tabRegister').classList.toggle('active', !isLogin);
-    $('tabLogin').setAttribute('aria-selected', String(isLogin));
-    $('tabRegister').setAttribute('aria-selected', String(!isLogin));
-    $('loginForm').hidden = !isLogin;
-    $('registerForm').hidden = isLogin;
-    $('loginError').textContent = '';
-    $('registerError').textContent = '';
-}
-
-function showLogin(message) {
+function clearSession() {
     resetLaunchSession();
-    localStorage.removeItem('xera_evos_token');
-    localStorage.removeItem('xera_evos_user');
-    ['user','email','username','user_id','userToken','agentToken'].forEach((k) => localStorage.removeItem(k));
+    resetReadiness();
+    ['xera_evos_token', 'xera_evos_user', 'user', 'email', 'username', 'user_id', 'userToken', 'agentToken']
+        .forEach((k) => { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } });
+    try { sessionStorage.removeItem('agentToken'); } catch (e) { /* ignore */ }
     notifyAuthChange();
-    $('walletView').hidden = true;
-    $('walletView').style.display = 'none';
-    $('authView').hidden = false;
-    showAuthTab('login');
-    if (message) $('loginError').textContent = message;
 }
 
-async function login(e) {
-    e.preventDefault();
-    $('loginError').textContent = '';
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    try {
-        const d = await req('/api/xera/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ identifier: $('identifier').value, password: $('password').value })
-        });
-        lsDel(REF_KEY); // already has an account — a stale invite code shouldn't linger
-        localStorage.setItem('xera_evos_token', d.token);
-        localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
-        notifyAuthChange();
-        await load();
-        goToRequestedProduct();
-    } catch (err) {
-        $('loginError').textContent = err.message;
-    } finally {
-        btn.disabled = false;
-    }
-}
-
-async function register(e) {
-    e.preventDefault();
-    $('registerError').textContent = '';
-
-    const password = $('regPassword').value;
-    const password2 = $('regPassword2').value;
-    if (password !== password2) {
-        $('registerError').textContent = "Passwords don't match.";
-        return;
-    }
-
-    const btn = e.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    try {
-        const d = await req('/api/xera/auth/register', {
-            method: 'POST',
-            body: JSON.stringify({
-                full_name: $('regFullName').value,
-                username: $('regUsername').value,
-                email: $('regEmail').value,
-                phone: $('regPhone').value.trim() || undefined,
-                password,
-                ref: $('regRef').value.trim() || undefined,
-            })
-        });
-        lsDel(REF_KEY); // used — don't re-apply it to anyone else on this device
-        localStorage.setItem('xera_evos_token', d.token);
-        localStorage.setItem('xera_evos_user', JSON.stringify(d.user));
-        notifyAuthChange();
-        await load();
-        goToRequestedProduct();
-    } catch (err) {
-        $('registerError').textContent = err.message;
-    } finally {
-        btn.disabled = false;
-    }
+function enterGuestMode() {
+    signedIn = false;
+    $('walletView').hidden = false;
+    $('walletView').style.display = 'flex';
+    ['balance', 'balanceWallet'].forEach((id) => { if ($(id)) $(id).textContent = '—'; });
+    ['dailyPanel', 'rewardsMiniDash'].forEach((id) => { if ($(id)) $(id).hidden = true; });
+    mining = null;
+    renderMining();
+    mountGuestBanner();
+    loadHashrate(); // plans are public; sessions and buying need an account
 }
 
 // ================= TABS =================
 
 function switchTab(name) {
+    if (isGuest() && GATED_TABS[name]) { askSignIn(GATED_TABS[name]); return; }
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === name));
     document.querySelectorAll('.tab-nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.bottom-tab-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
@@ -291,7 +193,7 @@ async function load() {
             req('/api/xera/mining/status'),
             req('/api/xera/transactions?limit=20&offset=0')
         ]);
-        $('authView').hidden = true;
+        signedIn = true;
         $('walletView').hidden = false;
         $('walletView').style.display = 'flex';
 
@@ -312,8 +214,10 @@ async function load() {
         loadDaily();
         if (!handlePaystackReturn()) loadHashrate();
         maybeShowWelcome(req);
+        initReadiness(req, () => mining);   // KYC / fee / notification cards; display only, never blocks mining
     } catch (err) {
-        showLogin('Please sign in again.');
+        clearSession();       // dead or rejected session: carry on as a guest
+        enterGuestMode();
     }
 }
 
@@ -517,6 +421,7 @@ async function refreshBalance() {
 }
 
 async function startOrClaim(btn, errEl) {
+    if (!askSignIn('start mining')) return;
     errEl.textContent = '';
     btn.disabled = true;
     try {
@@ -724,7 +629,7 @@ async function doLoadHashrate() {
     // plan cards (and vice versa).
     const [catalogRes, sessionsRes] = await Promise.allSettled([
         req('/api/xera/hashrate/tiers'),
-        req('/api/xera/hashrate/sessions'),
+        isGuest() ? Promise.resolve({ sessions: [], guest: true }) : req('/api/xera/hashrate/sessions'),
         loadHashCurrency(), // never rejects; resolves before the cards render so the price doesn't flip
     ]);
 
@@ -741,13 +646,15 @@ async function doLoadHashrate() {
 
     if (sessionsRes.status === 'fulfilled') {
         hashrateSessions = sessionsRes.value.sessions || [];
-        renderHashrateSessions(hashrateSessions);
+        if (sessionsRes.value.guest) $('hashrateSessions').innerHTML = '<div class="empty"><p>Sign in to see your hashrate sessions.</p></div>';
+        else renderHashrateSessions(hashrateSessions);
     } else if (catalogRes.status === 'fulfilled') {
         $('hashrateError').textContent = sessionsRes.reason?.message || 'Could not load your hashrate sessions.';
     }
 }
 
 async function openHashratePurchase(tier, label) {
+    if (!askSignIn('buy hashrate')) return;
     if (hashratePurchasing) return;
     $('hashrateError').textContent = '';
     const pp = hashPriceParts(tier.price, tier.currency);
@@ -953,15 +860,6 @@ $('refShare').onclick = async () => {
 
 // ================= EVENTS =================
 
-$('loginForm').addEventListener('submit', login);
-$('registerForm').addEventListener('submit', register);
-$('regRef').addEventListener('input', () => { clearTimeout(refCheckTimer); refCheckTimer = setTimeout(checkRefInput, 400); });
-
-$('tabLogin').onclick = () => showAuthTab('login');
-$('tabRegister').onclick = () => showAuthTab('register');
-$('goRegister').onclick = () => showAuthTab('register');
-$('goLogin').onclick = () => showAuthTab('login');
-
 function doLogout() {
     clearInterval(tickHandle);
     tickHandle = null;
@@ -970,7 +868,8 @@ function doLogout() {
     mining = null;
     dailyData = null;
     walletTotalsLoaded = false;
-    showLogin();
+    clearSession();
+    location.replace('/xera');
 }
 
 $('openMiningInfo').onclick = () => { $('miningInfoModal').hidden = false; };
@@ -987,75 +886,24 @@ $('ecosystemModal').addEventListener('click', (e) => { if (e.target.id === 'ecos
 $('miningAction').onclick = () => startOrClaim($('miningAction'), $('error'));
 $('miningActionDash').onclick = () => startOrClaim($('miningActionDash'), $('errorDash'));
 
-// ================= RETURN TO THE REQUESTED PRODUCT =================
-// Hub pages send signed-out visitors here as /xera?next=<path>. After sign-in
-// we return them to that exact route. safeNext() only allows same-origin
-// paths (no open redirect), and /xera itself is excluded so we never loop.
-const params0 = new URLSearchParams(location.search);
-const requestedNext = (() => {
-    const n = safeNext(params0.get('next') || '', '');
-    if (!n) return '';
-    const p = new URL(n, location.origin).pathname.replace(/\/+$/, '');
-    return p === '/xera' ? '' : n;
-})();
+// ================= BOOT =================
+const bootParams = new URLSearchParams(location.search);
 
-function goToRequestedProduct() {
-    if (requestedNext && token() && $('authView').hidden) location.replace(requestedNext);
-}
-
-function showAuthContext() {
-    if (!requestedNext || $('authContext')) return;
-    const name = requestedNext.startsWith('/evosdata') ? 'EVOS Data' : requestedNext.startsWith('/hub') ? 'your Hub dashboard' : 'that page';
-    const el = document.createElement('p');
-    el.id = 'authContext';
-    el.className = 'auth-context';
-    el.style.cssText = 'text-align:center;font-size:13px;opacity:.8;margin:0 0 12px';
-    el.textContent = `Sign in or create an account to continue to ${name}.`;
-    const tabs = $('tabLogin').parentElement;
-    tabs.parentElement.insertBefore(el, tabs);
-}
-
-// Other tab signed out / token removed -> show sign-in here too.
+// Signed in on another tab (or out): reflect it here.
 window.addEventListener('storage', (e) => {
-    if ((e.key === 'xera_evos_token' || e.key === null) && !token() && !$('walletView').hidden) showLogin('You were signed out.');
+    if (e.key !== 'xera_evos_token' && e.key !== null) return;
+    if (signedIn && !token()) location.replace('/xera');
+    else if (!signedIn && token()) location.reload();
 });
 
-const incomingRef = captureRefFromUrl();
-showAuthContext();
-if (token() && isExpired(token())) {
-    showLogin('Your session expired. Please sign in again.');
-} else if (token()) {
-    if (requestedNext) {
-        location.replace(requestedNext);          // already signed in: go straight to the product
-    } else {
-        load();
-    }
-} else if (params0.get('mode') === 'register' || incomingRef) {
-    showAuthTab('register');   // "Sign up" link, or invited visitor: land on "Create account"
-    if (incomingRef) prefillRef(incomingRef);
+if (!token() && (bootParams.has('next') || bootParams.has('mode') || bootParams.has('ref'))) {
+    location.replace('/login' + location.search);        // old sign-in / invite links
+} else if (token() && !isExpired(token())) {
+    const back = safeNext(bootParams.get('next') || '', '');
+    if (back && new URL(back, location.origin).pathname.replace(/\/+$/, '') !== '/xera') location.replace(back);
+    else load();
+} else {
+    if (token()) clearSession();                          // expired
+    enterGuestMode();
 }
 
-
-// ================= GUEST EXPLORER =================
-// Guests can read everything public about XERA without an account. Mining,
-// personal progress, claims, wallet linking and balances all stay behind sign-in
-// (and the backend enforces that on its own); this only adds the public links.
-(function mountGuestExplorer() {
-    const auth = $('authView');
-    if (!auth || auth.hidden || $('guestExplorer')) return;
-    const box = document.createElement('div');
-    box.id = 'guestExplorer';
-    box.style.cssText = 'margin:18px auto 0;max-width:420px;text-align:center;font-size:13px;opacity:.9';
-    box.innerHTML = `
-        <p style="margin:0 0 8px">Just looking? Explore XERA as a guest:</p>
-        <p style="margin:0 0 10px;display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center">
-            <a href="/xera/tokenomics.html">Tokenomics</a>
-            <a href="/xera/whitepaper.html">Whitepaper</a>
-            <a href="/xera/stats.html">Public stats</a>
-            <a href="/xera/roadmap.html">Roadmap</a>
-            <a href="/xera/faq.html">FAQ</a>
-        </p>
-        <p style="margin:0;opacity:.7">Signing in is needed to mine, track your rewards, claim XERA, link a wallet, or see balances.</p>`;
-    auth.appendChild(box);
-    mountGuestBanner();
-})();

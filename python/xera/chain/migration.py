@@ -86,6 +86,8 @@ def prepare_claim(user_id: int, chain: str) -> dict:
         # Fail loudly rather than pretending TON migration exists — see
         # this module's docstring for why it's BNB-only by design.
         raise MigrationClaimError("migration_chain_not_supported")
+    from xera import readiness
+    readiness.require_first_transfer_ready(user_id)   # raises readiness.TransferRequirementsError; routes_chain maps it
     res = supabase.table("xera_migration_snapshot").select("*").eq("user_id", user_id).limit(1).execute()
     if not res.data:
         raise MigrationClaimError("no_legacy_balance")

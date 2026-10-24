@@ -163,6 +163,18 @@ async def paystack_webhook(request: Request, x_paystack_signature: str = Header(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
+    # One Paystack account/webhook URL serves hashrate AND the one-time transfer fee: route by reference.
+    from xera import readiness
+    if readiness.is_fee_reference((payload.get("data") or {}).get("reference", "")):
+        try:
+            result = await run_in_threadpool(readiness.handle_fee_webhook, raw_body, x_paystack_signature, payload)
+        except readiness.ReadinessError as e:
+            if str(e) == "fee_amount_mismatch":
+                return {"ok": True, "handled": False}   # logged CRITICAL for manual review; retrying cannot fix it
+            status = 401 if str(e) == "invalid_webhook_signature" else 400
+            raise HTTPException(status_code=status, detail=str(e))
+        return {"ok": True, **result}
+
     try:
         # handle_paystack_webhook makes blocking HTTP (Paystack verify) and DB
         # calls; run it in the threadpool so a slow Paystack response can't

@@ -47,6 +47,11 @@ def admin_pilot_enabled() -> bool:
     return os.getenv("XERA_ADMIN_ONCHAIN_PILOT", "false").strip().lower() in ("1", "true", "yes")
 
 
+def admin_pilot_active() -> bool:
+    """True only inside admin_pilot_mode() with the pilot flag on (never for ordinary user routes)."""
+    return bool(_admin_pilot.get())
+
+
 @contextmanager
 def admin_pilot_mode():
     token = _admin_pilot.set(admin_pilot_enabled())

@@ -170,3 +170,13 @@ def fake_supabase():
             del sys.modules[mod]
 
     return fake
+
+
+@pytest.fixture(autouse=True)
+def _first_transfer_gate_off_by_default(monkeypatch):
+    """
+    Older tests exercise the claim/signing code directly and predate the KYC + fee gate
+    (xera/readiness.py), which is ON by default in production. They switch it off here;
+    tests/test_readiness.py switches it back on to test the gate itself.
+    """
+    monkeypatch.setenv("XERA_FIRST_TRANSFER_GATE", "false")

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="theme-color" content="#060810"/>
+<title>XERA KYC review | Admin</title>
+<link href="../css/xera.css" rel="stylesheet"/>
+<style>
+  .kyc-wrap{max-width:720px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+  .kyc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .kyc-top a,.kyc-top button.link{font:inherit;color:var(--text-secondary,#9aa5b8);background:none;border:0;cursor:pointer;text-decoration:underline}
+  .kyc-box{border:1px solid var(--border,rgba(255,255,255,.1));border-radius:14px;padding:12px 14px;font-size:.84rem;line-height:1.5;background:var(--surface,rgba(255,255,255,.03))}
+  .kyc-tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .kyc-tabs button{font:inherit;padding:6px 12px;border-radius:999px;border:1px solid var(--border,rgba(255,255,255,.18));background:none;color:inherit;cursor:pointer}
+  .kyc-tabs button[aria-pressed="true"]{background:rgba(76,126,255,.2);border-color:#4c7eff}
+  .kyc-item{display:flex;flex-direction:column;gap:6px}
+  .kyc-item dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;margin:0}
+  .kyc-item dt{color:var(--text-secondary,#9aa5b8)}
+  .kyc-item dd{margin:0;overflow-wrap:anywhere}
+  .kyc-item textarea{font:inherit;min-height:60px;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.18));background:rgba(255,255,255,.04);color:inherit;resize:vertical}
+  .kyc-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .kyc-actions button{font:inherit;font-weight:650;min-height:40px;padding:0 14px;border-radius:10px;border:1px solid transparent;cursor:pointer;color:#fff}
+  .kyc-ok{background:#1f9d6b}.kyc-bad{background:#c0463f}.kyc-info{background:#8a6d1f}
+  .kyc-actions button:disabled{opacity:.5;cursor:not-allowed}
+</style>
+</head>
+<body>
+<main class="kyc-wrap">
+  <div class="kyc-top">
+    <a href="/admin-website-chat.html">&larr; Admin console</a>
+    <span><span id="kycWho">Checking sign-in…</span> · <button type="button" class="link" id="kycSignout">Sign out</button></span>
+  </div>
+  <h1 style="font-size:1.25rem;margin:0">XERA KYC review</h1>
+  <p class="kyc-box">
+    Review identity details users submitted before their first on-chain transfer. Only you (an active admin agent) can
+    mark someone <b>Verified</b>; users cannot set it themselves. Never ask users to post ID photos in the app. If you need more,
+    choose <b>More info</b> and write what the user should send through your support channel. Every decision is logged
+    with your admin id.
+  </p>
+  <div class="kyc-tabs" id="kycTabs" role="group" aria-label="Filter by status"></div>
+  <p class="banner-error" id="kycError" role="alert"></p>
+  <div id="kycList" style="display:flex;flex-direction:column;gap:10px"></div>
+</main>
+<script src="../js/admin-xera-kyc.js" type="module"></script>
+</body>
+</html>

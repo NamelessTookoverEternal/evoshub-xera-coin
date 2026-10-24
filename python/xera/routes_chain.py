@@ -19,7 +19,8 @@ from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.chain.wallet_link import (
     start_link, verify_and_link, get_linked_wallets, get_wallets, set_manual_wallet, remove_wallet, WalletLinkError,
 )
-from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_claim, retry_claim, ClaimError
+from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_claim, retry_claim, ClaimError, ClaimRequirementsError
+from xera.readiness import TransferRequirementsError
 from xera.chain import migration as legacy_migration
 from xera.chain.migration import MigrationClaimError
 from xera.chain.config import get_chain_config, bnb_network_public, ChainConfigError
@@ -97,6 +98,18 @@ _CLAIM_ERROR_HTTP = {
     "ton_rpc_not_configured":           (503, "TON confirmation is temporarily unavailable."),
     "ton_rpc_request_failed":           (503, "Could not reach the TON network to confirm this claim."),
 }
+
+_REQUIREMENT_LABELS = {"kyc": "identity verification", "fee": "the one-time processing fee"}
+
+
+def _requirements_http(missing) -> HTTPException:
+    """403 with a machine-readable list of what is missing, so the page can open the right modal."""
+    names = " and ".join(_REQUIREMENT_LABELS.get(m, m) for m in missing)
+    return HTTPException(status_code=403, detail={
+        "code": "first_transfer_requirements_incomplete", "missing": list(missing),
+        "message": f"Before your first transfer you need to complete {names}. You can keep mining in the meantime.",
+    })
+
 
 _MIGRATION_ERROR_HTTP = {
     "no_legacy_balance":        (404, "No legacy balance found for this account."),
@@ -280,6 +293,8 @@ def claim_sign_amount(request: Request, data: ClaimAmountRequest, authorization:
     user_id = _current_user_id(authorization)
     try:
         result = sign_amount_claim(user_id, data.chain, data.amount)
+    except ClaimRequirementsError as e:
+        raise _requirements_http(e.missing)
     except ClaimError as e:
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not sign claim."))
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
@@ -330,6 +345,8 @@ def claim_retry(request: Request, data: ClaimRetryRequest, authorization: str = 
     user_id = _current_user_id(authorization)
     try:
         result = retry_claim(user_id, data.reference_id, data.chain)
+    except ClaimRequirementsError as e:
+        raise _requirements_http(e.missing)
     except ClaimError as e:
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not retry claim."))
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
@@ -385,6 +402,8 @@ def migration_claim_prepare(request: Request, data: MigrationPrepareRequest, aut
     user_id = _current_user_id(authorization)
     try:
         result = legacy_migration.prepare_claim(user_id, data.chain)
+    except TransferRequirementsError as e:
+        raise _requirements_http(e.missing)
     except MigrationClaimError as e:
         status, message = _MIGRATION_ERROR_HTTP.get(str(e), (400, "Could not prepare legacy claim."))
         raise HTTPException(status_code=status, detail=message)

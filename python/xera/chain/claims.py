@@ -31,6 +31,22 @@ class ClaimError(Exception):
     """Short machine-readable code; routes_chain.py maps these to HTTP responses."""
 
 
+class ClaimRequirementsError(ClaimError):
+    """First-transfer requirements (KYC / one-time fee) are incomplete. `.missing` says which."""
+
+    def __init__(self, missing):
+        super().__init__("first_transfer_requirements_incomplete")
+        self.missing = list(missing)
+
+
+def _require_first_transfer_ready(user_id: int) -> None:
+    from xera import readiness
+    try:
+        readiness.require_first_transfer_ready(user_id)
+    except readiness.TransferRequirementsError as e:
+        raise ClaimRequirementsError(e.missing)
+
+
 def _reference_id_to_bytes32(reference_id: str) -> bytes:
     return keccak(text=reference_id)
 
@@ -105,6 +121,7 @@ def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
     amount-based claims could move the same XERA twice. See sign_amount_claim.
     """
     chain = chain.upper()
+    _require_first_transfer_ready(user_id)
 
     # 2/3/4: reference_id belongs to this user, is a real finalized
     # entitlement, and hasn't already been claimed on-chain (any chain —
@@ -351,6 +368,7 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
     chain = chain.upper()
     if chain not in ("BNB", "TON"):
         raise ClaimError("unsupported_chain")
+    _require_first_transfer_ready(user_id)
     amount = parse_claim_amount(amount_raw)
 
     wallet = _get_verified_wallet(user_id, chain)
@@ -490,6 +508,7 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
     signature, optionally on a different chain than the original attempt.
     """
     chain = chain.upper()
+    _require_first_transfer_ready(user_id)
     res = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
     if not res.data:
         raise ClaimError("claim_not_found")

@@ -73,76 +73,6 @@
 </div>
 <div class="app">
 
-  <!-- ===== AUTH (login + register) ===== -->
-  <section class="auth" id="authView">
-    <div class="xera-brand-lockup">XERA (EVOXERA)</div>
-    <div class="brand-mark">
-      <img src="/assets/images/xeracoin.jpg" alt="XERA (EVOXERA)" onerror="this.style.display='none'"/>
-    </div>
-
-    <div class="auth-tabs" role="tablist">
-      <button class="auth-tab active" id="tabLogin" type="button" role="tab" aria-selected="true">Sign in</button>
-      <button class="auth-tab" id="tabRegister" type="button" role="tab" aria-selected="false">Create account</button>
-    </div>
-
-    <!-- Sign in -->
-    <form id="loginForm" class="auth-form">
-      <h1>Sign in to XERA</h1>
-      <p class="sub">Access your wallet, 24-hour mining and XERA hashrate.</p>
-      <div class="field">
-        <label for="identifier">Username or email</label>
-        <input id="identifier" autocomplete="username" required/>
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" required/>
-      </div>
-      <button class="btn" type="submit">Sign in</button>
-      <p class="auth-error" id="loginError" role="alert"></p>
-      <p class="auth-foot">New to EVOS? <button type="button" class="linklike" id="goRegister">Create an account</button></p>
-    </form>
-
-    <!-- Create account -->
-    <form id="registerForm" class="auth-form" hidden>
-      <h1>Create your EVOS account</h1>
-      <p class="sub">Not on any EVOS system yet? Set up an account here to get a XERA wallet.</p>
-      <div class="field">
-        <label for="regFullName">Full name</label>
-        <input id="regFullName" autocomplete="name" required/>
-      </div>
-      <div class="field">
-        <label for="regUsername">Username</label>
-        <input id="regUsername" autocomplete="username" pattern="[a-zA-Z0-9_]{3,32}" title="3-32 characters: letters, numbers, underscores only" required/>
-      </div>
-      <div class="field">
-        <label for="regEmail">Email</label>
-        <input id="regEmail" type="email" autocomplete="email" required/>
-      </div>
-      <div class="field">
-        <label for="regPhone">Phone <span class="opt">(optional)</span></label>
-        <input id="regPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="024 123 4567"/>
-      </div>
-      <div class="field">
-        <label for="regPassword">Password</label>
-        <input id="regPassword" type="password" autocomplete="new-password" minlength="8" required/>
-        <span class="field-hint">At least 8 characters.</span>
-      </div>
-      <div class="field">
-        <label for="regPassword2">Confirm password</label>
-        <input id="regPassword2" type="password" autocomplete="new-password" minlength="8" required/>
-      </div>
-      <div class="field">
-        <label for="regRef">Invite code <span class="opt">(optional)</span></label>
-        <input id="regRef" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" pattern="[A-Za-z0-9_\-]{3,64}" title="Letters, numbers, dashes and underscores"/>
-        <span class="field-hint" id="regRefHint"></span>
-      </div>
-      <button class="btn" type="submit">Create account</button>
-      <p class="auth-error" id="registerError" role="alert"></p>
-      <p class="auth-foot">Already have an EVOS account? <button type="button" class="linklike" id="goLogin">Sign in</button></p>
-    </form>
-
-    <p class="auth-foot legal">In-app mining is live. On-chain claiming, withdrawals, and transfers are not yet available.</p>
-  </section>
 
   <!-- ===== APP (dashboard, tabbed) ===== -->
   <div id="walletView" hidden class="wallet-shell">
@@ -204,6 +134,13 @@
               <div class="daily-streak" id="dailyStreakDash"></div>
             </div>
             <button type="button" class="btn daily-btn" id="dailyClaimBtnDash">Claim</button>
+          </div>
+
+          <!-- Server-confirmed readiness cards (js/xera-readiness.js). Hidden until the server answers. -->
+          <div id="readinessCards" hidden>
+            <div class="mini-card" id="notifCard" aria-live="polite"></div>
+            <div class="mini-card" id="kycCard" role="button" tabindex="0"></div>
+            <div class="mini-card" id="feeCard" role="button" tabindex="0"></div>
           </div>
 
           <div class="section-title">Coming soon</div>
