@@ -110,10 +110,25 @@ def kyc_pending(request: Request, authorization: str = Header(default="")):
 
 
 class KycReviewRequest(BaseModel):
-    decision: str = Field(..., pattern="^(VERIFIED|FAILED|INFO_REQUIRED)$")
-    note: str = Field(default="", max_length=500)
+    """
+    Admin-only body. The admin page may name the decision `decision`, `status` or `action`
+    and the note `note`, `reason` or `message`; MORE_INFO is an alias of INFO_REQUIRED.
+    (Authority comes from the admin token, not from this body.)
+    """
+    decision: str | None = Field(default=None, max_length=32)
+    status: str | None = Field(default=None, max_length=32)
+    action: str | None = Field(default=None, max_length=32)
+    note: str | None = Field(default=None, max_length=500)
+    reason: str | None = Field(default=None, max_length=500)
+    message: str | None = Field(default=None, max_length=500)
 
-    model_config = {"extra": "forbid"}
+    model_config = {"extra": "ignore"}
+
+    def resolved(self):
+        raw = (self.decision or self.status or self.action or "").strip().upper().replace(" ", "_")
+        raw = {"MORE_INFO": "INFO_REQUIRED", "APPROVE": "VERIFIED", "APPROVED": "VERIFIED",
+               "REJECT": "FAILED", "REJECTED": "FAILED"}.get(raw, raw)
+        return raw, (self.note or self.reason or self.message or "")
 
 
 @admin_router.post("/kyc/{user_id}/review")
@@ -121,14 +136,15 @@ class KycReviewRequest(BaseModel):
 def kyc_review(request: Request, user_id: int, data: KycReviewRequest, authorization: str = Header(default="")):
     admin_id = _admin_id(authorization)
     try:
-        result = readiness.review_kyc(admin_id, user_id, data.decision, data.note)
+        decision, note = data.resolved()
+        result = readiness.review_kyc(admin_id, user_id, decision, note)
     except readiness.KycError as e:
         status, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not record the review."))
         raise HTTPException(status_code=status, detail=message)
     try:
         supabase.table("xera_admin_actions").insert({
             "admin_id": admin_id, "action": "kyc_review", "old_value": None,
-            "new_value": {"user_id": user_id, "decision": data.decision}, "reason": data.note or None,
+            "new_value": {"user_id": user_id, "decision": decision}, "reason": note or None,
         }).execute()
     except Exception as exc:
         logger.error("XERA KYC REVIEW AUDIT FAILED: %s", exc)

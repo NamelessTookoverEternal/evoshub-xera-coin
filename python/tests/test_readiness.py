@@ -251,3 +251,19 @@ def test_admin_queue_lists_by_status_and_accepts_more_info_alias(api):
     assert api.client.get("/api/admin/xera/kyc?status=MORE_INFO", headers=api.a(7)).json()["count"] == 1
     assert api.client.get("/api/admin/xera/kyc?status=PENDING", headers=api.a(7)).json()["count"] == 0
     assert api.client.get("/api/admin/xera/kyc?status=NOPE", headers=api.a(7)).status_code == 400
+
+
+@pytest.mark.parametrize("body,expected", [
+    ({"status": "MORE_INFO", "reason": "Send a clearer ID"}, "INFO_REQUIRED"),
+    ({"action": "approve"}, "VERIFIED"),
+    ({"decision": "Failed", "message": "Name mismatch"}, "FAILED"),
+])
+def test_review_accepts_the_admin_pages_field_names(api, body, expected):
+    api.client.post("/api/xera/kyc/submit", headers=api.h(1), json=KYC_BODY)
+    r = api.client.post("/api/admin/xera/kyc/1/review", headers=api.a(7), json=body)
+    assert r.status_code == 200 and r.json()["kyc"]["status"] == expected
+
+
+def test_review_with_no_decision_is_rejected(api):
+    api.client.post("/api/xera/kyc/submit", headers=api.h(1), json=KYC_BODY)
+    assert api.client.post("/api/admin/xera/kyc/1/review", headers=api.a(7), json={"note": "x"}).status_code == 400
