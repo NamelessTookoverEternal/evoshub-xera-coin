@@ -1,40 +1,39 @@
-/* XERA dashboard readiness cards (KYC, fee, notifications) and their modals.
-   Reuses .mini-card from xera.css and the .xl-* modal styles from xera-launch.css. */
-#readinessCards{display:flex;flex-direction:column;gap:14px}
-#readinessCards[hidden]{display:none}
+/* Dashboard readiness cards (notifications, KYC, first-transfer fee) + their dialogs.
+   Uses the existing XERA tokens from xera.css; nothing here changes existing components. */
+.readiness-cards{display:flex;flex-direction:column;gap:14px}
+.rd-status-card{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%}
+.rd-status-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rd-row{display:flex;align-items:center;gap:12px}
+.rd-icon{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    font-weight:700;background:rgba(255,255,255,.06);color:var(--text-dim);flex-shrink:0}
+.rd-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rd-main b{font-family:var(--font-display);font-size:1.02rem}
+.rd-main span{font-size:.8rem;color:var(--text-dim)}
+.rd-amount{margin-left:auto;font-family:var(--font-display);font-weight:600}
+[data-tone="ok"] .rd-icon{background:var(--success-soft);color:var(--success)}
+[data-tone="warn"] .rd-icon{background:rgba(255,193,7,.15);color:#ffc107}
+[data-tone="bad"] .rd-icon{background:rgba(255,107,107,.15);color:var(--danger)}
+[data-tone="neutral"] .rd-icon{background:var(--accent-soft);color:var(--accent)}
 
-#kycCard,#feeCard{cursor:pointer;text-align:left;font:inherit;color:inherit;width:100%;position:relative}
-#kycCard:focus-visible,#feeCard:focus-visible{outline:2px solid var(--accent,#4c7eff);outline-offset:2px}
-#kycCard[data-tone="ok"],#feeCard[data-tone="ok"]{border-color:rgba(60,200,140,.45)}
-#kycCard[data-tone="warn"],#feeCard[data-tone="warn"]{border-color:rgba(255,190,70,.45)}
-#kycCard[data-tone="bad"],#feeCard[data-tone="bad"]{border-color:rgba(255,100,100,.45)}
+.rd-notif{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--border)}
+.rd-notif:first-child{border-top:0}
+.rd-notif-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--text-dim);flex-shrink:0}
+.rd-notif[data-tone="ok"] .rd-notif-dot{background:var(--success)}
+.rd-notif[data-tone="warn"] .rd-notif-dot{background:#ffc107}
+.rd-notif[data-tone="bad"] .rd-notif-dot{background:var(--danger)}
+.rd-notif-text{display:flex;flex-direction:column;gap:2px;font-size:.84rem}
+.rd-notif-text span{color:var(--text-dim);font-size:.78rem}
+.rd-empty{margin:0;font-size:.82rem;color:var(--text-dim)}
 
-.xr-pill{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:650;padding:4px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
-.xr-ico{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;font-size:.72rem;line-height:1;font-weight:800}
-.xr-ok{color:#5fe0a8;background:rgba(60,200,140,.12);border-color:rgba(60,200,140,.35)}
-.xr-ok .xr-ico{background:#2fbf86;color:#05140d}
-.xr-warn{color:#ffc766;background:rgba(255,190,70,.12);border-color:rgba(255,190,70,.35)}
-.xr-warn .xr-ico{background:#f0a52e;color:#1c1200}
-.xr-bad{color:#ff8e8e;background:rgba(255,100,100,.12);border-color:rgba(255,100,100,.35)}
-.xr-bad .xr-ico{background:#ef5b5b;color:#200505}
-.xr-neutral{color:var(--text-dim,#9aa4b2);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.14)}
-.xr-neutral .xr-ico{background:rgba(255,255,255,.2);color:#fff}
-
-.xr-fine{font-size:.76rem;color:var(--text-dim,#9aa4b2);line-height:1.45;margin:0}
-.xr-note{font-size:.82rem;color:#ffc766;line-height:1.45;margin:4px 0 0}
-.xr-policy{font-size:.84rem;line-height:1.5;margin:10px 0 0;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05)}
-
-.xr-badge{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#4c7eff;color:#fff;font-size:.72rem;font-weight:700;display:inline-grid;place-items:center}
-.xr-notifs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
-.xr-notifs li{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);font-size:.84rem}
-.xr-notifs li.unread{border-left:3px solid #4c7eff}
-.xr-notifs span{color:var(--text-dim,#9aa4b2);line-height:1.4}
-.xr-notifs time{font-size:.7rem;color:var(--text-dim,#9aa4b2)}
-
-.xr-label{display:flex;flex-direction:column;gap:6px;font-size:.8rem;color:var(--text-dim,#9aa4b2);margin-top:12px}
-.xr-input{min-height:46px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:var(--text,#f2f5fa);font:inherit}
-.xr-input:focus-visible{outline:2px solid var(--accent,#4c7eff);outline-offset:1px}
-.xr-req{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
-.xr-req li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.05)}
-.xl-btn.xr-sm{min-height:40px;padding:0 14px;font-size:.84rem}
-@media (max-width:520px){.xr-req li{flex-direction:column;align-items:stretch}}
+.rd-form{display:flex;flex-direction:column;gap:12px}
+.rd-form label{display:flex;flex-direction:column;gap:5px;font-size:.78rem;color:var(--text-dim)}
+.rd-form input,.rd-form select{
+    background:rgba(255,255,255,.04);border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+    color:var(--text);padding:10px 12px;font:inherit;font-size:.92rem}
+.rd-form input:focus,.rd-form select:focus{outline:none;border-color:var(--accent)}
+.rd-actions{display:flex;gap:10px;margin-top:6px}
+.rd-actions .btn{flex:1}
+.rd-fine{font-size:.76rem;color:var(--text-dim);margin:0}
+.rd-error{color:var(--danger);font-size:.8rem;min-height:1em;margin:0}
+.rd-req-list{list-style:none;margin:0 0 16px;padding:0;display:flex;flex-direction:column;gap:8px}
+.rd-req-list .btn{width:100%}

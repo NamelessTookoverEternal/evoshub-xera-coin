@@ -214,7 +214,7 @@ async function load() {
         loadDaily();
         if (!handlePaystackReturn()) loadHashrate();
         maybeShowWelcome(req);
-        initReadiness(req, () => mining);   // KYC / fee / notification cards; display only, never blocks mining
+        initReadiness({ req, getMining: () => mining, fmtDateTime });
     } catch (err) {
         clearSession();       // dead or rejected session: carry on as a guest
         enterGuestMode();

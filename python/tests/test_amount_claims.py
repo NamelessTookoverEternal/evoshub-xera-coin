@@ -19,6 +19,12 @@ from fastapi.testclient import TestClient
 DIST = "0x" + "AB" * 20
 
 
+@pytest.fixture(autouse=True)
+def _ready_users(fake_supabase):
+    from conftest import mark_transfer_ready
+    mark_transfer_ready(fake_supabase)
+
+
 def _claims():
     return importlib.import_module("xera.chain.claims")
 

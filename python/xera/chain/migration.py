@@ -48,6 +48,7 @@ from main import supabase
 from xera.chain.rpc import first_row
 from xera.chain.config import get_chain_config, ChainConfigError
 from xera.chain.onchain_indexer import verify_bnb_legacy_claim_tx, IndexerError
+from xera import readiness
 
 _XERA_DECIMALS = 18
 
@@ -57,6 +58,14 @@ _MIGRATION_SUPPORTED_CHAINS = ("BNB",)
 
 class MigrationClaimError(Exception):
     pass
+
+
+class MigrationRequirementsError(MigrationClaimError):
+    """KYC and/or the one-time processing fee are missing. `.missing` lists which."""
+
+    def __init__(self, missing):
+        super().__init__("transfer_requirements_incomplete")
+        self.missing = list(missing)
 
 
 def _to_wei(amount_decimal) -> int:
@@ -86,8 +95,6 @@ def prepare_claim(user_id: int, chain: str) -> dict:
         # Fail loudly rather than pretending TON migration exists — see
         # this module's docstring for why it's BNB-only by design.
         raise MigrationClaimError("migration_chain_not_supported")
-    from xera import readiness
-    readiness.require_first_transfer_ready(user_id)   # raises readiness.TransferRequirementsError; routes_chain maps it
     res = supabase.table("xera_migration_snapshot").select("*").eq("user_id", user_id).limit(1).execute()
     if not res.data:
         raise MigrationClaimError("no_legacy_balance")
@@ -105,6 +112,13 @@ def prepare_claim(user_id: int, chain: str) -> dict:
     migration_address = chain_cfg.get("xera_migration_address")
     if not migration_address:
         raise MigrationClaimError("migration_not_configured")
+
+    # Same first-transfer requirements as mining claims (KYC + one-time fee). This is the
+    # point where the Merkle proof is handed out, so it is the backend chokepoint.
+    try:
+        readiness.require_transfer_ready(user_id)
+    except readiness.TransferRequirementsError as e:
+        raise MigrationRequirementsError(e.missing)
 
     return {
         "chain": chain,

@@ -61,16 +61,13 @@ async function req(path, opts = {}) {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
         // FastAPI validation errors come back as an array of objects — never show that raw.
-        const obj = d.detail && typeof d.detail === 'object' && !Array.isArray(d.detail) ? d.detail : null;
-        const detail = typeof d.detail === 'string' ? d.detail
-            : (obj && typeof obj.message === 'string' ? obj.message : 'Something went wrong. Please check the details and try again.');
+        const detail = typeof d.detail === 'string' ? d.detail : 'Something went wrong. Please check the details and try again.';
         const err = new Error(detail);
         err.status = r.status;
-        err.code = obj && typeof obj.code === 'string' ? obj.code : '';
-        if (err.code === 'first_transfer_requirements_incomplete') {
-            // KYC / fee still missing: let the dashboard open the right modal (users can close it and keep mining).
-            window.dispatchEvent(new CustomEvent('xera:transfer-requirements', { detail: { missing: obj.missing || [] } }));
-        }
+        err.code = typeof d.code === 'string' ? d.code : '';
+        err.missing = Array.isArray(d.missing) ? d.missing : [];
+        // KYC / one-time fee not complete: the server refused. Show the "complete these steps" dialog.
+        if (err.code === 'transfer_requirements_incomplete' && window.XeraReadiness) window.XeraReadiness.showRequirements(err.missing);
         if (r.status === 401 && CFG.onUnauthorized) CFG.onUnauthorized();
         throw err;
     }

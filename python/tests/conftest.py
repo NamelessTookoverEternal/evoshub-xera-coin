@@ -166,17 +166,25 @@ def fake_supabase():
     # module already imported in a previous test needs a fresh import here
     # to pick up this test's fake instance.
     for mod in list(sys.modules):
-        if mod.startswith("xera.chain") or mod == "xera.routes_chain":
+        if mod.startswith("xera.chain") or mod in ("xera.routes_chain", "xera.readiness", "xera.routes_readiness", "xera.routes_admin_chain"):
             del sys.modules[mod]
+            # `from xera import readiness` resolves through the package attribute, which would
+            # otherwise keep pointing at the old module (and its old fake Supabase).
+            pkg = sys.modules.get(mod.rpartition(".")[0])
+            if pkg is not None and hasattr(pkg, mod.rpartition(".")[2]):
+                delattr(pkg, mod.rpartition(".")[2])
 
     return fake
 
 
-@pytest.fixture(autouse=True)
-def _first_transfer_gate_off_by_default(monkeypatch):
-    """
-    Older tests exercise the claim/signing code directly and predate the KYC + fee gate
-    (xera/readiness.py), which is ON by default in production. They switch it off here;
-    tests/test_readiness.py switches it back on to test the gate itself.
-    """
-    monkeypatch.setenv("XERA_FIRST_TRANSFER_GATE", "false")
+def mark_transfer_ready(fake, user_ids=tuple(range(1, 11)), *, kyc=True, fee=True):
+    """Seed server-side KYC VERIFIED / fee PAID rows so claim-signing tests exercise the claim
+    logic itself. The gate has its own tests in test_readiness.py."""
+    for uid in user_ids:
+        if kyc:
+            fake.store.setdefault("xera_kyc", []).append(
+                {"user_id": uid, "status": "VERIFIED", "reviewed_by": 999})
+        if fee:
+            fake.store.setdefault("xera_transfer_fee", []).append(
+                {"user_id": uid, "status": "PAID", "payment_reference": f"test-ref-{uid}",
+                 "paid_at": "2026-10-01T00:00:00Z", "amount_minor": 100, "currency": "USD"})

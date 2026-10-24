@@ -22,6 +22,7 @@ from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_cha
 from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
 from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, IndexerError
+from xera import readiness
 
 _CLAIM_SIGNATURE_TTL_SECONDS = 15 * 60
 _XERA_DECIMALS = 18
@@ -32,17 +33,22 @@ class ClaimError(Exception):
 
 
 class ClaimRequirementsError(ClaimError):
-    """First-transfer requirements (KYC / one-time fee) are incomplete. `.missing` says which."""
+    """KYC and/or the one-time processing fee are missing. `.missing` lists which."""
 
     def __init__(self, missing):
-        super().__init__("first_transfer_requirements_incomplete")
+        super().__init__("transfer_requirements_incomplete")
         self.missing = list(missing)
 
 
-def _require_first_transfer_ready(user_id: int) -> None:
-    from xera import readiness
+def require_first_transfer_ready(user_id: int) -> None:
+    """
+    Server-side gate for every route that releases XERA on-chain. Called AFTER the
+    wallet-ownership and chain-enabled checks (those keep their own errors) and BEFORE any
+    balance reservation or signature, so an incomplete user never has funds reserved.
+    The admin pilot is exempt only while it is genuinely active (see readiness.transfer_missing).
+    """
     try:
-        readiness.require_first_transfer_ready(user_id)
+        readiness.require_transfer_ready(user_id)
     except readiness.TransferRequirementsError as e:
         raise ClaimRequirementsError(e.missing)
 
@@ -121,7 +127,6 @@ def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
     amount-based claims could move the same XERA twice. See sign_amount_claim.
     """
     chain = chain.upper()
-    _require_first_transfer_ready(user_id)
 
     # 2/3/4: reference_id belongs to this user, is a real finalized
     # entitlement, and hasn't already been claimed on-chain (any chain —
@@ -162,6 +167,7 @@ def sign_claim(user_id: int, reference_id: str, chain: str) -> dict:
         chain_cfg = require_onchain_enabled(chain)
     except ChainConfigError as e:
         raise ClaimError(str(e))
+    require_first_transfer_ready(user_id)
 
     amount_wei = _to_wei(amount_decimal)
     transferable_wei = (amount_wei * 2500) // 10000
@@ -368,7 +374,6 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
     chain = chain.upper()
     if chain not in ("BNB", "TON"):
         raise ClaimError("unsupported_chain")
-    _require_first_transfer_ready(user_id)
     amount = parse_claim_amount(amount_raw)
 
     wallet = _get_verified_wallet(user_id, chain)
@@ -376,6 +381,7 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
         chain_cfg = require_onchain_enabled(chain)
     except ChainConfigError as e:
         raise ClaimError(str(e))
+    require_first_transfer_ready(user_id)
 
     transferable, locked = split_claim_amount(amount)
     amount_wei = _decimal_to_wei(amount)
@@ -508,7 +514,6 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
     signature, optionally on a different chain than the original attempt.
     """
     chain = chain.upper()
-    _require_first_transfer_ready(user_id)
     res = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
     if not res.data:
         raise ClaimError("claim_not_found")
@@ -528,6 +533,7 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
         chain_cfg = require_onchain_enabled(chain)
     except ChainConfigError as e:
         raise ClaimError(str(e))
+    require_first_transfer_ready(user_id)
 
     deadline_unix = int(time.time()) + _CLAIM_SIGNATURE_TTL_SECONDS
 

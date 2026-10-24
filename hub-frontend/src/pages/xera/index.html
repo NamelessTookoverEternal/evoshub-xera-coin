@@ -18,6 +18,7 @@
 <link href="../../css/xera-splash.css" rel="stylesheet"/>
 <link href="../../css/xera-space.css" rel="stylesheet"/>
   <link rel="stylesheet" href="../../css/xera-gallery.css">
+  <link rel="stylesheet" href="../../css/xera-readiness.css">
   <style id="xera-chain-phase-visibility">[data-panel="chain"]{display:none!important}</style>
 </head>
 <body>
@@ -125,6 +126,31 @@
             <button type="button" class="info-link" data-goto="mine">View mining details →</button>
           </div>
 
+          <!-- Readiness cards: values come only from GET /api/xera/readiness (server-confirmed). -->
+          <div id="readinessCards" class="readiness-cards" hidden>
+            <div class="mini-card" id="notifCard">
+              <div class="mini-card-head"><span class="mini-card-title">Notifications</span></div>
+              <div id="notifList"></div>
+            </div>
+
+            <button type="button" class="mini-card rd-status-card" id="kycCard" data-tone="neutral" aria-label="Identity verification status">
+              <div class="mini-card-head"><span class="mini-card-title">Identity verification</span></div>
+              <div class="rd-row">
+                <span class="rd-icon" id="kycIcon" aria-hidden="true">…</span>
+                <div class="rd-main"><b id="kycLabel">Checking…</b><span id="kycHint"></span></div>
+              </div>
+            </button>
+
+            <button type="button" class="mini-card rd-status-card" id="feeCard" data-tone="neutral" aria-label="First-transfer processing fee status">
+              <div class="mini-card-head"><span class="mini-card-title">First-transfer processing fee</span></div>
+              <div class="rd-row">
+                <span class="rd-icon" aria-hidden="true">$</span>
+                <div class="rd-main"><b id="feeLabel">Checking…</b><span id="feeHint"></span></div>
+                <span class="rd-amount" id="feeAmount"></span>
+              </div>
+            </button>
+          </div>
+
           <div class="mini-card rewards-mini" id="rewardsMiniDash" hidden>
             <div class="mini-card-head">
               <span class="mini-card-title">Daily claim</span>
@@ -134,13 +160,6 @@
               <div class="daily-streak" id="dailyStreakDash"></div>
             </div>
             <button type="button" class="btn daily-btn" id="dailyClaimBtnDash">Claim</button>
-          </div>
-
-          <!-- Server-confirmed readiness cards (js/xera-readiness.js). Hidden until the server answers. -->
-          <div id="readinessCards" hidden>
-            <div class="mini-card" id="notifCard" aria-live="polite"></div>
-            <div class="mini-card" id="kycCard" role="button" tabindex="0"></div>
-            <div class="mini-card" id="feeCard" role="button" tabindex="0"></div>
           </div>
 
           <div class="section-title">Coming soon</div>
@@ -471,6 +490,79 @@
         <span>Profile</span>
       </button>
     </nav>
+  </div>
+
+  <!-- ===== MODAL: verify identity ===== -->
+  <div class="modal-overlay" id="kycModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="kycModalTitle">
+      <div class="modal-head">
+        <h2 id="kycModalTitle">Verify Your Identity</h2>
+        <button class="icon-btn" id="kycClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="rd-fine" style="margin-bottom:14px">Identity verification is required before your first eligible XERA transfer. You can continue mining while verification is pending, but verification must be completed before transferring.</p>
+      <p class="rd-fine" id="kycNote" hidden></p>
+      <p class="rd-fine" id="kycInfo" hidden></p>
+      <form class="rd-form" id="kycForm" autocomplete="off">
+        <label>Full legal name<input id="kycName" required minlength="3" maxlength="120" autocomplete="name"/></label>
+        <label>Country<input id="kycCountry" required minlength="2" maxlength="56" autocomplete="country-name"/></label>
+        <label>ID type
+          <select id="kycIdType" required>
+            <option value="national_id">National ID</option>
+            <option value="passport">Passport</option>
+            <option value="drivers_license">Driver's licence</option>
+            <option value="voters_id">Voter's ID</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>ID number<input id="kycIdNumber" required minlength="4" maxlength="64" autocomplete="off"/></label>
+        <p class="rd-fine">Reviewed manually by our team. We keep only your name, country, ID type and the last 4 characters of your ID number. Do not upload or send photos of documents. Never share a seed phrase or wallet password.</p>
+        <p class="rd-error" id="kycError" role="alert"></p>
+        <div class="rd-actions">
+          <button type="submit" class="btn" id="kycSubmit">Verify My Identity</button>
+          <button type="button" class="btn btn-ghost" id="kycLater">Maybe Later</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: first-transfer processing fee ===== -->
+  <div class="modal-overlay" id="feeModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="feeModalTitle">
+      <div class="modal-head">
+        <h2 id="feeModalTitle">First-Time Transfer Processing Fee</h2>
+        <button class="icon-btn" id="feeClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="rd-fine" id="feeModalStatus" style="margin-bottom:10px"></p>
+      <ul class="info-list">
+        <li>A <b>one-time</b> processing fee is required before your first eligible XERA transfer.</li>
+        <li>It is <b>not the price of XERA</b> and it is <b>not blockchain gas</b>. Network fees are separate.</li>
+        <li>Payment <b>does not guarantee</b> a successful transfer. Wallet verification and all other requirements still apply.</li>
+      </ul>
+      <p class="rd-fine" id="feeRefund" style="margin-bottom:14px"></p>
+      <div class="rd-actions">
+        <button type="button" class="btn" id="feePay" disabled>Continue to Payment</button>
+        <button type="button" class="btn btn-ghost" id="feeCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: first transfer needs more steps ===== -->
+  <div class="modal-overlay" id="reqModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reqTitle">
+      <div class="modal-head">
+        <h2 id="reqTitle">Complete these steps first</h2>
+        <button class="icon-btn" id="reqClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="rd-fine" style="margin-bottom:12px">These are required before your first XERA transfer. Your balance is untouched and you can keep mining.</p>
+      <ul class="rd-req-list" id="reqList"></ul>
+      <button type="button" class="btn btn-ghost" id="reqLater" style="width:100%">Maybe Later</button>
+    </div>
   </div>
 
   <!-- ===== MODAL: how mining works ===== -->

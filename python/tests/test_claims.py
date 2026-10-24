@@ -5,6 +5,12 @@ import pytest
 from eth_account import Account
 
 
+@pytest.fixture(autouse=True)
+def _ready_users(fake_supabase):
+    from conftest import mark_transfer_ready
+    mark_transfer_ready(fake_supabase)
+
+
 def _seed_chain_config(fake_supabase, distributor="0x" + "AB" * 20, enabled=True, vesting="0x" + "CD" * 20):
     fake_supabase.store["xera_chain_config"] = [{
         "chain": "BNB", "network": "testnet",

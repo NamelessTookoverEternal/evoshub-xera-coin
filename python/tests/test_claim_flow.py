@@ -7,6 +7,12 @@ from eth_account import Account
 
 # ---------------------------------------------------------------- helpers
 
+@pytest.fixture(autouse=True)
+def _ready_users(fake_supabase):
+    from conftest import mark_transfer_ready
+    mark_transfer_ready(fake_supabase)
+
+
 def _setup(fake, *, reference_id="session-100", amount=1000.0, user_id=1, wallet="verified", chain="BNB"):
     fake.store["xera_chain_config"] = [{
         "chain": "BNB", "network": "testnet", "xera_distributor_address": "0x" + "AB" * 20,
