@@ -239,3 +239,15 @@ def test_mining_and_balance_code_does_not_depend_on_the_gate():
 def test_fee_defaults_are_usd_one_dollar_and_collection_is_off(api):
     f = api.client.get("/api/xera/readiness", headers=api.h(1)).json()["fee"]
     assert (f["amount_minor"], f["currency"], f["collection_enabled"]) == (100, "USD", False)
+
+
+def test_admin_queue_lists_by_status_and_accepts_more_info_alias(api):
+    api.client.post("/api/xera/kyc/submit", headers=api.h(1), json=KYC_BODY)
+    assert api.client.get("/api/admin/xera/kyc?status=PENDING").status_code == 401
+    assert api.client.get("/api/admin/xera/kyc?status=PENDING", headers=api.h(1)).status_code == 401
+    ok = api.client.get("/api/admin/xera/kyc?status=PENDING", headers=api.a(7)).json()
+    assert ok["count"] == 1 and ok["items"][0]["user_id"] == 1 and "id_number" not in ok["items"][0]
+    api.client.post("/api/admin/xera/kyc/1/review", headers=api.a(7), json={"decision": "INFO_REQUIRED", "note": "Send a clearer ID"})
+    assert api.client.get("/api/admin/xera/kyc?status=MORE_INFO", headers=api.a(7)).json()["count"] == 1
+    assert api.client.get("/api/admin/xera/kyc?status=PENDING", headers=api.a(7)).json()["count"] == 0
+    assert api.client.get("/api/admin/xera/kyc?status=NOPE", headers=api.a(7)).status_code == 400

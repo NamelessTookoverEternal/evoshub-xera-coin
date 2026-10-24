@@ -257,10 +257,21 @@ def review_kyc(admin_id: int, user_id: int, decision: str, note: str = "") -> di
     return {"user_id": user_id, "status": decision}
 
 
-def list_pending_kyc(limit: int = 50) -> list:
-    res = (supabase.table("xera_kyc").select("user_id,status,legal_name,country,id_type,id_last4,submitted_at")
-           .eq("status", "PENDING").order("submitted_at").limit(limit).execute())
+def list_kyc(status: str = "PENDING", limit: int = 100) -> list:
+    """Review queue by status. MORE_INFO is accepted as an alias of INFO_REQUIRED."""
+    status = (status or "PENDING").upper()
+    if status == "MORE_INFO":
+        status = "INFO_REQUIRED"
+    if status not in KYC_STATUSES:
+        raise KycError("invalid_status")
+    res = (supabase.table("xera_kyc")
+           .select("user_id,status,legal_name,country,id_type,id_last4,submitted_at,reviewed_at,reviewed_by,review_note")
+           .eq("status", status).order("submitted_at").limit(limit).execute())
     return res.data or []
+
+
+def list_pending_kyc(limit: int = 50) -> list:
+    return list_kyc("PENDING", limit)
 
 
 # ------------------------------------------------------------ HTTP shape

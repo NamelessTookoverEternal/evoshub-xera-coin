@@ -31,6 +31,7 @@ _KYC_ERROR_HTTP = {
     "kyc_unavailable":        (503, "Verification is temporarily unavailable. Please try again later."),
     "kyc_already_pending":    (409, "Your verification is already being reviewed."),
     "kyc_already_verified":   (409, "You are already verified."),
+    "invalid_status":         (400, "Status must be PENDING, MORE_INFO, FAILED or VERIFIED."),
     "invalid_decision":       (400, "Decision must be VERIFIED, FAILED or INFO_REQUIRED."),
     "cannot_review_own_kyc":  (403, "You cannot review your own verification."),
     "kyc_not_found":          (404, "No verification request found for that user."),
@@ -87,6 +88,19 @@ def kyc_submit(request: Request, data: KycSubmitRequest, authorization: str = He
 
 
 # ------------------------------------------------------------ admin review
+
+@admin_router.get("/kyc")
+@limiter.limit("60/minute")
+def kyc_list(request: Request, status: str = "PENDING", authorization: str = Header(default="")):
+    """Review queue for the admin KYC page: ?status=PENDING|MORE_INFO|FAILED|VERIFIED."""
+    _admin_id(authorization)
+    try:
+        rows = readiness.list_kyc(status)
+    except readiness.KycError as e:
+        code, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not load the queue."))
+        raise HTTPException(status_code=code, detail=message)
+    return {"status": "ok", "items": rows, "requests": rows, "count": len(rows)}
+
 
 @admin_router.get("/kyc/pending")
 @limiter.limit("30/minute")
