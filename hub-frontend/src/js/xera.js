@@ -36,7 +36,7 @@ async function req(path, opts = {}) {
 // enforces the same rules; this only decides what to show.
 const isGuest = () => !token() || isExpired(token());
 const askSignIn = (action) => requireAuthFor(action, { next: '/xera' });
-const GATED_TABS = { wallet: 'view your wallet', activity: 'see your activity', rewards: 'see your rewards', profile: 'view your profile' };
+const GATED_TABS = { wallet: 'view your wallet', activity: 'see your activity', rewards: 'see your rewards', notifications: 'see your notifications', profile: 'view your profile' };
 let signedIn = false;
 
 function clearSession() {
@@ -350,6 +350,19 @@ function fmtDateTime(d) {
     return d.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+function fmtClock(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// Dashboard square: time spent in the current mining status + the amount calculated so far.
+function setDashSquare(elapsed, earned, label, state) {
+    if ($('miningElapsedDash')) $('miningElapsedDash').textContent = elapsed;
+    if ($('miningEarnedDash')) $('miningEarnedDash').textContent = earned;
+    if ($('miningEarnLabelDash')) $('miningEarnLabelDash').textContent = label;
+    if ($('miningCardDash')) $('miningCardDash').dataset.state = state;
+}
+
 function renderMining() {
     const btn = $('miningAction');
     const btnDash = $('miningActionDash');
@@ -364,6 +377,7 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot';
         $('rewardText').textContent = 'The server controls the mining timer.';
         $('rewardTextDash').textContent = '';
+        setDashSquare('--:--:--', '0 XERA', 'Earned so far', 'idle');
         $('miningMeta').hidden = true;
         [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
         return;
@@ -392,6 +406,7 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot ready';
         $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
+        setDashSquare(fmtClock(end - start), `${fmt(mining.estimated_reward)} XERA`, 'Ready to claim', 'ready');
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
     } else {
         setRing(fraction, false);
@@ -408,6 +423,7 @@ function renderMining() {
         $('miningDotDash').className = 'mini-dot active';
         $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
         $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
+        setDashSquare(fmtClock(now - start), `+${fmt(mining.estimated_reward * fraction)} XERA`, 'Earned so far', 'active');
         [btn, btnDash].forEach((b) => { b.textContent = 'Mining active'; b.classList.remove('ready'); b.disabled = true; });
     }
 }

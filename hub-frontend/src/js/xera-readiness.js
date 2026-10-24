@@ -99,8 +99,12 @@ function renderNotifications() {
     const list = $('notifList');
     list.replaceChildren();
     const items = notificationItems();
-    if (!items.length) { list.appendChild(el('p', 'rd-empty', 'No new notifications.')); return; }
-    items.slice(0, 6).forEach((it) => {
+    if (!items.length) { list.appendChild(el('p', 'rd-empty', 'No new notifications.')); if ($('notifBadge')) $('notifBadge').hidden = true; if ($('notifLabel')) $('notifLabel').textContent = 'All clear'; return; }
+    const n = items.length;
+    const badge = $('notifBadge'), label = $('notifLabel');
+    if (badge) { badge.textContent = n > 9 ? '9+' : String(n); badge.hidden = n === 0; }
+    if (label) label.textContent = n === 0 ? 'All clear' : `${n} update${n === 1 ? '' : 's'}`;
+    items.slice(0, 50).forEach((it) => {
         const row = el('div', 'rd-notif');
         row.dataset.tone = it.tone || 'neutral';
         row.appendChild(el('span', 'rd-notif-dot'));
