@@ -29,7 +29,7 @@ function el(tag, attrs = {}, kids = []) {
 
 async function fetchImage(docId) {
   // Same auth as every other call, but the body is an image, so it is read as a blob and shown from memory only.
-  const r = await fetch(`${API_BASE}/api/admin/xera/kyc/documents/${docId}/image`, { headers: { Authorization: `Bearer ${token()}`, 'Cache-Control': 'no-store' }, cache: 'no-store' });
+  const r = await fetch(`${API_BASE}/api/admin/xera/kyc/documents/${docId}/image`, { headers: { Authorization: `Bearer ${token()}` }, cache: 'no-store' });
   if (r.status === 401) { toLogin(); throw new Error('signed out'); }
   if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(typeof d.detail === 'string' ? d.detail : 'Could not load the image'); }
   return URL.createObjectURL(await r.blob());

@@ -1,0 +1,51 @@
+{
+  "redirects": [
+    { "source": "/store/:path*", "destination": "/evosdata/store/:path*", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/appevoxera", "destination": "/appevoxera.html" },
+    { "source": "/home", "destination": "/home.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/services", "destination": "/services.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/website-creation", "destination": "/website-creation.html" },
+    { "source": "/business-tools", "destination": "/business-tools.html" },
+    { "source": "/admin-login", "destination": "/admin-login.html" },
+    { "source": "/admin-website-chat", "destination": "/admin-website-chat.html" },
+    { "source": "/xera", "destination": "/xera/index.html" },
+    { "source": "/xera/", "destination": "/xera/index.html" },
+    { "source": "/xera/dashboard", "destination": "/xera/app.html" },
+    { "source": "/xera/dashboard/", "destination": "/xera/app.html" },
+    { "source": "/xera/invite", "destination": "/xera/invite.html" },
+    { "source": "/xera/invite/", "destination": "/xera/invite.html" },
+    { "source": "/xera/whitepaper", "destination": "/xera/whitepaper.html" },
+    { "source": "/xera/whitepaper/", "destination": "/xera/whitepaper.html" },
+    { "source": "/xera/stats", "destination": "/xera/stats.html" },
+    { "source": "/xera/tokenomics", "destination": "/xera/tokenomics.html" },
+    { "source": "/xera/roadmap", "destination": "/xera/roadmap.html" },
+    { "source": "/xera/faq", "destination": "/xera/faq.html" },
+    { "source": "/xera/disclosure", "destination": "/xera/disclosure.html" },
+    { "source": "/ecosystem", "destination": "/ecosystem.html" },
+    { "source": "/evosdata", "destination": "/evosdata/index.html" },
+    { "source": "/evosdata/", "destination": "/evosdata/index.html" },
+    { "source": "/evosdata/:path((?!assets/|icons/|images/)[^.]*)", "destination": "/evosdata/index.html" },
+    { "source": "/evosgpt", "destination": "/evosgpt/index.html" },
+    { "source": "/evosgpt/", "destination": "/evosgpt/index.html" },
+    { "source": "/evosgpt/:path((?!assets/|icons/|images/)[^.]*)", "destination": "/evosgpt/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com https://fonts.reown.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.evoshub.xyz https://api.evosdata.xyz https://*.fly.dev https://*.onrender.com https://raw.githubusercontent.com https://config.ton.org https://*.tonapi.io https://*.tonhubapi.com https://*.mytonwallet.org https://*.tonkeeper.com https://*.walletbot.me https://*.tonconnect.org https://*.ton.org https://*.walletconnect.org https://*.walletconnect.com wss://*.walletconnect.org wss://*.walletconnect.com https://*.reown.com wss://*.reown.com https://*.web3modal.org https://*.web3modal.com https://bsc-dataseed.bnbchain.org https://bsc-testnet-rpc.publicnode.com https://data-seed-prebsc-1-s1.bnbchain.org; frame-src https://verify.walletconnect.org https://verify.walletconnect.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        }
+      ]
+    }
+  ]
+}
