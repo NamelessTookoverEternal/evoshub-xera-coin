@@ -3295,56 +3295,91 @@ async def startup_event():
 # SPACEMAIL SMTP
 # =========================
 
-def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
+def _mask_email(e: str) -> str:
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Evoxera Technology — Password Reset OTP"
-        msg["From"]    = f"Evoxera Technology Team <{SMTP_USER}>"
-        msg["To"]      = to_email
+        name, dom = e.split("@", 1)
+        return f"{name[:2]}***@{dom}"
+    except Exception:
+        return "***"
 
-        html = f"""
-        <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;
-                    padding:24px;border:1px solid #eee;border-radius:8px;">
-            <h2 style="color:#1a1a1a;">Password Reset</h2>
 
-            <p>Hi <strong>{full_name}</strong>,</p>
-
-            <p>
-                Use the OTP below to reset your <strong>Evos password</strong>.
-                This password is used across your EvosHub products and services
-                by <strong>Evoxera Technology</strong>.
-                The OTP expires in <strong>10 minutes</strong>.
-            </p>
-
-            <div style="font-size:36px;font-weight:bold;letter-spacing:8px;
-                        text-align:center;padding:16px;background:#f4f4f4;
-                        border-radius:6px;margin:24px 0;">
-                {otp}
-            </div>
-
-            <p style="color:#888;font-size:13px;">
-                If you didn't request this password reset, you can safely ignore
-                this email. Your password won't change.
-            </p>
-
-            <p style="color:#888;font-size:13px;">
-                — Evoxera Technology Team
-            </p>
-        </div>
-        """
-
-        msg.attach(MIMEText(html, "html"))
-
-        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.sendmail(SMTP_USER, to_email, msg.as_string())
-
-        logger.info("OTP EMAIL: sent to %s", to_email)
-        return True
-
-    except Exception as e:
-        logger.error("SPACEMAIL SMTP ERROR: %s", str(e))
+def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
+    if not SMTP_PASSWORD:
+        logger.error("OTP EMAIL: SMTP_PASSWORD env var is not set — cannot send to %s", _mask_email(to_email))
         return False
+
+    from email.utils import formatdate, make_msgid
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"]    = "Your EvosHub password reset code"
+    msg["From"]       = f"EvosHub Support <{SMTP_USER}>"
+    msg["To"]         = to_email
+    msg["Reply-To"]   = "support@evoshub.xyz"
+    msg["Date"]       = formatdate(localtime=False)
+    msg["Message-ID"] = make_msgid(domain="evoshub.xyz")
+
+    text = (
+        f"Hi {full_name},\n\n"
+        f"Your EvosHub password reset code is: {otp}\n"
+        f"It expires in 10 minutes.\n\n"
+        f"If you didn't request this, you can ignore this email.\n\n"
+        f"EvosHub Support - support@evoshub.xyz"
+    )
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;
+                padding:24px;border:1px solid #eee;border-radius:8px;">
+        <h2 style="color:#1a1a1a;">Password Reset</h2>
+        <p>Hi <strong>{full_name}</strong>,</p>
+        <p>
+            Use the OTP below to reset your <strong>Evos password</strong>.
+            This password is used across your EvosHub products and services
+            by <strong>Evoxera Technology</strong>.
+            The OTP expires in <strong>10 minutes</strong>.
+        </p>
+        <div style="font-size:36px;font-weight:bold;letter-spacing:8px;
+                    text-align:center;padding:16px;background:#f4f4f4;
+                    border-radius:6px;margin:24px 0;">
+            {otp}
+        </div>
+        <p style="color:#888;font-size:13px;">
+            If you didn't request this password reset, you can safely ignore
+            this email. Your password won't change.
+        </p>
+        <p style="color:#888;font-size:13px;">
+            Need help? support@evoshub.xyz<br>— Evoxera Technology Team
+        </p>
+    </div>
+    """
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
+
+    # Try SSL (465) first, then STARTTLS (587) — some hosts block one of them.
+    attempts = [(SMTP_HOST, SMTP_PORT, SMTP_PORT == 465)]
+    if SMTP_PORT == 465:
+        attempts.append((SMTP_HOST, 587, False))
+    last_err = None
+    for host, port, use_ssl in attempts:
+        try:
+            if use_ssl:
+                server = smtplib.SMTP_SSL(host, port, timeout=15)
+            else:
+                server = smtplib.SMTP(host, port, timeout=15)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+            with server:
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                refused = server.sendmail(SMTP_USER, [to_email], msg.as_string())
+            if refused:
+                logger.error("OTP EMAIL: recipient refused %s: %s", _mask_email(to_email), refused)
+                return False
+            logger.warning("OTP EMAIL: sent to %s via %s:%s", _mask_email(to_email), host, port)
+            return True
+        except Exception as e:
+            last_err = e
+            logger.error("OTP EMAIL: SMTP failure via %s:%s: %r", host, port, e)
+    logger.error("OTP EMAIL: all SMTP attempts failed for %s: %r", _mask_email(to_email), last_err)
+    return False
 
 # =========================
 # ORDERS
@@ -6009,11 +6044,12 @@ def forgot_password(request: Request, data: ForgotPasswordRequest):
 
         user_res = supabase.table("users") \
             .select("id, full_name, email") \
-            .eq("email", email) \
+            .ilike("email", email) \
             .limit(1) \
             .execute()
 
         if not user_res.data:
+            logger.warning("FORGOT PASSWORD: no account matches %s", _mask_email(email))
             return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
         user    = user_res.data[0]
@@ -6059,7 +6095,7 @@ def verify_otp(request: Request, data: VerifyOTPRequest):
 
         user_res = supabase.table("users") \
             .select("id") \
-            .eq("email", email) \
+            .ilike("email", email) \
             .limit(1) \
             .execute()
 
@@ -6103,7 +6139,7 @@ def reset_password(request: Request, data: ResetPasswordRequest):
 
         user_res = supabase.table("users") \
             .select("id") \
-            .eq("email", email) \
+            .ilike("email", email) \
             .limit(1) \
             .execute()
 
