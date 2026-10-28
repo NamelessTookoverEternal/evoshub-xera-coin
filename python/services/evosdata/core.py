@@ -3316,7 +3316,7 @@ def _send_via_http_api(to_email: str, subject: str, html: str, text: str) -> "bo
     Returns True/False when a provider is configured, None when none is configured.
     Providers: Resend (RESEND_API_KEY) or Brevo (BREVO_API_KEY)."""
     sender = os.getenv("MAIL_FROM", "support@evoshub.xyz")
-    name   = os.getenv("MAIL_FROM_NAME", "EvosHub Support")
+    name   = os.getenv("MAIL_FROM_NAME", "Evoxera Technology Team")
 
     resend_key = os.getenv("RESEND_API_KEY")
     if resend_key:
@@ -3364,8 +3364,8 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     from email.utils import formatdate, make_msgid
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"]    = "Your EvosHub password reset code"
-    msg["From"]       = f"EvosHub Support <{SMTP_USER}>"
+    msg["Subject"]    = "Evoxera Technology — Password Reset OTP"
+    msg["From"]       = f"Evoxera Technology Team <{SMTP_USER}>"
     msg["To"]         = to_email
     msg["Reply-To"]   = "support@evoshub.xyz"
     msg["Date"]       = formatdate(localtime=False)
@@ -3373,10 +3373,10 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
 
     text = (
         f"Hi {full_name},\n\n"
-        f"Your EvosHub password reset code is: {otp}\n"
+        f"Your password reset code is: {otp}\n"
         f"It expires in 10 minutes.\n\n"
         f"If you didn't request this, you can ignore this email.\n\n"
-        f"EvosHub Support - support@evoshub.xyz"
+        f"Evoxera Technology Team - support@evoshub.xyz"
     )
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:480px;margin:auto;
@@ -3407,7 +3407,7 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     msg.attach(MIMEText(html, "html"))
 
     # Preferred: HTTPS email API (SMTP ports are blocked on Render).
-    api_result = _send_via_http_api(to_email, "Your EvosHub password reset code", html, text)
+    api_result = _send_via_http_api(to_email, "Evoxera Technology — Password Reset OTP", html, text)
     if api_result is not None:
         return api_result
 
