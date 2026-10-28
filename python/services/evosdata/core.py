@@ -9,7 +9,7 @@ Differences from the standalone app are limited to: shared limiter / Supabase
 client, Hub-session authentication (see "HUB SESSION" below), environment
 validation, and URLs that used to point at the standalone deployment.
 """
-from fastapi import APIRouter, Request, HTTPException, Query, Depends, Header
+from fastapi import APIRouter, Request, HTTPException, Query, Depends, Header, BackgroundTasks
 from slowapi.util import get_remote_address
 
 import os
@@ -3311,11 +3311,56 @@ def _mask_email(e: str) -> str:
         return "***"
 
 
-def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
-    if not SMTP_PASSWORD:
-        _otp_log("OTP EMAIL: SMTP_PASSWORD env var is not set — cannot send to %s", _mask_email(to_email))
-        return False
+def _send_via_http_api(to_email: str, subject: str, html: str, text: str) -> "bool | None":
+    """Send over HTTPS (port 443) — works on hosts that block SMTP (Render free/starter).
+    Returns True/False when a provider is configured, None when none is configured.
+    Providers: Resend (RESEND_API_KEY) or Brevo (BREVO_API_KEY)."""
+    sender = os.getenv("MAIL_FROM", "support@evoshub.xyz")
+    name   = os.getenv("MAIL_FROM_NAME", "EvosHub Support")
 
+    resend_key = os.getenv("RESEND_API_KEY")
+    if resend_key:
+        try:
+            r = requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                json={"from": f"{name} <{sender}>", "to": [to_email], "reply_to": "support@evoshub.xyz",
+                      "subject": subject, "html": html, "text": text},
+                timeout=15,
+            )
+            if r.status_code in (200, 201, 202):
+                _otp_log("OTP EMAIL: sent to %s via Resend", _mask_email(to_email))
+                return True
+            _otp_log("OTP EMAIL: Resend rejected (%s): %s", r.status_code, r.text[:300])
+            return False
+        except Exception as e:
+            _otp_log("OTP EMAIL: Resend request failed: %r", e)
+            return False
+
+    brevo_key = os.getenv("BREVO_API_KEY")
+    if brevo_key:
+        try:
+            r = requests.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={"api-key": brevo_key, "Content-Type": "application/json", "accept": "application/json"},
+                json={"sender": {"name": name, "email": sender}, "to": [{"email": to_email}],
+                      "replyTo": {"email": "support@evoshub.xyz"},
+                      "subject": subject, "htmlContent": html, "textContent": text},
+                timeout=15,
+            )
+            if r.status_code in (200, 201, 202):
+                _otp_log("OTP EMAIL: sent to %s via Brevo", _mask_email(to_email))
+                return True
+            _otp_log("OTP EMAIL: Brevo rejected (%s): %s", r.status_code, r.text[:300])
+            return False
+        except Exception as e:
+            _otp_log("OTP EMAIL: Brevo request failed: %r", e)
+            return False
+
+    return None
+
+
+def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     from email.utils import formatdate, make_msgid
 
     msg = MIMEMultipart("alternative")
@@ -3361,7 +3406,16 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     msg.attach(MIMEText(text, "plain"))
     msg.attach(MIMEText(html, "html"))
 
-    # Try SSL (465) first, then STARTTLS (587) — some hosts block one of them.
+    # Preferred: HTTPS email API (SMTP ports are blocked on Render).
+    api_result = _send_via_http_api(to_email, "Your EvosHub password reset code", html, text)
+    if api_result is not None:
+        return api_result
+
+    if not SMTP_PASSWORD:
+        _otp_log("OTP EMAIL: no RESEND_API_KEY/BREVO_API_KEY and no SMTP_PASSWORD set — cannot send to %s", _mask_email(to_email))
+        return False
+
+    # Fallback: SMTP. Try SSL (465) first, then STARTTLS (587) — some hosts block one of them.
     attempts = [(SMTP_HOST, SMTP_PORT, SMTP_PORT == 465)]
     if SMTP_PORT == 465:
         attempts.append((SMTP_HOST, 587, False))
@@ -3369,9 +3423,9 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     for host, port, use_ssl in attempts:
         try:
             if use_ssl:
-                server = smtplib.SMTP_SSL(host, port, timeout=15)
+                server = smtplib.SMTP_SSL(host, port, timeout=8)
             else:
-                server = smtplib.SMTP(host, port, timeout=15)
+                server = smtplib.SMTP(host, port, timeout=8)
                 server.ehlo()
                 server.starttls()
                 server.ehlo()
@@ -6046,7 +6100,7 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/auth/forgot-password")
 @limiter.limit("3/minute")
-def forgot_password(request: Request, data: ForgotPasswordRequest):
+def forgot_password(request: Request, data: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     try:
         email = str(data.email).strip().lower()
 
@@ -6080,14 +6134,14 @@ def forgot_password(request: Request, data: ForgotPasswordRequest):
             "used":       False,
         }).execute()
 
-        sent = send_otp_email(
-            to_email  = user["email"],
-            otp       = otp,
-            full_name = user.get("full_name", "User")
+        # Send in the background so the request returns instantly (a slow mail
+        # provider must never make the page time out).
+        background_tasks.add_task(
+            send_otp_email,
+            user["email"],
+            otp,
+            user.get("full_name") or "User",
         )
-
-        if not sent:
-            _otp_log("FORGOT PASSWORD: email failed for user %s", user_id)
 
         return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
