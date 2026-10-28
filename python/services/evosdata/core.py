@@ -6098,11 +6098,29 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=6, max_length=128)
 
 
+def _relay_forgot_password(email: str) -> None:
+    """Ask the standalone EVOS Data backend (Fly.io, where SMTP works) to create the OTP and
+    email it. Both backends share the same database, so /auth/verify-otp and /auth/reset-password
+    here accept that OTP. Used only when no HTTPS email API key is configured."""
+    url = os.getenv("EVOSDATA_MAIL_RELAY_URL", "").rstrip("/")
+    try:
+        r = requests.post(f"{url}/auth/forgot-password", json={"email": email}, timeout=40)
+        _otp_log("FORGOT PASSWORD: relay to standalone returned %s for %s", r.status_code, _mask_email(email))
+    except Exception as e:
+        _otp_log("FORGOT PASSWORD: relay to standalone failed: %r", e)
+
+
 @router.post("/auth/forgot-password")
 @limiter.limit("3/minute")
 def forgot_password(request: Request, data: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     try:
         email = str(data.email).strip().lower()
+
+        # No HTTPS mail API configured but a standalone backend is: let it send (see above).
+        if (os.getenv("EVOSDATA_MAIL_RELAY_URL") and not os.getenv("RESEND_API_KEY")
+                and not os.getenv("BREVO_API_KEY")):
+            background_tasks.add_task(_relay_forgot_password, email)
+            return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
         user_res = supabase.table("users") \
             .select("id, full_name, email") \
