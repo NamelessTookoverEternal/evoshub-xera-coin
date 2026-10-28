@@ -529,6 +529,17 @@
       <p class="rd-fine" style="margin-bottom:14px">Identity verification is required before your first eligible XERA transfer. You can continue mining while verification is pending, but verification must be completed before transferring.</p>
       <p class="rd-fine" id="kycNote" hidden></p>
       <p class="rd-fine" id="kycInfo" hidden></p>
+      <form class="rd-form" id="kycProviderForm" autocomplete="off" hidden>
+        <label>Where is your ID from?
+          <select id="kycProviderCountry" required><option value="">Select your country</option></select>
+        </label>
+        <p class="rd-fine" id="kycProviderText">You will be taken to our verification partner to photograph your ID or passport and take a selfie. We never receive or store those images. After the automatic check, our team confirms the result.</p>
+        <p class="rd-error" id="kycProviderError" role="alert"></p>
+        <div class="rd-actions">
+          <button type="submit" class="btn" id="kycProviderStart">Continue to verification</button>
+          <button type="button" class="btn btn-ghost" id="kycProviderLater">Maybe Later</button>
+        </div>
+      </form>
       <form class="rd-form" id="kycForm" autocomplete="off">
         <label>Full legal name<input id="kycName" required minlength="3" maxlength="120" autocomplete="name"/></label>
         <label>Country<input id="kycCountry" required minlength="2" maxlength="56" autocomplete="country-name"/></label>

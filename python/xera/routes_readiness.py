@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 from main import supabase, limiter
 from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.admin_auth import AdminTokenInvalid, require_active_admin
-from xera import readiness
+from xera import kyc_provider, readiness
+from xera.kyc_providers.base import KycWebhookError
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -35,6 +36,15 @@ _KYC_ERROR_HTTP = {
     "invalid_decision":       (400, "Decision must be VERIFIED, FAILED or INFO_REQUIRED."),
     "cannot_review_own_kyc":  (403, "You cannot review your own verification."),
     "kyc_not_found":          (404, "No verification request found for that user."),
+    "provider_not_approved":  (409, "The verification provider has not approved this case yet, so it can't be verified."),
+    "use_provider_verification": (409, "Please verify through the secure verification page."),
+    "invalid_country":        (400, "Choose your country."),
+    "provider_not_configured": (503, "Online verification isn't available yet."),
+    "provider_unreachable":   (502, "The verification service is unreachable. Please try again shortly."),
+    "provider_refused":       (502, "The verification service could not start. Please try again shortly."),
+    "provider_bad_response":  (502, "The verification service could not start. Please try again shortly."),
+    "country_not_supported":  (400, "Verification isn't available for that country yet."),
+    "provider_unavailable":   (502, "The verification service could not start. Please try again shortly."),
     "kyc_not_pending":        (409, "That request is not waiting for review."),
     "note_required":          (400, "A note is required when rejecting or asking for more information."),
 }
@@ -62,7 +72,7 @@ def _admin_id(authorization: str) -> int:
 def get_readiness(request: Request, authorization: str = Header(default="")):
     """Server-confirmed KYC, fee status, missing first-transfer requirements and notifications."""
     user_id = _current_user_id(authorization)
-    return {"status": "ok", **readiness.readiness_summary(user_id)}
+    return {"status": "ok", **readiness.readiness_summary(user_id), "kyc_options": kyc_provider.options()}
 
 
 _FEE_ERROR_HTTP = {
@@ -102,6 +112,9 @@ class KycSubmitRequest(BaseModel):
 @limiter.limit("5/minute")
 def kyc_submit(request: Request, data: KycSubmitRequest, authorization: str = Header(default="")):
     user_id = _current_user_id(authorization)
+    if not kyc_provider.manual_allowed():
+        # A verification provider is on: details typed into a form are not a substitute for the ID + selfie check.
+        raise HTTPException(status_code=409, detail=_KYC_ERROR_HTTP["use_provider_verification"][1])
     try:
         result = readiness.submit_kyc(user_id, data.legal_name, data.country, data.id_type, data.id_number)
     except readiness.KycError as e:
@@ -110,19 +123,64 @@ def kyc_submit(request: Request, data: KycSubmitRequest, authorization: str = He
     return {"status": "ok", "kyc": result}
 
 
+class KycStartRequest(BaseModel):
+    # The browser says only WHICH COUNTRY. The server picks the provider; there is no status or provider field.
+    country: str = Field(..., min_length=2, max_length=2)
+
+    model_config = {"extra": "forbid"}
+
+
+@router.post("/kyc/start")
+@limiter.limit("5/minute")
+def kyc_start(request: Request, data: KycStartRequest, authorization: str = Header(default="")):
+    """Start (or restart) hosted ID + selfie verification. Returns the provider's page to open."""
+    user_id = _current_user_id(authorization)
+    try:
+        result = kyc_provider.start(user_id, data.country)
+    except kyc_provider.KycStartError as e:
+        status, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not start verification."))
+        if str(e) == "kyc_already_pending":
+            message = "Your verification is already being reviewed."
+        elif str(e) == "kyc_already_verified":
+            message = "You are already verified."
+        raise HTTPException(status_code=409 if str(e).startswith("kyc_already") else status, detail=message)
+    return {"status": "ok", **result}
+
+
+@router.post("/kyc/callback/{provider}", include_in_schema=False)
+@limiter.limit("120/minute")
+async def kyc_callback(request: Request, provider: str):
+    """
+    Provider callback (Didit / Smile ID). No user token: authenticity comes from the provider's signature.
+    The case is found by OUR reference, never by a user id in the body. Always 2xx for unknown/duplicate events
+    so the provider stops retrying; 401 only for a bad signature.
+    """
+    raw = await request.body()
+    try:
+        result = kyc_provider.handle_callback(provider, raw, request.headers)
+    except KycWebhookError as e:
+        logger.warning("KYC callback rejected (%s): %s", provider, e)
+        raise HTTPException(status_code=401, detail="Invalid callback.")
+    return {"ok": True, **{k: v for k, v in result.items() if k in ("handled", "duplicate")}}
+
+
 # ------------------------------------------------------------ admin review
 
 @admin_router.get("/kyc")
 @limiter.limit("60/minute")
 def kyc_list(request: Request, status: str = "PENDING", authorization: str = Header(default="")):
-    """Review queue for the admin KYC page: ?status=PENDING|MORE_INFO|FAILED|VERIFIED."""
+    """Review queue for the admin KYC page: ?status=PENDING|MORE_INFO|FAILED|VERIFIED|PROVIDER_DECLINED."""
     _admin_id(authorization)
     try:
         rows = readiness.list_kyc(status)
     except readiness.KycError as e:
         code, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not load the queue."))
         raise HTTPException(status_code=code, detail=message)
-    return {"status": "ok", "items": rows, "requests": rows, "count": len(rows)}
+    try:
+        attention = len(readiness.list_kyc("PROVIDER_DECLINED"))
+    except Exception:
+        attention = None
+    return {"status": "ok", "items": rows, "requests": rows, "count": len(rows), "provider_declined_count": attention}
 
 
 @admin_router.get("/kyc/pending")

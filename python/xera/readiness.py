@@ -90,6 +90,9 @@ def get_kyc(user_id: int) -> dict:
         "note": row.get("review_note") if status in ("FAILED", "INFO_REQUIRED") else None,
         "submitted_at": row.get("submitted_at"),
         "unavailable": False,
+        # Hybrid KYC: which route the case took and how far the provider got (display only; never an authority).
+        "method": row.get("method"),
+        "provider_status": row.get("provider_status"),
     }
 
 
@@ -387,6 +390,9 @@ def review_kyc(admin_id: int, user_id: int, decision: str, note: str = "") -> di
         raise KycError("kyc_not_found")
     if row.get("status") != "PENDING":
         raise KycError("kyc_not_pending")
+    if decision == "VERIFIED" and row.get("method") == "PROVIDER" and row.get("provider_status") != "APPROVED":
+        # Hybrid KYC: the admin's tick comes AFTER the provider's pass, never instead of it.
+        raise KycError("provider_not_approved")
     note = (note or "").strip()[:500]
     if decision in ("FAILED", "INFO_REQUIRED") and not note:
         raise KycError("note_required")
@@ -406,12 +412,18 @@ def list_kyc(status: str = "PENDING", limit: int = 100) -> list:
     status = (status or "PENDING").upper()
     if status == "MORE_INFO":
         status = "INFO_REQUIRED"
+    declined_only = status == "PROVIDER_DECLINED"      # cases the provider rejected: the admin should look at these
+    if declined_only:
+        status = "FAILED"
     if status not in KYC_STATUSES:
         raise KycError("invalid_status")
-    res = (supabase.table("xera_kyc")
-           .select("user_id,status,legal_name,country,id_type,id_last4,submitted_at,reviewed_at,reviewed_by,review_note")
-           .eq("status", status).order("submitted_at").limit(limit).execute())
-    return res.data or []
+    query = (supabase.table("xera_kyc")
+           .select("user_id,status,legal_name,country,id_type,id_last4,submitted_at,reviewed_at,reviewed_by,review_note,"
+                   "method,provider,provider_ref,provider_status,provider_reason,provider_checked_at")
+           .eq("status", status))
+    if declined_only:
+        query = query.eq("provider_status", "DECLINED")
+    return query.order("submitted_at").limit(limit).execute().data or []
 
 
 def list_pending_kyc(limit: int = 50) -> list:

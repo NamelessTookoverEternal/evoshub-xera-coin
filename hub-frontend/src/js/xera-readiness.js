@@ -85,7 +85,7 @@ function notificationItems() {
             : { title: 'Mining session in progress', body: `Ends ${ctx.fmtDateTime(new Date(mining.expires_at))}.`, tone: 'neutral' });
     }
     const k = state.kyc.status;
-    if (k === 'PENDING') items.push({ title: 'Verification pending', body: 'We are reviewing your details. You can keep mining.', tone: 'neutral' });
+    if (k === 'PENDING') items.push({ title: 'Verification pending', body: state.kyc.method === 'PROVIDER' && state.kyc.provider_status === 'STARTED' ? 'Finish the ID check to continue. You can keep mining.' : 'We are reviewing your details. You can keep mining.', tone: 'neutral' });
     if (k === 'INFO_REQUIRED') items.push({ title: 'More information needed', body: state.kyc.note || 'Update your details to continue verification.', tone: 'warn' });
     if (k === 'FAILED') items.push({ title: 'Verification unsuccessful', body: state.kyc.note || 'You can submit your details again.', tone: 'bad' });
     if (state.fee.status === 'FAILED') items.push({ title: 'Processing fee payment failed', body: 'No fee was recorded.', tone: 'bad' });
@@ -120,21 +120,66 @@ function renderAll() {
 
 // ---------------------------------------------------------------- KYC modal
 
+// ISO-2 codes shown in the country picker. The SERVER decides which provider handles the country.
+const COUNTRY_CODES = ('AF AL DZ AD AO AG AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI KH CM CA CV CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA KR SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW').split(' ');
+let countriesBuilt = false;
+function buildCountries() {
+    if (countriesBuilt) return;
+    countriesBuilt = true;
+    let names = null;
+    try { names = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (_e) { /* fall back to codes */ }
+    const sel = $('kycProviderCountry');
+    COUNTRY_CODES.map((c) => [c, (names && names.of(c)) || c]).sort((a, b) => a[1].localeCompare(b[1]))
+        .forEach(([c, n]) => { const o = document.createElement('option'); o.value = c; o.textContent = n; sel.appendChild(o); });
+}
+
 function openKyc() {
     const k = state.kyc;
-    const form = $('kycForm'), info = $('kycInfo'), err = $('kycError');
-    err.textContent = '';
-    const canSubmit = ['UNVERIFIED', 'FAILED', 'INFO_REQUIRED'].includes(k.status) && !k.unavailable;
-    form.hidden = !canSubmit;
-    info.hidden = canSubmit;
+    const opts = state.kycOptions || {};
+    const providers = !!opts.providers_available;
+    const form = $('kycForm'), pform = $('kycProviderForm'), info = $('kycInfo'), err = $('kycError');
+    err.textContent = ''; $('kycProviderError').textContent = '';
+    const open_ = ['UNVERIFIED', 'FAILED', 'INFO_REQUIRED'].includes(k.status) && !k.unavailable;
+    const resumable = k.status === 'PENDING' && k.method === 'PROVIDER' && ['STARTED', 'ABANDONED'].includes(k.provider_status) && !k.unavailable;
+    const showProvider = providers && (open_ || resumable);
+    const showManual = !providers && open_ && opts.manual_allowed !== false;
+    pform.hidden = !showProvider;
+    form.hidden = !showManual;
+    info.hidden = showProvider || showManual;
     $('kycNote').hidden = !k.note;
     $('kycNote').textContent = k.note ? `Reviewer note: ${k.note}` : '';
-    if (!canSubmit) {
+    if (showProvider) {
+        buildCountries();
+        if (k.country) $('kycProviderCountry').value = k.country;
+        $('kycProviderStart').textContent = resumable ? 'Continue verification' : 'Continue to verification';
+    }
+    if (info.hidden === false) {
         info.textContent = k.unavailable ? 'Verification is temporarily unavailable. Please try again later.'
             : k.status === 'VERIFIED' ? 'Your identity is verified. Nothing more to do here.'
-            : 'Your details are with our team for review. You can keep mining while you wait.';
+            : k.method === 'PROVIDER' && ['APPROVED', 'IN_REVIEW'].includes(k.provider_status)
+                ? 'Your documents have been checked. Our team will confirm shortly. You can keep mining while you wait.'
+                : 'Your details are with our team for review. You can keep mining while you wait.';
     }
     open('kycModal');
+}
+
+async function startProviderKyc(ev) {
+    ev.preventDefault();
+    const btn = $('kycProviderStart'), err = $('kycProviderError');
+    err.textContent = '';
+    const country = $('kycProviderCountry').value;
+    if (!country) { err.textContent = 'Please select your country.'; return; }
+    btn.disabled = true;
+    try {
+        // Only the country is sent. The server picks the provider and returns the hosted link.
+        const d = await ctx.req('/api/xera/kyc/start', { method: 'POST', body: JSON.stringify({ country }) });
+        const url = new URL(d.verification_url, location.href);
+        if (url.protocol !== 'https:') throw new Error('Verification link was not valid. Please try again.');
+        location.href = url.href;
+    } catch (e) {
+        err.textContent = e.message || 'Could not start verification. Please try again.';
+        btn.disabled = false;
+    }
 }
 
 async function submitKyc(ev) {
@@ -224,7 +269,7 @@ export function showRequirements(missing) {
 export async function refresh() {
     try {
         const d = await ctx.req('/api/xera/readiness');
-        state = { kyc: d.kyc, fee: d.fee, missing: d.missing || [], notifications: d.notifications || [] };
+        state = { kyc: d.kyc, fee: d.fee, missing: d.missing || [], notifications: d.notifications || [], kycOptions: d.kyc_options || {} };
         renderAll();
     } catch (_e) {
         // Keep whatever was last confirmed; never invent a status.
@@ -239,7 +284,8 @@ function wire() {
     $('feeCard').addEventListener('click', () => state && openFee());
     $('feePay').addEventListener('click', startFeePayment);
     $('kycForm').addEventListener('submit', submitKyc);
-    [['kycLater', 'kycModal'], ['kycClose', 'kycModal'], ['feeCancel', 'feeModal'], ['feeClose', 'feeModal'], ['reqClose', 'reqModal'], ['reqLater', 'reqModal']]
+    $('kycProviderForm').addEventListener('submit', startProviderKyc);
+    [['kycLater', 'kycModal'], ['kycProviderLater', 'kycModal'], ['kycClose', 'kycModal'], ['feeCancel', 'feeModal'], ['feeClose', 'feeModal'], ['reqClose', 'reqModal'], ['reqLater', 'reqModal']]
         .forEach(([btn, modal]) => { const b = $(btn); if (b) b.addEventListener('click', () => close(modal)); });
     ['kycModal', 'feeModal', 'reqModal'].forEach((id) => $(id).addEventListener('click', (e) => { if (e.target.id === id) close(id); }));
 }
