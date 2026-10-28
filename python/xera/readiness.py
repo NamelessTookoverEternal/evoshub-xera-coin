@@ -396,6 +396,12 @@ def review_kyc(admin_id: int, user_id: int, decision: str, note: str = "") -> di
     note = (note or "").strip()[:500]
     if decision in ("FAILED", "INFO_REQUIRED") and not note:
         raise KycError("note_required")
+    from xera import kyc_documents
+    if decision == "VERIFIED":
+        try:
+            kyc_documents.review_precheck(admin_id, user_id)     # the admin must have opened every uploaded image
+        except kyc_documents.DocError as exc:
+            raise KycError(str(exc))
 
     supabase.table("xera_kyc").update({
         "status": decision, "reviewed_by": admin_id, "reviewed_at": _now(),
@@ -404,7 +410,17 @@ def review_kyc(admin_id: int, user_id: int, decision: str, note: str = "") -> di
 
     kind, title, body = _REVIEW_NOTIFY[decision]
     notify(user_id, kind, title, (note or body), dedupe_key=f"{kind}:{row.get('submitted_at')}")
-    return {"user_id": user_id, "status": decision}
+    result = {"user_id": user_id, "status": decision}
+    if decision in ("VERIFIED", "FAILED"):
+        # The decision is final: the ID photos and selfie are erased now. If an erase fails it stays queued for retry.
+        try:
+            erased = kyc_documents.purge_user(user_id, decision)
+            result["documents_erased"] = erased["erased"]
+            result["documents_erase_failed"] = erased["failed"]
+        except Exception as exc:
+            logger.critical("KYC DOCUMENT PURGE ERRORED after %s (user %s): %s", decision, user_id, type(exc).__name__)
+            result["documents_erase_failed"] = -1
+    return result
 
 
 def list_kyc(status: str = "PENDING", limit: int = 100) -> list:

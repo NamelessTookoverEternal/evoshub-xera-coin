@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover"/>
+<meta name="theme-color" content="#060810"/>
+<meta name="description" content="Sign in once to use every EVOS product."/>
+<title>Sign in | EVOS HUB</title>
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/xera-icon-192.png"/>
+<link href="../css/xera.css" rel="stylesheet"/>
+<link href="../css/xera-space.css" rel="stylesheet"/>
+</head>
+<body>
+<div class="app">
+  <section class="auth" id="authView">
+    <div class="xera-brand-lockup">EVOS HUB</div>
+    <p class="sub" id="authContext" hidden style="text-align:center;margin:0 0 12px"></p>
+
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" id="tabLogin" type="button" role="tab" aria-selected="true">Sign in</button>
+      <button class="auth-tab" id="tabRegister" type="button" role="tab" aria-selected="false">Create account</button>
+    </div>
+
+  <!-- Sign in -->
+    <form id="loginForm" class="auth-form">
+      <h1>Sign in to EVOS</h1>
+      <p class="sub">One account for EVOS Data, XERA and the rest of the ecosystem.</p>
+      <div class="field">
+        <label for="identifier">Username or email</label>
+        <input id="identifier" autocomplete="username" required/>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required/>
+      </div>
+      <p class="auth-foot" style="text-align:right;margin:-4px 0 12px"><a class="linklike" id="forgotLink" href="/evosdata/forgot-password">Forgot password?</a></p>
+      <button class="btn" type="submit">Sign in</button>
+      <p class="auth-error" id="loginError" role="alert"></p>
+      <p class="auth-foot">New to EVOS? <button type="button" class="linklike" id="goRegister">Create an account</button></p>
+    </form>
+
+    <!-- Create account -->
+    <form id="registerForm" class="auth-form" hidden>
+      <h1>Create your EVOS account</h1>
+      <p class="sub">One EVOS account works across every EVOS product.</p>
+      <div class="field">
+        <label for="regFullName">Full name</label>
+        <input id="regFullName" autocomplete="name" required/>
+      </div>
+      <div class="field">
+        <label for="regUsername">Username</label>
+        <input id="regUsername" autocomplete="username" pattern="[a-zA-Z0-9_]{3,32}" title="3-32 characters: letters, numbers, underscores only" required/>
+      </div>
+      <div class="field">
+        <label for="regEmail">Email</label>
+        <input id="regEmail" type="email" autocomplete="email" required/>
+      </div>
+      <div class="field">
+        <label for="regPhone">Phone <span class="opt">(optional)</span></label>
+        <input id="regPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="024 123 4567"/>
+      </div>
+      <div class="field">
+        <label for="regPassword">Password</label>
+        <input id="regPassword" type="password" autocomplete="new-password" minlength="8" required/>
+        <span class="field-hint">At least 8 characters.</span>
+      </div>
+      <div class="field">
+        <label for="regPassword2">Confirm password</label>
+        <input id="regPassword2" type="password" autocomplete="new-password" minlength="8" required/>
+      </div>
+      <div class="field">
+        <label for="regRef">Invite code <span class="opt">(optional)</span></label>
+        <input id="regRef" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" pattern="[A-Za-z0-9_\-]{3,64}" title="Letters, numbers, dashes and underscores"/>
+        <span class="field-hint" id="regRefHint"></span>
+      </div>
+      <button class="btn" type="submit">Create account</button>
+      <p class="auth-error" id="registerError" role="alert"></p>
+      <p class="auth-foot">Already have an EVOS account? <button type="button" class="linklike" id="goLogin">Sign in</button></p>
+    </form>
+
+    <p class="auth-foot legal"><a class="linklike" id="keepBrowsing" href="/">Continue as guest</a> &middot; Browsing is open to everyone; signing in is needed for account features.</p>
+  </section>
+</div>
+<script type="module" src="../js/hub-login.js"></script>
+</body>
+</html>

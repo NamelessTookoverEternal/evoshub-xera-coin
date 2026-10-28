@@ -558,7 +558,7 @@ export default function Home({ setPage, theme }) {
           <div>
             <h3 style={styles.footerHead}>Support</h3>
             <p style={styles.footerMuted}>WhatsApp: 0537314125</p>
-            <p style={styles.footerMuted}>support@evosdata.xyz</p>
+            <p style={styles.footerMuted}>support@evoshub.xyz</p>
           </div>
         </div>
         <div style={styles.footerCopy}>
@@ -615,7 +615,7 @@ export default function Home({ setPage, theme }) {
               <button style={styles.chatOption} onClick={() => window.open("https://whatsapp.com/channel/0029VaTrnsZEgGfFXkIcjt1M", "_blank")}>
                 👥 Community
               </button>
-              <button style={styles.chatOption} onClick={() => window.location.href = "mailto:support@evosdata.xyz"}>
+              <button style={styles.chatOption} onClick={() => window.location.href = "mailto:support@evoshub.xyz"}>
                 📧 Email Support
               </button>
             </div>
@@ -635,7 +635,7 @@ export default function Home({ setPage, theme }) {
             {[
               { label: "💬 WhatsApp Support", url: "https://wa.me/233537314125" },
               { label: "👥 Community", url: "https://whatsapp.com/channel/0029VaTrnsZEgGfFXkIcjt1M" },
-              { label: "📧 Email Support", mailto: "support@evosdata.xyz" },
+              { label: "📧 Email Support", mailto: "support@evoshub.xyz" },
             ].map((item, i) => (
               <div
                 key={i}

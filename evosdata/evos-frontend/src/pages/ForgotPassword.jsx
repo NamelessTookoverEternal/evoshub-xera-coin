@@ -1,5 +1,14 @@
 import { useState } from "react";
 import { smartPost } from "../config";
+import { IS_HUB_MOUNT } from "../lib/basePath";
+import { hubSignInUrl } from "../lib/hubSession";
+
+// Inside the Hub (evoshub.xyz/evosdata) accounts sign in on the Hub login page,
+// so send people there; standalone (evosdata.xyz) uses the in-app login.
+const goToLogin = (setPage) => {
+  if (IS_HUB_MOUNT) window.location.assign(hubSignInUrl("/evosdata/dashboard"));
+  else setPage("login");
+};
 
 export default function ForgotPassword({ setPage }) {
   const [step, setStep] = useState(1); // 1 = email, 2 = otp, 3 = new password
@@ -88,7 +97,7 @@ export default function ForgotPassword({ setPage }) {
       });
       if (res.data?.status === "success") {
         setSuccess("Password reset successfully! Redirecting to login...");
-        setTimeout(() => setPage("login"), 2000);
+        setTimeout(() => goToLogin(setPage), 2000);
       } else {
         setError("Reset failed. Please try again.");
       }
@@ -262,9 +271,13 @@ export default function ForgotPassword({ setPage }) {
         </button>
 
         {/* Back to Login */}
-        <button style={s.backBtn} onClick={() => setPage("login")}>
+        <button style={s.backBtn} onClick={() => goToLogin(setPage)}>
           ← Back to Sign In
         </button>
+
+        <p style={s.help}>
+          Need help? <a href="mailto:support@evoshub.xyz" style={s.resendLink}>support@evoshub.xyz</a>
+        </p>
 
       </div>
     </div>
@@ -272,6 +285,7 @@ export default function ForgotPassword({ setPage }) {
 }
 
 const s = {
+  help: { fontSize: 12, color: "#9189b5", textAlign: "center", margin: "16px 0 0" },
   page: {
     minHeight: "calc(100dvh - var(--dock, 0px) - 58px)",
     display: "flex",

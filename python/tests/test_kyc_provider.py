@@ -387,7 +387,7 @@ def test_admin_queue_shows_the_provider_result_but_no_images_or_secrets(api):
 
 def test_options_are_reported_to_the_dashboard(api):
     o = api.client.get("/api/xera/readiness", headers=api.h(1)).json()["kyc_options"]
-    assert o == {"providers_available": True, "manual_allowed": False}
+    assert o["providers_available"] is True and o["manual_allowed"] is False and o["upload_enabled"] is False
 
 
 # ================================================================ Smile ID first, rejected cases surface to the admin

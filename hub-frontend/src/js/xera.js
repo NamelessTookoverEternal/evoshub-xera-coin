@@ -17,7 +17,8 @@ const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigit
 async function req(path, opts = {}) {
     const r = await fetch(API + path, {
         ...opts,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(opts.headers || {}) }
+        // A FormData body (document upload) must NOT get a JSON content type: the browser sets the multipart boundary.
+        headers: { ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }), Authorization: `Bearer ${token()}`, ...(opts.headers || {}) }
     });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) {
@@ -350,6 +351,23 @@ function fmtDateTime(d) {
     return d.toLocaleString(undefined, { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
+function clockFromMs(ms) {
+    const t = Math.max(0, Math.floor(ms / 1000));
+    const h = String(Math.floor(t / 3600)).padStart(2, '0');
+    const m = String(Math.floor((t % 3600) / 60)).padStart(2, '0');
+    const sec = String(t % 60).padStart(2, '0');
+    return `${h}:${m}:${sec}`;
+}
+
+// Dashboard mining card: time mined so far + reward accrued so far (display only;
+// the server still decides the real claim amount).
+function setDashMiningProgress(elapsedMs, earned) {
+    const el = $('miningElapsedDash');
+    const er = $('miningEarnedDash');
+    if (el) el.textContent = elapsedMs == null ? '--:--:--' : clockFromMs(elapsedMs);
+    if (er) er.textContent = `${fmt(earned || 0)} XERA`;
+}
+
 function renderMining() {
     const btn = $('miningAction');
     const btnDash = $('miningActionDash');
@@ -365,6 +383,7 @@ function renderMining() {
         $('rewardText').textContent = 'The server controls the mining timer.';
         $('rewardTextDash').textContent = '';
         $('miningMeta').hidden = true;
+        setDashMiningProgress(null, 0);
         [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
         return;
     }
@@ -390,6 +409,7 @@ function renderMining() {
         $('ringCaption').textContent = 'Session complete';
         $('ringCaptionDash').textContent = 'Session complete';
         $('miningDotDash').className = 'mini-dot ready';
+        setDashMiningProgress(total, mining.estimated_reward);
         $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
@@ -406,6 +426,7 @@ function renderMining() {
         $('ringCaption').textContent = 'Mining in progress';
         $('ringCaptionDash').textContent = 'Mining in progress';
         $('miningDotDash').className = 'mini-dot active';
+        setDashMiningProgress(Math.min(Math.max(now - start, 0), total), Number(mining.estimated_reward || 0) * fraction);
         $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
         $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
         [btn, btnDash].forEach((b) => { b.textContent = 'Mining active'; b.classList.remove('ready'); b.disabled = true; });
@@ -936,4 +957,3 @@ if (!token() && (bootParams.has('next') || bootParams.has('mode') || bootParams.
     if (token()) clearSession();                          // expired
     enterGuestMode();
 }
-

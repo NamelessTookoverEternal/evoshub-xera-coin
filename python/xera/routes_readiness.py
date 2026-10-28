@@ -11,13 +11,13 @@ live active admin_agents row (checked on every call), and write xera_admin_actio
 
 import logging
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, File, Form, Header, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 
 from main import supabase, limiter
 from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.admin_auth import AdminTokenInvalid, require_active_admin
-from xera import kyc_provider, readiness
+from xera import kyc_documents, kyc_provider, readiness
 from xera.kyc_providers.base import KycWebhookError
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,19 @@ _KYC_ERROR_HTTP = {
     "provider_unavailable":   (502, "The verification service could not start. Please try again shortly."),
     "kyc_not_pending":        (409, "That request is not waiting for review."),
     "note_required":          (400, "A note is required when rejecting or asking for more information."),
+    # document upload
+    "upload_not_enabled":     (503, "Document upload isn't available yet."),
+    "consent_required":       (400, "Please tick the box to agree before uploading your documents."),
+    "invalid_name":           (400, "Enter your full legal name."),
+    "documents_missing":      (400, "Please add the front of your ID, the back (not needed for a passport) and a selfie."),
+    "image_missing":          (400, "One of the photos is empty. Please choose it again."),
+    "image_invalid":          (400, "One of the photos isn't a valid JPG or PNG image. Please take it again."),
+    "image_too_large":        (413, "One of the photos is too large. Please use a smaller photo."),
+    "storage_unavailable":    (503, "We couldn't save your documents. Nothing was submitted. Please try again shortly."),
+    "documents_not_viewed":   (409, "Open every uploaded image (ID and selfie) before you can verify this person."),
+    "document_not_found":     (404, "That document no longer exists."),
+    "document_unavailable":   (503, "The document couldn't be loaded. Try again."),
+    "audit_unavailable":      (503, "The access log is unavailable, so the document was not shown. Try again."),
 }
 
 
@@ -123,6 +136,31 @@ def kyc_submit(request: Request, data: KycSubmitRequest, authorization: str = He
     return {"status": "ok", "kyc": result}
 
 
+@router.post("/kyc/documents")
+@limiter.limit("6/hour")
+def kyc_documents_submit(
+    request: Request,
+    authorization: str = Header(default=""),
+    legal_name: str = Form(...), country: str = Form(...), id_type: str = Form(...), consent: str = Form(""),
+    id_front: UploadFile = File(...), id_back: UploadFile | None = File(default=None), selfie: UploadFile = File(...),
+):
+    """Manual KYC: ID front/back + selfie. The user id comes from the token; there is no status field."""
+    user_id = _current_user_id(authorization)
+
+    def read(f):
+        return f.file.read(kyc_documents.MAX_UPLOAD_BYTES + 1) if f is not None else None
+
+    try:
+        result = kyc_documents.submit(
+            user_id, legal_name=legal_name, country=country, id_type=id_type,
+            consent=consent.strip().lower() in ("1", "true", "yes", "on"),
+            files={"id_front": read(id_front), "id_back": read(id_back), "selfie": read(selfie)})
+    except kyc_documents.DocError as e:
+        status, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not submit your documents."))
+        raise HTTPException(status_code=409 if str(e).startswith("kyc_already") else status, detail=message)
+    return {"status": "ok", "kyc": result}
+
+
 class KycStartRequest(BaseModel):
     # The browser says only WHICH COUNTRY. The server picks the provider; there is no status or provider field.
     country: str = Field(..., min_length=2, max_length=2)
@@ -171,16 +209,56 @@ async def kyc_callback(request: Request, provider: str):
 def kyc_list(request: Request, status: str = "PENDING", authorization: str = Header(default="")):
     """Review queue for the admin KYC page: ?status=PENDING|MORE_INFO|FAILED|VERIFIED|PROVIDER_DECLINED."""
     _admin_id(authorization)
+    kyc_documents.purge_expired_safely()        # overdue images are erased whenever an admin opens the queue
     try:
         rows = readiness.list_kyc(status)
     except readiness.KycError as e:
         code, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not load the queue."))
         raise HTTPException(status_code=code, detail=message)
     try:
+        kyc_documents.counts_for(rows)
+    except Exception as exc:
+        logger.warning("KYC document counts unavailable: %s", exc)
+    try:
         attention = len(readiness.list_kyc("PROVIDER_DECLINED"))
     except Exception:
         attention = None
     return {"status": "ok", "items": rows, "requests": rows, "count": len(rows), "provider_declined_count": attention}
+
+
+@admin_router.get("/kyc/{user_id}/documents")
+@limiter.limit("60/minute")
+def kyc_documents_list(request: Request, user_id: int, authorization: str = Header(default="")):
+    """Metadata only (no image data, no links). Images are fetched one by one and every fetch is logged."""
+    admin_id = _admin_id(authorization)
+    try:
+        docs = kyc_documents.list_documents(admin_id, user_id)
+    except kyc_documents.DocError as e:
+        status, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not load documents."))
+        raise HTTPException(status_code=status, detail=message)
+    return {"status": "ok", "documents": docs}
+
+
+@admin_router.get("/kyc/documents/{document_id}/image")
+@limiter.limit("60/minute")
+def kyc_document_image(request: Request, document_id: int, authorization: str = Header(default="")):
+    admin_id = _admin_id(authorization)
+    try:
+        data, content_type = kyc_documents.read_document(admin_id, document_id)
+    except kyc_documents.DocError as e:
+        status, message = _KYC_ERROR_HTTP.get(str(e), (400, "Could not load the document."))
+        raise HTTPException(status_code=403 if str(e) == "cannot_review_own_kyc" else status, detail=message)
+    return Response(content=data, media_type=content_type, headers={
+        "Cache-Control": "no-store, max-age=0", "Pragma": "no-cache", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "inline", "Content-Security-Policy": "default-src 'none'"})
+
+
+@admin_router.post("/kyc/documents/purge-expired")
+@limiter.limit("10/minute")
+def kyc_documents_purge(request: Request, authorization: str = Header(default="")):
+    """Erase expired / left-over documents. Safe to call from a daily scheduled job."""
+    _admin_id(authorization)
+    return {"status": "ok", **kyc_documents.purge_expired()}
 
 
 @admin_router.get("/kyc/pending")

@@ -128,24 +128,30 @@ function buildCountries() {
     countriesBuilt = true;
     let names = null;
     try { names = new Intl.DisplayNames(['en'], { type: 'region' }); } catch (_e) { /* fall back to codes */ }
-    const sel = $('kycProviderCountry');
-    COUNTRY_CODES.map((c) => [c, (names && names.of(c)) || c]).sort((a, b) => a[1].localeCompare(b[1]))
-        .forEach(([c, n]) => { const o = document.createElement('option'); o.value = c; o.textContent = n; sel.appendChild(o); });
+    const list = COUNTRY_CODES.map((c) => [c, (names && names.of(c)) || c]).sort((a, b) => a[1].localeCompare(b[1]));
+    ['kycProviderCountry', 'kycUpCountry'].forEach((id) => {
+        const sel = $(id);
+        if (sel) list.forEach(([c, n]) => { const o = document.createElement('option'); o.value = c; o.textContent = n; sel.appendChild(o); });
+    });
 }
 
 function openKyc() {
     const k = state.kyc;
     const opts = state.kycOptions || {};
     const providers = !!opts.providers_available;
-    const form = $('kycForm'), pform = $('kycProviderForm'), info = $('kycInfo'), err = $('kycError');
-    err.textContent = ''; $('kycProviderError').textContent = '';
+    const form = $('kycForm'), pform = $('kycProviderForm'), uform = $('kycUploadForm'), info = $('kycInfo'), err = $('kycError');
+    err.textContent = ''; $('kycProviderError').textContent = ''; $('kycUpError').textContent = '';
     const open_ = ['UNVERIFIED', 'FAILED', 'INFO_REQUIRED'].includes(k.status) && !k.unavailable;
     const resumable = k.status === 'PENDING' && k.method === 'PROVIDER' && ['STARTED', 'ABANDONED'].includes(k.provider_status) && !k.unavailable;
     const showProvider = providers && (open_ || resumable);
-    const showManual = !providers && open_ && opts.manual_allowed !== false;
+    const upload = !providers && !!opts.upload_enabled;
+    const showUpload = upload && open_;
+    const showManual = !providers && !upload && open_ && opts.manual_allowed !== false;
     pform.hidden = !showProvider;
+    uform.hidden = !showUpload;
     form.hidden = !showManual;
-    info.hidden = showProvider || showManual;
+    info.hidden = showProvider || showManual || showUpload;
+    if (showUpload) { buildCountries(); syncBackField(); }
     $('kycNote').hidden = !k.note;
     $('kycNote').textContent = k.note ? `Reviewer note: ${k.note}` : '';
     if (showProvider) {
@@ -158,9 +164,58 @@ function openKyc() {
             : k.status === 'VERIFIED' ? 'Your identity is verified. Nothing more to do here.'
             : k.method === 'PROVIDER' && ['APPROVED', 'IN_REVIEW'].includes(k.provider_status)
                 ? 'Your documents have been checked. Our team will confirm shortly. You can keep mining while you wait.'
-                : 'Your details are with our team for review. You can keep mining while you wait.';
+                : k.method === 'MANUAL' && upload
+                    ? 'Your documents are with our team for review. They are deleted as soon as the check is finished. You can keep mining while you wait.'
+                    : 'Your details are with our team for review. You can keep mining while you wait.';
     }
     open('kycModal');
+}
+
+// ---- document upload (manual review). Photos are shrunk + re-encoded as JPEG in the browser first (smaller, no phone
+// metadata, and iPhone HEIC photos become JPEG). The server re-checks and re-encodes everything again.
+function syncBackField() {
+    const passport = $('kycUpIdType').value === 'passport';
+    $('kycUpBackWrap').hidden = passport;
+    $('kycUpBack').required = !passport;
+    if (passport) $('kycUpBack').value = '';
+}
+
+async function shrink(file, maxSide = 1600) {
+    try {
+        const bmp = await createImageBitmap(file);
+        const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.85));
+        return blob || file;
+    } catch (_e) { return file; }
+}
+
+async function submitUpload(ev) {
+    ev.preventDefault();
+    const btn = $('kycUpSubmit'), err = $('kycUpError');
+    err.textContent = '';
+    if (!$('kycUpConsent').checked) { err.textContent = 'Please tick the box to agree before uploading.'; return; }
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = 'Uploading…';
+    try {
+        const fd = new FormData();
+        fd.append('legal_name', $('kycUpName').value);
+        fd.append('country', $('kycUpCountry').value);
+        fd.append('id_type', $('kycUpIdType').value);
+        fd.append('consent', 'true');
+        fd.append('id_front', await shrink($('kycUpFront').files[0]), 'front.jpg');
+        if ($('kycUpIdType').value !== 'passport' && $('kycUpBack').files[0]) fd.append('id_back', await shrink($('kycUpBack').files[0]), 'back.jpg');
+        fd.append('selfie', await shrink($('kycUpSelfie').files[0]), 'selfie.jpg');
+        await ctx.req('/api/xera/kyc/documents', { method: 'POST', body: fd });
+        ['kycUpFront', 'kycUpBack', 'kycUpSelfie'].forEach((id) => { $(id).value = ''; });
+        await refresh();
+        close('kycModal');
+    } catch (e) {
+        err.textContent = e.message || 'Could not upload your documents. Please try again.';
+    } finally { btn.disabled = false; btn.textContent = label; }
 }
 
 async function startProviderKyc(ev) {
@@ -285,7 +340,9 @@ function wire() {
     $('feePay').addEventListener('click', startFeePayment);
     $('kycForm').addEventListener('submit', submitKyc);
     $('kycProviderForm').addEventListener('submit', startProviderKyc);
-    [['kycLater', 'kycModal'], ['kycProviderLater', 'kycModal'], ['kycClose', 'kycModal'], ['feeCancel', 'feeModal'], ['feeClose', 'feeModal'], ['reqClose', 'reqModal'], ['reqLater', 'reqModal']]
+    $('kycUploadForm').addEventListener('submit', submitUpload);
+    $('kycUpIdType').addEventListener('change', syncBackField);
+    [['kycLater', 'kycModal'], ['kycProviderLater', 'kycModal'], ['kycUpLater', 'kycModal'], ['kycClose', 'kycModal'], ['feeCancel', 'feeModal'], ['feeClose', 'feeModal'], ['reqClose', 'reqModal'], ['reqLater', 'reqModal']]
         .forEach(([btn, modal]) => { const b = $(btn); if (b) b.addEventListener('click', () => close(modal)); });
     ['kycModal', 'feeModal', 'reqModal'].forEach((id) => $(id).addEventListener('click', (e) => { if (e.target.id === id) close(id); }));
 }

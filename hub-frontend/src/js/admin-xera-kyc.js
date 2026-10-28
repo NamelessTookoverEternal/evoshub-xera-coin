@@ -7,6 +7,7 @@ const TOKEN_KEY = 'evoshub_admin_token';
 const $ = (id) => document.getElementById(id);
 const STATUSES = [['PENDING', 'Pending'], ['PROVIDER_DECLINED', 'Provider rejected'], ['MORE_INFO', 'More info'], ['FAILED', 'Failed'], ['VERIFIED', 'Verified']];
 let declinedCount = null;
+let adminLabel = '';
 let current = 'PENDING';
 
 const token = () => { try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
@@ -26,28 +27,85 @@ function el(tag, attrs = {}, kids = []) {
   return n;
 }
 
+async function fetchImage(docId) {
+  // Same auth as every other call, but the body is an image, so it is read as a blob and shown from memory only.
+  const r = await fetch(`${API_BASE}/api/admin/xera/kyc/documents/${docId}/image`, { headers: { Authorization: `Bearer ${token()}`, 'Cache-Control': 'no-store' }, cache: 'no-store' });
+  if (r.status === 401) { toLogin(); throw new Error('signed out'); }
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(typeof d.detail === 'string' ? d.detail : 'Could not load the image'); }
+  return URL.createObjectURL(await r.blob());
+}
+
+const KIND_LABEL = { id_front: 'ID front', id_back: 'ID back', selfie: 'Selfie' };
+
+function docsBlock(it, viewed, applyLock) {
+  if (!it.documents) return null;
+  const box = el('div', { class: 'kyc-docs' });
+  const hint = el('p', { class: 'kyc-hint', text: `${it.documents} image(s) uploaded. Opening each one is logged under your admin ID. All images are permanently deleted when you press Verify or Fail. Never copy, screenshot or share them.` });
+  const bar = el('div', { class: 'kyc-actions' });
+  const viewer = el('div', { class: 'kyc-viewer' });
+  const err = el('p', { class: 'banner-error', role: 'alert' });
+  let current = null;
+  const show = async (doc, btn) => {
+    err.textContent = '';
+    btn.disabled = true;
+    try {
+      const url = await fetchImage(doc.id);
+      if (current) URL.revokeObjectURL(current);
+      current = url;
+      const img = el('img', { src: url, alt: KIND_LABEL[doc.kind] || 'Document', draggable: 'false' });
+      const mark = el('div', { class: 'kyc-mark', text: `Admin ${adminLabel} · ${new Date().toLocaleString()} · logged` });
+      viewer.replaceChildren(el('div', { class: 'kyc-frame' }, [img, mark]));
+      viewed.add(doc.id);
+      btn.textContent = `✓ ${KIND_LABEL[doc.kind] || doc.kind}`;
+      applyLock();
+    } catch (e) { if (e.message !== 'signed out') err.textContent = e.message; } finally { btn.disabled = false; }
+  };
+  const load = el('button', { type: 'button', class: 'kyc-info', text: 'Show documents' });
+  load.addEventListener('click', async () => {
+    err.textContent = '';
+    try {
+      const d = await call(`/api/admin/xera/kyc/${it.user_id}/documents`);
+      bar.replaceChildren(...d.documents.map((doc) => {
+        const b = el('button', { type: 'button', text: KIND_LABEL[doc.kind] || doc.kind });
+        b.addEventListener('click', () => show(doc, b));
+        return b;
+      }));
+    } catch (e) { if (e.message !== 'signed out') err.textContent = e.message; }
+  });
+  bar.append(load);
+  box.append(hint, bar, viewer, err);
+  return box;
+}
+
 function card(it) {
   const note = el('textarea', { maxlength: '300', placeholder: 'Note for the user (required for Failed / More info)', 'aria-label': 'Note for the user' });
   const msg = el('p', { class: 'banner-error', role: 'alert' });
   const buttons = [];
   const isProvider = it.method === 'PROVIDER';
   const provOk = !isProvider || it.provider_status === 'APPROVED';
+  const docCount = it.documents || 0;
+  const viewed = new Set();
+  let verifyBtn = null;
+  const locked = () => !provOk || (docCount > 0 && viewed.size < docCount);
+  const applyLock = () => { if (verifyBtn) { verifyBtn.disabled = locked(); verifyBtn.title = locked() ? (!provOk ? 'The verification provider has not approved this case.' : 'Open every uploaded image first.') : ''; } };
   const decide = (decision, cls, label) => {
     const b = el('button', { type: 'button', class: cls, text: label });
     b.addEventListener('click', async () => {
       msg.textContent = '';
       buttons.forEach((x) => { x.disabled = true; });
       try {
-        await call(`/api/admin/xera/kyc/${it.user_id}/review`, { method: 'POST', body: JSON.stringify({ decision, note: note.value }) });
+        const out = await call(`/api/admin/xera/kyc/${it.user_id}/review`, { method: 'POST', body: JSON.stringify({ decision, note: note.value }) });
+        const k = out.kyc || {};
+        if (k.documents_erase_failed) alert(`Decision saved, but ${k.documents_erase_failed} image(s) could not be erased yet. They are queued for deletion; tell the developer if this repeats.`);
         await load();
-      } catch (e) { msg.textContent = e.message; buttons.forEach((x) => { x.disabled = false; }); }
+      } catch (e) { msg.textContent = e.message; buttons.forEach((x) => { x.disabled = false; }); applyLock(); }
     });
-    if (decision === 'VERIFIED' && !provOk) { b.disabled = true; b.title = 'The verification provider has not approved this case.'; }
-    else buttons.push(b);
+    buttons.push(b);
+    if (decision === 'VERIFIED') verifyBtn = b;
     return b;
   };
   const when = it.submitted_at ? new Date(it.submitted_at).toLocaleString() : '—';
-  return el('div', { class: 'kyc-box kyc-item' }, [
+  const box = el('div', { class: 'kyc-box kyc-item' }, [
     el('dl', {}, [
       el('dt', { text: 'User id' }), el('dd', { text: String(it.user_id) }),
       el('dt', { text: 'Legal name' }), el('dd', { text: it.legal_name || '—' }),
@@ -65,10 +123,13 @@ function card(it) {
       : it.provider_status === 'DECLINED'
         ? 'The provider rejected this case (for example an ID type it does not support). The user can try again and will be sent to the second provider.'
         : 'Waiting for the provider result. Verify unlocks once the provider approves.' }) : null,
+    docsBlock(it, viewed, applyLock),
     note,
     el('div', { class: 'kyc-actions' }, [decide('VERIFIED', 'kyc-ok', 'Verify'), decide('MORE_INFO', 'kyc-info', 'More info'), decide('FAILED', 'kyc-bad', 'Fail')]),
     msg,
   ]);
+  applyLock();
+  return box;
 }
 
 async function load() {
@@ -98,6 +159,7 @@ async function init() {
     const me = await call('/api/admin/me');
     const u = me.user || {};
     $('kycWho').textContent = u.display_name || u.username || u.email || 'Admin';
+    adminLabel = `#${u.id ?? ''} ${u.display_name || u.username || ''}`.trim();
   } catch (e) { return; }
   renderTabs();
   load();

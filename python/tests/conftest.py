@@ -166,7 +166,7 @@ def fake_supabase():
     # module already imported in a previous test needs a fresh import here
     # to pick up this test's fake instance.
     for mod in list(sys.modules):
-        if mod.startswith("xera.chain") or mod.startswith("xera.kyc_provider") or mod in ("xera.routes_chain", "xera.readiness", "xera.routes_readiness", "xera.routes_admin_chain"):
+        if mod.startswith("xera.chain") or mod.startswith("xera.kyc_provider") or mod == "xera.kyc_documents" or mod in ("xera.routes_chain", "xera.readiness", "xera.routes_readiness", "xera.routes_admin_chain"):
             del sys.modules[mod]
             # `from xera import readiness` resolves through the package attribute, which would
             # otherwise keep pointing at the old module (and its old fake Supabase).

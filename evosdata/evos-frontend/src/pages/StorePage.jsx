@@ -1023,7 +1023,7 @@ export default function StorePage({ setPage }) {
                 👥 Community
               </button>
               <button style={styles.chatOption}
-                onClick={() => window.location.href = "mailto:support@evosdata.xyz"}>
+                onClick={() => window.location.href = "mailto:support@evoshub.xyz"}>
                 📧 Email Support
               </button>
             </div>

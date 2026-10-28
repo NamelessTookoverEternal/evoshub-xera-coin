@@ -143,7 +143,7 @@ export default function Dashboard({ setPage, user }) {
       <div className="db-help">
         <a className="db-help-b" href={SUPPORT_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={20} /> WhatsApp support</a>
         <button className="db-help-b" onClick={openCommunity}><WhatsAppIcon size={20} /> Join community</button>
-        <a className="db-help-b" href="mailto:support@evosdata.xyz"><Icon name="share" size={18} /> Email us</a>
+        <a className="db-help-b" href="mailto:support@evoshub.xyz"><Icon name="share" size={18} /> Email us</a>
       </div>
 
       <p className="db-foot">© 2026 Evoxera Technology · All rights reserved</p>

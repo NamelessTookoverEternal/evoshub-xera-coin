@@ -64,3 +64,8 @@
 .sq-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;padding:0 4px;
     background:var(--danger);color:#fff;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center}
 .sq-badge[hidden]{display:none}
+
+/* document upload (manual KYC) */
+.rd-form label.rd-check{flex-direction:row;align-items:flex-start;gap:10px;font-size:.78rem;line-height:1.45}
+.rd-form label.rd-check input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin-top:2px}
+.rd-form input[type="file"]{padding:10px;height:auto;min-height:46px}

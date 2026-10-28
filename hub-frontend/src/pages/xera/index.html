@@ -540,6 +540,33 @@
           <button type="button" class="btn btn-ghost" id="kycProviderLater">Maybe Later</button>
         </div>
       </form>
+      <form class="rd-form" id="kycUploadForm" autocomplete="off" hidden>
+        <label>Full legal name (as on your ID)<input id="kycUpName" required minlength="3" maxlength="120" autocomplete="name"/></label>
+        <label>Country that issued your ID
+          <select id="kycUpCountry" required><option value="">Select your country</option></select>
+        </label>
+        <label>ID type
+          <select id="kycUpIdType" required>
+            <option value="national_id">National ID</option>
+            <option value="passport">Passport</option>
+            <option value="drivers_license">Driver's licence</option>
+            <option value="voters_id">Voter's ID</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Photo of the FRONT of your ID<input id="kycUpFront" type="file" accept="image/jpeg,image/png,image/webp,image/*" required/></label>
+        <label id="kycUpBackWrap">Photo of the BACK of your ID<input id="kycUpBack" type="file" accept="image/jpeg,image/png,image/webp,image/*" required/></label>
+        <label>Selfie (face clearly visible, holding your ID if you can)<input id="kycUpSelfie" type="file" accept="image/*" capture="user" required/></label>
+        <label class="rd-check"><input id="kycUpConsent" type="checkbox" required/>
+          <span>I agree that EVOS may collect my ID photos and selfie to verify who I am. They are kept in private storage, can be opened only by authorised staff (every view is logged under that staff member's ID), and are permanently deleted once the check is finished, or after 30 days if not reviewed. Anyone who misuses them is subject to disciplinary and legal action.</span>
+        </label>
+        <p class="rd-fine">Use clear, uncropped photos in good light. Never share a seed phrase or wallet password.</p>
+        <p class="rd-error" id="kycUpError" role="alert"></p>
+        <div class="rd-actions">
+          <button type="submit" class="btn" id="kycUpSubmit">Submit for verification</button>
+          <button type="button" class="btn btn-ghost" id="kycUpLater">Maybe Later</button>
+        </div>
+      </form>
       <form class="rd-form" id="kycForm" autocomplete="off">
         <label>Full legal name<input id="kycName" required minlength="3" maxlength="120" autocomplete="name"/></label>
         <label>Country<input id="kycCountry" required minlength="2" maxlength="56" autocomplete="country-name"/></label>

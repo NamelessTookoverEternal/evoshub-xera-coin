@@ -44,11 +44,15 @@ def enabled_providers() -> list:
 
 def manual_allowed() -> bool:
     """Manual (no-provider) submissions are only allowed when no provider is enabled, or explicitly switched on."""
-    return not enabled_providers() or os.getenv("XERA_KYC_ALLOW_MANUAL", "false").strip().lower() in ("1", "true", "yes", "on")
+    from xera import kyc_documents
+    forced = os.getenv("XERA_KYC_ALLOW_MANUAL", "false").strip().lower() in ("1", "true", "yes", "on")
+    return forced or not (enabled_providers() or kyc_documents.enabled())
 
 
 def options() -> dict:
-    return {"providers_available": bool(enabled_providers()), "manual_allowed": manual_allowed()}
+    from xera import kyc_documents
+    return {"providers_available": bool(enabled_providers()), "manual_allowed": manual_allowed(),
+            "upload_enabled": kyc_documents.enabled(), "notice_version": kyc_documents.notice_version()}
 
 
 def _first(res):
