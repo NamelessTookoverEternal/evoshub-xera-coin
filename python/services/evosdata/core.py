@@ -3295,6 +3295,14 @@ async def startup_event():
 # SPACEMAIL SMTP
 # =========================
 
+def _otp_log(msg, *args):
+    """Print straight to stdout so it always shows in Render logs (root logging has a custom handler)."""
+    try:
+        print("[OTP] " + (msg % args if args else msg), flush=True)
+    except Exception:
+        print("[OTP] " + str(msg), flush=True)
+
+
 def _mask_email(e: str) -> str:
     try:
         name, dom = e.split("@", 1)
@@ -3305,7 +3313,7 @@ def _mask_email(e: str) -> str:
 
 def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
     if not SMTP_PASSWORD:
-        logger.error("OTP EMAIL: SMTP_PASSWORD env var is not set — cannot send to %s", _mask_email(to_email))
+        _otp_log("OTP EMAIL: SMTP_PASSWORD env var is not set — cannot send to %s", _mask_email(to_email))
         return False
 
     from email.utils import formatdate, make_msgid
@@ -3371,14 +3379,14 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
                 server.login(SMTP_USER, SMTP_PASSWORD)
                 refused = server.sendmail(SMTP_USER, [to_email], msg.as_string())
             if refused:
-                logger.error("OTP EMAIL: recipient refused %s: %s", _mask_email(to_email), refused)
+                _otp_log("OTP EMAIL: recipient refused %s: %s", _mask_email(to_email), refused)
                 return False
-            logger.warning("OTP EMAIL: sent to %s via %s:%s", _mask_email(to_email), host, port)
+            _otp_log("OTP EMAIL: sent to %s via %s:%s", _mask_email(to_email), host, port)
             return True
         except Exception as e:
             last_err = e
-            logger.error("OTP EMAIL: SMTP failure via %s:%s: %r", host, port, e)
-    logger.error("OTP EMAIL: all SMTP attempts failed for %s: %r", _mask_email(to_email), last_err)
+            _otp_log("OTP EMAIL: SMTP failure via %s:%s: %r", host, port, e)
+    _otp_log("OTP EMAIL: all SMTP attempts failed for %s: %r", _mask_email(to_email), last_err)
     return False
 
 # =========================
@@ -6049,10 +6057,11 @@ def forgot_password(request: Request, data: ForgotPasswordRequest):
             .execute()
 
         if not user_res.data:
-            logger.warning("FORGOT PASSWORD: no account matches %s", _mask_email(email))
+            _otp_log("FORGOT PASSWORD: no account matches %s", _mask_email(email))
             return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
         user    = user_res.data[0]
+        _otp_log("FORGOT PASSWORD: account found for %s (user %s), sending OTP", _mask_email(email), user["id"])
         user_id = user["id"]
 
         supabase.table("password_resets") \
@@ -6078,12 +6087,12 @@ def forgot_password(request: Request, data: ForgotPasswordRequest):
         )
 
         if not sent:
-            logger.error("FORGOT PASSWORD: email failed for user %s", user_id)
+            _otp_log("FORGOT PASSWORD: email failed for user %s", user_id)
 
         return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
     except Exception as e:
-        logger.error("FORGOT PASSWORD ERROR: %s", str(e))
+        _otp_log("FORGOT PASSWORD ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Server error")
 
 
