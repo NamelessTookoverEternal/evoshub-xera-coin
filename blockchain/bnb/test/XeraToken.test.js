@@ -2,6 +2,19 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("XeraToken", function () {
+  it("is named EVOXERA with ticker XERA (permit domain name matches the token name)", async function () {
+    const [vault] = await ethers.getSigners();
+    const Token = await ethers.getContractFactory("XeraToken");
+    const token = await Token.deploy(vault.address, 1000n);
+    await token.waitForDeployment();
+
+    expect(await token.name()).to.equal("EVOXERA");
+    expect(await token.symbol()).to.equal("XERA");
+    expect(await token.decimals()).to.equal(18n);
+    const domain = await token.eip712Domain();
+    expect(domain.name).to.equal("EVOXERA");
+  });
+
   it("mints the exact fixed supply to the vault, once, at deployment", async function () {
     const [vault] = await ethers.getSigners();
     const Token = await ethers.getContractFactory("XeraToken");

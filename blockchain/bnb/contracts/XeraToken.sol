@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
-/// @title XeraToken (XERA) — BNB Smart Chain
+/// @title XeraToken (EVOXERA / XERA) — BNB Smart Chain
 /// @notice Standard fixed-supply BEP-20 token. Section 3 of the brief is explicit:
 ///         no locked balances inside balanceOf, no transfer restrictions, no
 ///         transfer taxes, no blacklist-based locking, no DEX-breaking logic.
@@ -30,8 +30,8 @@ contract XeraToken is ERC20, ERC20Burnable, ERC20Permit {
     ///        README "BLOCKING DECISION" for why this is a constructor
     ///        argument rather than a constant.
     constructor(address initialHolder, uint256 bnbChainSupply)
-        ERC20("Xera", "XERA")
-        ERC20Permit("Xera")
+        ERC20("EVOXERA", "XERA")
+        ERC20Permit("EVOXERA")
     {
         require(initialHolder != address(0), "XeraToken: zero holder");
         require(bnbChainSupply > 0, "XeraToken: zero supply");
