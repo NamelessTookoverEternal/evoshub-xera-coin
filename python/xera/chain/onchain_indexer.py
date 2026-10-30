@@ -27,6 +27,15 @@ def _bnb_rpc_url() -> str:
     return url
 
 
+def _min_confirmations(expected_chain_id: int) -> int:
+    """Blocks that must sit on top of the claim before it is recorded as CONFIRMED.
+    XERA_BNB_CONFIRMATIONS overrides; default is 1 on testnet and 5 on BSC mainnet."""
+    raw = os.getenv("XERA_BNB_CONFIRMATIONS", "").strip()
+    if raw.isdigit():
+        return int(raw)
+    return 5 if expected_chain_id == 56 else 1
+
+
 def verify_bnb_claim_tx(*, tx_hash: str, distributor_address: str, expected_user: str,
                          expected_reference_id_bytes32: bytes, expected_total_amount_wei: int) -> dict:
     """
@@ -35,7 +44,19 @@ def verify_bnb_claim_tx(*, tx_hash: str, distributor_address: str, expected_user
     mismatch or failure — the caller (routes_chain.py) maps these to HTTP
     responses and never marks a claim CONFIRMED unless this returns cleanly.
     """
+    from xera.chain.config import bnb_chain_id
     w3 = Web3(Web3.HTTPProvider(_bnb_rpc_url()))
+
+    # The RPC must be on the chain this deployment is configured for. A testnet RPC left
+    # in place after switching to mainnet (or the reverse) would otherwise verify claims
+    # against the wrong network.
+    expected_chain_id = bnb_chain_id()
+    try:
+        actual_chain_id = int(w3.eth.chain_id)
+    except Exception:
+        raise IndexerError("bnb_rpc_unreachable")
+    if actual_chain_id != expected_chain_id:
+        raise IndexerError("rpc_chain_mismatch")
 
     try:
         receipt = w3.eth.get_transaction_receipt(tx_hash)
@@ -46,6 +67,14 @@ def verify_bnb_claim_tx(*, tx_hash: str, distributor_address: str, expected_user
         raise IndexerError("transaction_not_found")
     if receipt.status != 1:
         raise IndexerError("transaction_reverted")
+
+    # Finality guard: do not record a claim on a block that can still be reorganised away.
+    try:
+        depth = int(w3.eth.block_number) - int(receipt.blockNumber) + 1
+    except Exception:
+        raise IndexerError("bnb_rpc_unreachable")
+    if depth < _min_confirmations(expected_chain_id):
+        raise IndexerError("not_enough_confirmations")
 
     distributor_checksum = to_checksum_address(distributor_address)
     user_checksum = to_checksum_address(expected_user)
@@ -188,7 +217,19 @@ def verify_bnb_legacy_claim_tx(*, tx_hash: str, migration_address: str, expected
     Same independent-verification pattern as verify_bnb_claim_tx, for
     XeraMigrationClaim's one-time legacy-balance claim (section 10/16).
     """
+    from xera.chain.config import bnb_chain_id
     w3 = Web3(Web3.HTTPProvider(_bnb_rpc_url()))
+
+    # The RPC must be on the chain this deployment is configured for. A testnet RPC left
+    # in place after switching to mainnet (or the reverse) would otherwise verify claims
+    # against the wrong network.
+    expected_chain_id = bnb_chain_id()
+    try:
+        actual_chain_id = int(w3.eth.chain_id)
+    except Exception:
+        raise IndexerError("bnb_rpc_unreachable")
+    if actual_chain_id != expected_chain_id:
+        raise IndexerError("rpc_chain_mismatch")
 
     try:
         receipt = w3.eth.get_transaction_receipt(tx_hash)

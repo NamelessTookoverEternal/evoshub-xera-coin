@@ -152,3 +152,18 @@ def bnb_network_public() -> dict:
         "supported_chain_ids": sorted(_BNB_NETWORKS),
         **meta,
     }
+
+
+def onchain_network(chain: str) -> str:
+    """
+    'mainnet' or 'testnet' for the chain THIS deployment is pointed at. Every claim row is
+    stamped with it, and claim accounting (the 75M on-chain cap, confirm, retry) only ever
+    treats rows of the matching network as live. This is what stops a claim made against a
+    testnet token from counting toward, or being replayed as, a mainnet entitlement.
+    BNB: chain id 56 is mainnet, anything else (97, local forks) is testnet.
+    TON: mainnet only when XERA_TON_NETWORK=mainnet.
+    """
+    import os
+    if chain.upper() == "BNB":
+        return "mainnet" if bnb_chain_id() == 56 else "testnet"
+    return "mainnet" if os.getenv("XERA_TON_NETWORK", "testnet").strip().lower() == "mainnet" else "testnet"

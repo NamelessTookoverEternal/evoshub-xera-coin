@@ -94,6 +94,26 @@ function utf8ToHex(str) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// The server only records a claim once the transaction has enough confirmations (more on mainnet
+// than on testnet). Right after the wallet reports the first block it may say "waiting for more
+// confirmations" or "not found yet" — both just mean "ask again shortly", so retry for ~1 minute.
+async function confirmClaimOnServer(referenceId, txHash) {
+    const body = JSON.stringify({ reference_id: referenceId, transaction_hash: txHash });
+    let lastErr;
+    for (let attempt = 0; attempt < 12; attempt++) {
+        try {
+            return await req(PFX + '/claim/confirm', { method: 'POST', body });
+        } catch (err) {
+            lastErr = err;
+            const msg = String((err && err.message) || '');
+            const pending = /more network confirmations|not found on-chain yet/i.test(msg);
+            if (!pending) throw err;
+            await sleep(5000);
+        }
+    }
+    throw lastErr;
+}
+
 function userMessage(err, fallback) {
     // EIP-1193 user rejection
     if (err && (err.code === 4001 || err.code === 'ACTION_REJECTED')) return 'You declined the request in your wallet. Nothing was changed.';
@@ -754,7 +774,7 @@ function renderClaimRow(c) {
 async function confirmSaved(ref, hash) {
     $('chainClaimError').textContent = '';
     try {
-        await req(PFX + '/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: ref, transaction_hash: hash }) });
+        await confirmClaimOnServer(ref, hash);
         forgetPendingTx(ref);
         setNotice('Settlement confirmed on-chain.');
         await Promise.all([loadClaimables(), loadVestingStatus()]);
@@ -836,7 +856,7 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
 
         if (button) button.textContent = 'Waiting for network…';
         await tx.wait();
-        await req(PFX + '/claim/confirm', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, transaction_hash: tx.hash }) });
+        await confirmClaimOnServer(referenceId, tx.hash);
         forgetPendingTx(referenceId);
         signedClaims.delete(referenceId);
         setNotice(`Moved on-chain. Transaction ${shorten(tx.hash)}`);

@@ -18,7 +18,7 @@ from eth_utils import keccak
 
 from main import supabase
 from xera.chain.rpc import first_row
-from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_chain_id, ChainConfigError
+from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_chain_id, onchain_network, ChainConfigError
 from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
 from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, IndexerError
@@ -58,7 +58,13 @@ def _reference_id_to_bytes32(reference_id: str) -> bytes:
 
 
 def _to_wei(amount_decimal) -> int:
-    return int(round(float(amount_decimal) * (10 ** _XERA_DECIMALS)))
+    """
+    Exact decimal -> wei. NEVER go through float: float(1.15) * 1e18 is not
+    1150000000000000000, so a float-based conversion disagrees with the amount
+    that was signed and a perfectly valid on-chain claim fails verification.
+    This is the single conversion used for signing, confirming and retrying.
+    """
+    return int(Decimal(str(amount_decimal)) * (10 ** _XERA_DECIMALS))
 
 
 def _get_confirmed_mining_tx(user_id: int, reference_id: str) -> dict:
@@ -328,7 +334,7 @@ def split_claim_amount(amount: Decimal) -> tuple:
 
 
 def _decimal_to_wei(amount: Decimal) -> int:
-    return int(amount * (10 ** _XERA_DECIMALS))
+    return _to_wei(amount)
 
 
 def _build_signed_claim(chain, wallet, chain_cfg, reference_id, amount_wei, transferable_wei, locked_wei, deadline_unix) -> dict:
@@ -402,6 +408,7 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
             "p_locked_amount": str(locked),
             "p_contract_address": chain_cfg["xera_distributor_address"],
             "p_deadline": _iso_from_unix(deadline_unix),
+            "p_network": onchain_network(chain),
         }).execute()
     except Exception as e:
         msg = str(e)
@@ -450,6 +457,25 @@ def get_claim_overview(user_id: int) -> dict:
     }
 
 
+# Indexer errors that mean "we could not tell yet" rather than "this settlement did not happen".
+# Marking a claim FAILED releases its reservation, so doing that for a transaction that is merely
+# not mined yet (or an RPC blip) could free funds for a transfer that then lands. Only a
+# transaction that is proven reverted is failed here; everything else leaves the claim as it is,
+# the user can retry the confirmation, and the signature-deadline sweep expires it if it never lands.
+_DEFINITIVE_FAILURES = {"transaction_reverted"}
+
+
+def _fail_if_definitive(reference_id: str, code: str) -> None:
+    if code in _DEFINITIVE_FAILURES:
+        supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": reference_id}).execute()
+
+
+def _require_same_network(row: dict, chain: str | None = None) -> None:
+    """A claim created on testnet can never be confirmed/retried as a mainnet entitlement (or vice versa)."""
+    if (row.get("network") or "testnet") != onchain_network(chain or row["chain"]):
+        raise ClaimError("claim_wrong_network")
+
+
 def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dict:
     res = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
     if not res.data:
@@ -459,6 +485,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
         raise ClaimError("not_your_claim")
     if row["status"] == "CONFIRMED":
         return row
+    _require_same_network(row)
 
     if row["chain"] == "BNB":
         expected_reference_id_bytes32 = _reference_id_to_bytes32(reference_id)
@@ -472,7 +499,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
                 expected_total_amount_wei=expected_total_wei,
             )
         except IndexerError as e:
-            supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": reference_id}).execute()
+            _fail_if_definitive(reference_id, str(e))
             raise ClaimError(str(e))
 
         confirmed = supabase.rpc("xera_confirm_onchain_claim", {
@@ -493,7 +520,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
                 expected_total_amount_nano=expected_total_wei,
             )
         except IndexerError as e:
-            supabase.rpc("xera_mark_onchain_claim_failed", {"p_reference_id": reference_id}).execute()
+            _fail_if_definitive(reference_id, str(e))
             raise ClaimError(str(e))
 
         confirmed = supabase.rpc("xera_confirm_onchain_claim", {
@@ -527,6 +554,7 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
             row = refreshed.data[0]
     if row["status"] not in ("FAILED", "EXPIRED"):
         raise ClaimError("claim_not_retryable")
+    _require_same_network(row, chain)
 
     wallet = _get_verified_wallet(user_id, chain)
     try:
@@ -544,8 +572,11 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
             "p_wallet_address": wallet["address"],
             "p_contract_address": chain_cfg["xera_distributor_address"],
             "p_deadline": _iso_from_unix(deadline_unix),
+            "p_network": onchain_network(chain),
         }).execute()
     except Exception as e:
+        if "claim_wrong_network" in str(e):
+            raise ClaimError("claim_wrong_network")
         if "global_mining_allocation_exceeded" in str(e):
             raise ClaimError("global_mining_allocation_exceeded")
         if "claim_not_retryable" in str(e):
