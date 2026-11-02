@@ -23,6 +23,7 @@ from routes import admin, contact, website_requests
 from routes.evosdata import mount_evosdata
 from routes.evosgpt import mount_evosgpt
 from utils.rate_limit import limiter
+from utils.transient_retry import TransientRetryMiddleware
 from utils.xera_supabase import supabase
 from xera.routes import router as xera_router
 from xera.routes_admin import router as xera_admin_router
@@ -69,6 +70,9 @@ class CatchAllErrorsMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             print(f"Unhandled error on {request.url.path}: {exc!r}")
             return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+# Added BEFORE the catch-all so it sits inside it: a dropped idle DB connection on a read-only GET is
+# retried once instead of surfacing as a 500; anything else still reaches the catch-all below.
+app.add_middleware(TransientRetryMiddleware)
 app.add_middleware(CatchAllErrorsMiddleware)
 _allowed_origins = [
     o.strip()
