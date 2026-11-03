@@ -57,6 +57,10 @@ export default defineConfig({
         xeraFaq:            'src/pages/xera/faq.html',
         xeraDisclosure:     'src/pages/xera/disclosure.html',
         ecosystem:          'src/pages/ecosystem.html',
+        integrated:         'src/pages/integrated.html',
+        policy:             'src/pages/policy.html',
+        terms:              'src/pages/terms.html',
+        privacy:            'src/pages/privacy.html',
       }
     }
   }

@@ -7,21 +7,22 @@
 import { getUser, logout } from './evos-session.js';
 
 const NAV_ITEMS = [
-    { key: 'overview', label: 'Overview', href: '/hub/', icon: 'grid' },
-    { key: 'data',     label: 'Data Services', href: '/hub/#data', icon: 'signal' },
-    { key: 'evosdata', label: 'EVOS Data', href: '/evosdata', icon: 'signal' },
-    { key: 'xera',     label: 'XERA Mining', href: '/xera', icon: 'bolt' },
-    { key: 'activity', label: 'Activity', href: '/hub/#activity', icon: 'clock' },
-    { key: 'settings', label: 'Settings', href: '/hub/settings.html', icon: 'gear' },
+    { key: 'overview',   label: 'Overview',   href: '/hub/', icon: 'grid' },
+    { key: 'xera',       label: 'XERA',       href: '/xera', icon: 'bolt' },
+    { key: 'ecosystem',  label: 'Ecosystem',  href: '/ecosystem.html', icon: 'signal' },
+    { key: 'integrated', label: 'Integrated', href: '/integrated.html', icon: 'link' },
+    { key: 'company',    label: 'Company',    href: '/about.html', icon: 'building' },
+    { key: 'activity',   label: 'Activity',   href: '/hub/#activity', icon: 'clock' },
+    { key: 'settings',   label: 'Settings',   href: '/hub/settings.html', icon: 'gear' },
 ];
 
 // Mobile bottom nav is intentionally a shorter set — section 4 of the
 // brief is explicit about not overcrowding it.
 const MOBILE_ITEMS = [
-    { key: 'overview', label: 'Home', href: '/hub/', icon: 'grid' },
-    { key: 'data',     label: 'Products', href: '/hub/#data', icon: 'signal' },
-    { key: 'activity', label: 'Activity', href: '/hub/#activity', icon: 'clock' },
-    { key: 'settings', label: 'Profile', href: '/hub/settings.html', icon: 'user' },
+    { key: 'overview',  label: 'Home',      href: '/hub/', icon: 'grid' },
+    { key: 'ecosystem', label: 'Ecosystem', href: '/ecosystem.html', icon: 'signal' },
+    { key: 'activity',  label: 'Activity',  href: '/hub/#activity', icon: 'clock' },
+    { key: 'settings',  label: 'Profile',   href: '/hub/settings.html', icon: 'user' },
 ];
 
 const ICONS = {
@@ -30,6 +31,8 @@ const ICONS = {
     bolt:   '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke-linejoin="round"/>',
     clock:  '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/>',
     gear:   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.36a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.64 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.64 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.64 1.7 1.7 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.64a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.36 9c.1.63.5 1.17 1 1.45.32.16.68.25 1.06.25H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/>',
+    link:   '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" stroke-linecap="round"/>',
+    building: '<path d="M4 21V5l8-2v18M12 9l8 2v10M3 21h18M8 8h1M8 12h1M8 16h1" stroke-linecap="round" stroke-linejoin="round"/>',
     user:   '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round"/>',
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke-linecap="round" stroke-linejoin="round"/>',
 };

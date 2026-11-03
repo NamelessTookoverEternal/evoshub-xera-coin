@@ -63,7 +63,13 @@ function enterGuestMode() {
 
 // ================= TABS =================
 
+// While a signed-in user has no active mining session, only the dashboard, the mine tab
+// and the profile tab (for sign out) are reachable; everything else bounces to mine.
+const LOCK_FREE_TABS = ['dashboard', 'mine', 'profile'];
+function isMiningLocked() { return !!$('walletView') && $('walletView').classList.contains('mining-locked'); }
+
 function switchTab(name) {
+    if (isMiningLocked() && !LOCK_FREE_TABS.includes(name)) name = 'mine';
     if (isGuest() && GATED_TABS[name]) { askSignIn(GATED_TABS[name]); return; }
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === name));
     document.querySelectorAll('.tab-nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
@@ -71,7 +77,7 @@ function switchTab(name) {
     $('walletView').querySelector('.scroll').scrollTop = 0;
     if (name === 'wallet') loadWalletTotals();
     if (name === 'hashrate' && token()) loadHashrate();
-    if (name === 'rewards' && token()) loadReferral();
+    if (name === 'profile' && token()) loadReferral();
 }
 
 document.querySelectorAll('[data-tab]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -368,6 +374,17 @@ function setDashMiningProgress(elapsedMs, earned) {
     if (er) er.textContent = `${fmt(earned || 0)} XERA`;
 }
 
+function setMiningLock(on) {
+    const lock = !!on && signedIn;
+    $('walletView').classList.toggle('mining-locked', lock);
+    const card = $('miningCardDash');
+    if (card) card.classList.toggle('needs-mining', lock);
+    if (lock) {
+        const active = document.querySelector('.tab-panel.active');
+        if (active && !LOCK_FREE_TABS.includes(active.dataset.panel)) switchTab('dashboard');
+    }
+}
+
 function renderMining() {
     const btn = $('miningAction');
     const btnDash = $('miningActionDash');
@@ -385,6 +402,8 @@ function renderMining() {
         $('miningMeta').hidden = true;
         setDashMiningProgress(null, 0);
         [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
+        setMiningLock(true);
+        if (signedIn) $('ringCaptionDash').textContent = 'Tap here to start mining';
         return;
     }
 
@@ -413,7 +432,10 @@ function renderMining() {
         $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
+        setMiningLock(true);
+        $('ringCaptionDash').textContent = 'Session complete. Tap to claim';
     } else {
+        setMiningLock(false);
         setRing(fraction, false);
         setMiningSceneState('active');
         const s = Math.floor(remain / 1000);
