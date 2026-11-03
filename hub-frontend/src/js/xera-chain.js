@@ -160,6 +160,7 @@ async function loadNetworkConfig() {
     try {
         const { bnb } = await req(PFX + '/chain/config');
         state.network = bnb;
+        renderWalletCard('BNB');
     } catch (_e) {
         state.network = null;
     }
@@ -305,6 +306,51 @@ async function switchNetwork() {
     renderNetworkBanner();
 }
 
+// ---------------------------------------------------------------- add XERA to wallet
+// One tap asks the wallet to track the XERA token (EIP-747 wallet_watchAsset) so the balance
+// and logo show up. Public token info only — nothing here reads or sends a key or seed.
+const XERA_TOKEN_SYMBOL = 'XERA';
+const XERA_TOKEN_DECIMALS = 18;
+const XERA_TOKEN_LOGO = 'https://evoshub.xyz/assets/images/xera-token-logo-1024.png';
+
+async function addXeraToWallet(btn, msgEl) {
+    const net = state.network;
+    const addr = net && net.xera_token_address;
+    const say = (t) => { msgEl.textContent = t; };
+    if (!addr) { say('The XERA token address is not published yet.'); return; }
+    const provider = (state.provider && state.provider.provider) || (typeof window !== 'undefined' && window.ethereum) || null;
+    const copyFallback = async (reason) => {
+        try { await navigator.clipboard.writeText(addr); say(`${reason} Contract address copied — in your wallet choose “Add custom token”, paste it, symbol ${XERA_TOKEN_SYMBOL}, decimals ${XERA_TOKEN_DECIMALS}.`); }
+        catch (_e) { say(`${reason} Add a custom token manually: ${addr} · symbol ${XERA_TOKEN_SYMBOL} · decimals ${XERA_TOKEN_DECIMALS}.`); }
+    };
+    if (!provider || typeof provider.request !== 'function') { await copyFallback('Your wallet can’t add tokens automatically.'); return; }
+    if (state.providerChainId && net.chain_id && Number(state.providerChainId) !== Number(net.chain_id)) {
+        say(`Switch your wallet to ${net.name} first, then tap again.`); return;
+    }
+    btn.disabled = true;
+    try {
+        const ok = await provider.request({
+            method: 'wallet_watchAsset',
+            params: { type: 'ERC20', options: { address: addr, symbol: XERA_TOKEN_SYMBOL, decimals: XERA_TOKEN_DECIMALS, image: XERA_TOKEN_LOGO } },
+        });
+        say(ok ? 'XERA added to your wallet.' : 'Not added — you can tap again any time.');
+    } catch (err) {
+        if (err && err.code === 4001) say('Cancelled in your wallet.');
+        else await copyFallback('Your wallet couldn’t add it automatically.');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function xeraTokenRow() {
+    const net = state.network;
+    if (!net || !net.xera_token_address) return null;
+    const msg = h('p', { class: 'chain-token-msg', role: 'status', 'aria-live': 'polite' });
+    const btn = h('button', { type: 'button', class: 'btn btn-sm chain-addtoken', text: 'Add XERA to my wallet' });
+    btn.addEventListener('click', () => addXeraToWallet(btn, msg));
+    return h('div', { class: 'chain-token-row' }, btn, msg);
+}
+
 // ---------------------------------------------------------------- wallet cards
 
 function walletCardHeader(chain, subtitle, tone) {
@@ -373,7 +419,7 @@ function renderWalletCard(chain) {
             h('div', { class: 'chain-actions' }, connectBtn(connectLabel)),
             manualForm(chain, null),
         );
-        if (chain === 'BNB') card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen }));
+        if (chain === 'BNB') { card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen })); const tr = xeraTokenRow(); if (tr) card.append(tr); }
         return;
     }
 
@@ -387,7 +433,7 @@ function renderWalletCard(chain) {
                 h('button', { type: 'button', class: 'btn btn-sm btn-ghost', disabled: busy, text: 'Disconnect', onclick: () => removeWallet(chain, true) }),
             ),
         );
-        if (chain === 'BNB') card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen }));
+        if (chain === 'BNB') { card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen })); const tr = xeraTokenRow(); if (tr) card.append(tr); }
         return;
     }
 
@@ -403,7 +449,7 @@ function renderWalletCard(chain) {
         ),
     );
     if (state.manualFormOpen[chain]) card.append(manualForm(chain, w));
-    if (chain === 'BNB') card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen }));
+    if (chain === 'BNB') { card.append(h('div', { id: 'chainProviderPicker', class: 'chain-picker', hidden: !state.pickerOpen })); const tr = xeraTokenRow(); if (tr) card.append(tr); }
 }
 
 function setBusy(chain, value) {

@@ -249,6 +249,11 @@ def chain_public_config(request: Request):
         bnb = bnb_network_public()
     except ChainConfigError:
         raise HTTPException(status_code=503, detail="Chain configuration is temporarily unavailable.")
+    # The token contract address is public on-chain data; the UI uses it for "Add XERA to wallet".
+    try:
+        bnb["xera_token_address"] = (get_chain_config("BNB").get("xera_token_address") or "").strip() or None
+    except Exception:
+        bnb["xera_token_address"] = None
     return {"status": "ok", "bnb": bnb}
 
 

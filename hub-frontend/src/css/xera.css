@@ -1349,6 +1349,9 @@ body{
 .chain-addr-row{display:flex;align-items:flex-start;gap:10px;min-width:0}
 .chain-copy{flex:0 0 auto;background:none;border:1px solid var(--border);border-radius:999px;color:var(--text-dim);font-size:.7rem;padding:2px 10px;cursor:pointer}
 .chain-copy:hover{color:inherit;border-color:var(--accent)}
+.chain-token-row{margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.chain-token-msg{margin:0;font-size:.75rem;color:var(--text-dim);flex:1 1 220px;word-break:break-word}
+.chain-token-msg:empty{display:none}
 .chain-actions{display:flex;flex-wrap:wrap;gap:8px}
 .chain-actions .btn{flex:1 1 140px;width:auto;min-height:44px}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:inherit}

@@ -10,4 +10,10 @@
   <url><loc>https://evoshub.xyz/policy</loc><priority>0.4</priority></url>
   <url><loc>https://evoshub.xyz/terms</loc><priority>0.4</priority></url>
   <url><loc>https://evoshub.xyz/privacy</loc><priority>0.4</priority></url>
+  <url><loc>https://evoshub.xyz/xera/tokenomics</loc><priority>0.8</priority></url>
+  <url><loc>https://evoshub.xyz/xera/whitepaper</loc><priority>0.8</priority></url>
+  <url><loc>https://evoshub.xyz/xera/faq</loc><priority>0.7</priority></url>
+  <url><loc>https://evoshub.xyz/xera/roadmap</loc><priority>0.6</priority></url>
+  <url><loc>https://evoshub.xyz/xera/stats</loc><priority>0.6</priority></url>
+  <url><loc>https://evoshub.xyz/xera/disclosure</loc><priority>0.4</priority></url>
 </urlset>
