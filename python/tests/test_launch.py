@@ -195,8 +195,10 @@ def test_agreement_makes_no_forbidden_promises():
     text = agreement.agreement_text()
     for phrase in (
         "Scrolling alone is not acceptance",
-        "not a token on a blockchain",
-        "On-chain claiming has not launched",
+        "not itself a token on a blockchain",
+        "An on-chain claim cannot be undone",
+        "Network (gas) fees are paid by you",
+        "75% is locked in a vesting contract",
         "does not by itself make you eligible",
         "We make no promise of profit",
         "Nothing here limits any rights you have under applicable law",

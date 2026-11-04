@@ -27,6 +27,7 @@
   <style>
     .faq-item { border-bottom:1px solid var(--border); padding:18px 0; }
     .faq-item h3 { font-size:15.5px; margin:0 0 8px; }
+    .faq-group { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin:34px 0 0; }
     .faq-item p { font-size:14px; color:var(--text2); line-height:1.7; margin:0; }
   </style>
   <link rel="stylesheet" href="../../css/xera-gallery.css">
@@ -58,17 +59,27 @@
     <span class="section-label">XERA</span>
     <h1 class="section-title">Frequently asked questions</h1>
 
+    <h2 class="faq-group">Basics</h2>
     <div class="faq-item">
       <h3>What is XERA?</h3>
-      <p>XERA is a digital ecosystem asset being developed by EVOXERA TECHNOLOGY as part of the broader EVOS ecosystem. It currently offers a wallet, 24-hour mining sessions, and daily claiming.</p>
+      <p>XERA is a digital asset built by EVOXERA TECHNOLOGY as part of the EVOS ecosystem. You earn it by mining in the XERA app. It is being introduced in stages.</p>
     </div>
     <div class="faq-item">
       <h3>What is the token called?</h3>
-      <p>The token is named <strong>EVOXERA</strong> and its ticker is <strong>XERA</strong>. Other projects may use a similar ticker, so always check the official contract address published by EVOXERA TECHNOLOGY before adding or buying any token.</p>
+      <p>The token is named <strong>EVOXERA</strong> and its ticker is <strong>XERA</strong>. It runs on BNB Smart Chain and has a fixed supply of 500,000,000 XERA, which no one can increase.</p>
     </div>
     <div class="faq-item">
+      <h3>Is XERA listed on an exchange?</h3>
+      <p>No. XERA is not listed on any exchange, and there is no official market price. Mining XERA does not give it monetary value.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Can I buy, sell or transfer XERA?</h3>
+      <p>Not through EVOXERA TECHNOLOGY at this time. Buying, selling and transfers between users are not active.</p>
+    </div>
+    <h2 class="faq-group">Mining</h2>
+    <div class="faq-item">
       <h3>How does XERA mining work?</h3>
-      <p>Start a session from your dashboard. After 24 hours, return to claim your reward and begin another session.</p>
+      <p>Start a session from your dashboard. After 24 hours, return to claim your reward and start another session.</p>
     </div>
     <div class="faq-item">
       <h3>How long does a mining session last?</h3>
@@ -76,41 +87,60 @@
     </div>
     <div class="faq-item">
       <h3>Do I need to keep the website open while mining?</h3>
-      <p>No. Your 24-hour mining session continues even if you close the website or turn off your device. The countdown helps you see when your session is expected to become eligible.</p>
+      <p>No. Your session keeps running if you close the website or turn off your device. The countdown only shows when your session will be ready.</p>
     </div>
     <div class="faq-item">
-      <h3>Is my mining balance stored on the server?</h3>
-      <p>Yes. Your balance and transaction history are maintained by the platform, and rewards are checked before they are credited.</p>
+      <h3>Where is my mining balance stored?</h3>
+      <p>On the XERA platform. Your balance and transaction history are kept by the platform, and rewards are checked before they are credited. Mined XERA is not in your own wallet until you move it on-chain.</p>
+    </div>
+    <h2 class="faq-group">Moving XERA to your wallet</h2>
+    <div class="faq-item">
+      <h3>Can I withdraw my XERA to my own wallet?</h3>
+      <p>On-chain claims are opening in stages, so they may not be available to you yet. When they are, you will see the option in your dashboard.</p>
     </div>
     <div class="faq-item">
-      <h3>Can I currently withdraw XERA?</h3>
-      <p>No. Withdrawals are not active in the current version.</p>
+      <h3>What do I need before I can claim on-chain?</h3>
+      <p>You need to complete KYC verification and pay a one-time processing fee. The fee is currently US$1, paid in USDT on BNB Smart Chain, and it may change.</p>
     </div>
     <div class="faq-item">
-      <h3>Can I currently transfer XERA?</h3>
-      <p>No. Transfers between users are not active in the current version.</p>
+      <h3>What happens when I claim?</h3>
+      <p>25% of the claimed amount arrives in your wallet right away. The other 75% is locked in a vesting contract and releases gradually over about 180 days (roughly six months).</p>
     </div>
     <div class="faq-item">
-      <h3>Can I currently buy or sell XERA?</h3>
-      <p>No. Buying and selling are not active in the current version.</p>
+      <h3>Do I need BNB in my wallet?</h3>
+      <p>You pay the BNB network (gas) fee yourself, from your own wallet, so you need a small amount of BNB. The network fee is separate from the processing fee and goes to the network, not to us. Check the claim screen for the exact steps before you confirm anything in your wallet.</p>
+    </div>
+    <h2 class="faq-group">Safety and scams</h2>
+    <div class="faq-item">
+      <h3>Which contract address is the real XERA?</h3>
+      <p>The official EVOXERA token contract on BNB Smart Chain is <a href="https://bscscan.com/token/0x7e1C8b087172d7E0DEe7d3Cb3b76624dB12b44D5" target="_blank" rel="noopener" style="word-break:break-all">0x7e1C8b087172d7E0DEe7d3Cb3b76624dB12b44D5</a>. Anyone can create a token with the same name or ticker, so always check the address.</p>
     </div>
     <div class="faq-item">
-      <h3>Is XERA currently listed on an exchange?</h3>
-      <p>No. XERA is not listed on any exchange at this time.</p>
+      <h3>Will EVOXERA TECHNOLOGY ask for my seed phrase or private key?</h3>
+      <p>Never. Do not share your seed phrase or private keys with anyone, including us. Be careful with messages that offer free XERA, ask you to connect your wallet to unknown sites, or promise guaranteed returns.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Where can I verify the contracts?</h3>
+      <p>The token, vesting and mining distributor contracts are verified on BscScan. The full list of addresses is in the <a href="/xera/whitepaper.html#the-token">whitepaper</a>.</p>
+    </div>
+    <h2 class="faq-group">Showing XERA in your wallet</h2>
+    <div class="faq-item">
+      <h3>How do I add XERA to my wallet?</h3>
+      <p>In your wallet, choose to add a custom token on BNB Smart Chain and paste the official contract address above. The name, ticker XERA and 18 decimals should fill in automatically. Confirm the address matches before you add it.</p>
     </div>
 
     <p style="font-size:12.5px;color:var(--text3);margin-top:20px;">
-      For more detail on what's live versus what's being explored, see the <a href="/xera/roadmap.html">roadmap</a> and the <a href="/xera/disclosure.html">disclosure page</a>.
+      For the full picture, read the <a href="/xera/whitepaper.html">whitepaper</a>, the <a href="/xera/roadmap.html">roadmap</a> and the <a href="/xera/disclosure.html">disclosure</a>.
     </p>
   
 <section class="xera-gallery" aria-label="XERA by EVOXERA technology visuals">
   <article class="xera-gallery-card feature">
     <img src="/assets/images/xera-gallery/xera-planet.svg" alt="Futuristic digital planet representing the XERA ecosystem" loading="lazy">
-    <div class="xera-gallery-caption"><strong>XERA by EVOXERA</strong><span>A digital ecosystem built to evolve.</span></div>
+    <div class="xera-gallery-caption"><strong>XERA by EVOXERA</strong><span>A digital ecosystem built to grow.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-coin-tech.svg" alt="Futuristic XERA technology coin" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Digital Asset</strong><span>XERA identity and on-chain infrastructure.</span></div>
+    <div class="xera-gallery-caption"><strong>Digital Asset</strong><span>The XERA token and its identity.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-network.svg" alt="Connected digital network" loading="lazy">
@@ -122,11 +152,11 @@
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-data-core.svg" alt="Digital data core" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Data Core</strong><span>Data, compute and ecosystem infrastructure.</span></div>
+    <div class="xera-gallery-caption"><strong>Data Core</strong><span>Data and computing for the ecosystem.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-mining.svg" alt="Digital mining network" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Mining Layer</strong><span>Participation that powers the early ecosystem.</span></div>
+    <div class="xera-gallery-caption"><strong>Mining Layer</strong><span>Mining that powers the early ecosystem.</span></div>
   </article>
 </section>
 

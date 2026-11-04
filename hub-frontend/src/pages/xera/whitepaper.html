@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
 <meta name="theme-color" content="#060810"/>
 <title>XERA (EVOXERA) Whitepaper | EVOXERA TECHNOLOGY</title>
-<meta name="description" content="The XERA (EVOXERA) whitepaper: purpose, mining model, token design and roadmap from EVOXERA TECHNOLOGY."/>
+<meta name="description" content="The XERA (EVOXERA) whitepaper: what XERA is, how mining and on-chain claiming work, token details, security, roadmap and disclosures."/>
 <link rel="canonical" href="https://evoshub.xyz/xera/whitepaper"/>
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="EVOXERA TECHNOLOGY"/>
 <meta property="og:title" content="XERA (EVOXERA) Whitepaper | EVOXERA TECHNOLOGY"/>
-<meta property="og:description" content="The XERA (EVOXERA) whitepaper: purpose, mining model, token design and roadmap from EVOXERA TECHNOLOGY."/>
+<meta property="og:description" content="The XERA (EVOXERA) whitepaper: what XERA is, how mining and on-chain claiming work, token details, security, roadmap and disclosures."/>
 <meta property="og:url" content="https://evoshub.xyz/xera/whitepaper"/>
 <meta property="og:image" content="https://evoshub.xyz/assets/images/xera-token-logo-1024.png"/>
 <meta name="twitter:card" content="summary"/>
 <meta name="twitter:title" content="XERA (EVOXERA) Whitepaper | EVOXERA TECHNOLOGY"/>
-<meta name="twitter:description" content="The XERA (EVOXERA) whitepaper: purpose, mining model, token design and roadmap from EVOXERA TECHNOLOGY."/>
+<meta name="twitter:description" content="The XERA (EVOXERA) whitepaper: what XERA is, how mining and on-chain claiming work, token details, security, roadmap and disclosures."/>
 <meta name="twitter:image" content="https://evoshub.xyz/assets/images/xera-token-logo-1024.png"/>
 <link href="../../css/xera.css" rel="stylesheet"/>
 <style>
@@ -150,9 +150,9 @@
 
   <div class="wp-body">
     <div class="wp-hero">
-      <span class="badge"><span class="pulse"></span>XERA V1 — Mining Live</span>
+      <span class="badge"><span class="pulse"></span>XERA — Mining Live</span>
       <h1>The XERA Whitepaper</h1>
-      <p>What XERA is, exactly what's live today versus what isn't, how mining and daily claiming work, the live tokenomics, the roadmap, and the disclosures — all in one document instead of scattered across pages.</p>
+      <p>What XERA is, what is live today and what is not, how mining and claiming work, the token details, live statistics, the roadmap and the disclosures, all in one document.</p>
       <div class="wp-hero-actions">
         <a class="wp-btn primary" href="/xera">Open dashboard</a>
         <a class="wp-btn ghost" href="#how-it-works">How it works</a>
@@ -162,10 +162,13 @@
 
     <div class="wp-layout">
       <nav class="wp-toc" id="wpToc">
-        <a href="#what-is-xera">What is XERA</a>
-        <a href="#how-it-works">How it works</a>
+        <a href="#what-is-xera">What XERA is</a>
+        <a href="#the-token">The token</a>
+        <a href="#how-it-works">Mining</a>
+        <a href="#moving-xera">Your wallet</a>
         <a href="#statistics">Statistics</a>
         <a href="#tokenomics">Tokenomics</a>
+        <a href="#security">Security</a>
         <a href="#roadmap">Roadmap</a>
         <a href="#faq">FAQ</a>
         <a href="#disclosure">Disclosure</a>
@@ -174,53 +177,82 @@
       <div class="wp-main">
 
         <section class="wp-section" id="what-is-xera">
-          <div class="wp-eyebrow">What is XERA?</div>
-          <h2>A digital ecosystem asset, still being built in the open</h2>
-          <p>XERA is a digital ecosystem asset being developed by EVOXERA TECHNOLOGY as part of the broader EVOS ecosystem. XERA is being introduced in phases. This whitepaper explains what is available today, what is planned, and the important limits every participant should understand.</p>
+          <div class="wp-eyebrow">1 · Overview</div>
+          <h2>What XERA is</h2>
+          <p>XERA is a digital asset built by EVOXERA TECHNOLOGY as part of the EVOS ecosystem. You earn it by mining inside the XERA app, and it is being introduced in stages. This document explains what works today, what is opening next, and the limits every participant should understand.</p>
           <div class="wp-cols">
             <div class="wp-col live">
-              <h4>Active in V1</h4>
+              <h4>Live today</h4>
               <ul>
-                <li>XERA account access</li>
-                <li>Wallet</li>
+                <li>XERA account and wallet</li>
                 <li>24-hour mining sessions</li>
-                <li>24-hour mining sessions managed by the platform</li>
-                <li>Daily claiming</li>
-                <li>Transaction / ledger history</li>
+                <li>Daily claiming with streak tracking</li>
+                <li>Transaction history</li>
                 <li>Ecosystem directory</li>
+                <li>XERA token contracts on BNB Smart Chain, verified on BscScan</li>
               </ul>
             </div>
             <div class="wp-col off">
-              <h4>Not active yet</h4>
+              <h4>Not live yet</h4>
               <ul>
-                <li>Buying</li>
-                <li>Selling</li>
-                <li>Withdrawals</li>
-                <li>Transfers</li>
-                <li>Exchange trading</li>
-                <li>External blockchain functionality</li>
+                <li>Moving XERA to your own wallet (opening in stages)</li>
+                <li>Buying and selling</li>
+                <li>Transfers between users</li>
+                <li>Exchange listing</li>
               </ul>
             </div>
           </div>
-          <p style="font-size:.78rem;margin-top:16px">Disabled features are not guaranteed to launch on any timeline — see <a href="#roadmap">Roadmap</a> and <a href="#disclosure">Disclosure</a> below.</p>
+          <p style="font-size:.78rem;margin-top:16px">Features that are not live carry no promised launch date. See the <a href="#roadmap">roadmap</a> and the <a href="#disclosure">disclosure</a>.</p>
+        </section>
+
+        <section class="wp-section" id="the-token">
+          <div class="wp-eyebrow">2 · The token</div>
+          <h2>The XERA token</h2>
+          <p>XERA also exists as a standard BEP-20 token on BNB Smart Chain. Its supply is fixed at 500,000,000 XERA, and no one can create more.</p>
+          <table class="wp-table">
+            <tbody>
+              <tr><td>Name</td><td>EVOXERA</td></tr>
+              <tr><td>Ticker</td><td>XERA</td></tr>
+              <tr><td>Network</td><td>BNB Smart Chain (chain ID 56)</td></tr>
+              <tr><td>Decimals</td><td>18</td></tr>
+              <tr><td>Total supply</td><td>500,000,000 XERA, fixed</td></tr>
+              <tr><td>Token contract</td><td style="word-break:break-all"><a href="https://bscscan.com/token/0x7e1C8b087172d7E0DEe7d3Cb3b76624dB12b44D5" target="_blank" rel="noopener">0x7e1C8b087172d7E0DEe7d3Cb3b76624dB12b44D5</a></td></tr>
+              <tr><td>Mining distributor</td><td style="word-break:break-all"><a href="https://bscscan.com/address/0x3F6cB83B1a89B2e0ca7EE98C87dc855892b73495" target="_blank" rel="noopener">0x3F6cB83B1a89B2e0ca7EE98C87dc855892b73495</a></td></tr>
+              <tr><td>Vesting contract</td><td style="word-break:break-all"><a href="https://bscscan.com/address/0x4CbB4820237E5EfA29cce0752f6A06A707D4556f" target="_blank" rel="noopener">0x4CbB4820237E5EfA29cce0752f6A06A707D4556f</a></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:.82rem;margin-top:16px"><strong>Beware of look-alikes.</strong> Anyone can create a token called XERA. Only the contract address above is the official EVOXERA token. Check the address before you add or buy anything.</p>
         </section>
 
         <section class="wp-section" id="how-it-works">
-          <div class="wp-eyebrow">How it works</div>
+          <div class="wp-eyebrow">3 · Mining</div>
           <h2>How XERA mining works</h2>
           <div class="wp-steps">
-            <div class="wp-step"><div class="num">STEP 1</div><h4>Start mining</h4><p>You start a mining session from your dashboard.</p></div>
-            <div class="wp-step"><div class="num">STEP 2</div><h4>Session runs</h4><p>Your mining session lasts 24 hours, even if you close the website or turn off your device.</p></div>
-            <div class="wp-step"><div class="num">STEP 3</div><h4>Return and claim</h4><p>Once the session is eligible, come back and claim your reward.</p></div>
+            <div class="wp-step"><div class="num">STEP 1</div><h4>Start mining</h4><p>Start a mining session from your dashboard.</p></div>
+            <div class="wp-step"><div class="num">STEP 2</div><h4>Session runs</h4><p>The session lasts 24 hours. It keeps running if you close the website or turn off your device.</p></div>
+            <div class="wp-step"><div class="num">STEP 3</div><h4>Return and claim</h4><p>When the session is complete, come back and claim your reward.</p></div>
             <div class="wp-step"><div class="num">STEP 4</div><h4>Start again</h4><p>After claiming, you can start a new 24-hour session right away.</p></div>
           </div>
-          <p style="font-size:.78rem;margin-top:16px">Your mining session lasts 24 hours. Return when it becomes eligible to claim your reward and start another session. Daily claiming is a separate bonus with its own cooldown.</p>
+          <p style="font-size:.82rem;margin-top:16px">The platform tracks session time on its own servers, so the countdown on your screen is only a display. Daily claiming is a separate bonus with its own cooldown.</p>
+        </section>
+
+        <section class="wp-section" id="moving-xera">
+          <div class="wp-eyebrow">4 · Your wallet</div>
+          <h2>Moving XERA to your wallet</h2>
+          <p>Mined XERA is first recorded in your XERA account balance. Moving it to your own BNB Smart Chain wallet is an on-chain claim, and it is opening in stages. It is not available to everyone yet.</p>
+          <div class="wp-steps">
+            <div class="wp-step"><div class="num">STEP 1</div><h4>Verify your identity</h4><p>Complete KYC verification. It is required before any on-chain claim.</p></div>
+            <div class="wp-step"><div class="num">STEP 2</div><h4>Pay the one-time fee</h4><p>A one-time processing fee applies, currently US$1, paid in USDT on BNB Smart Chain. The amount may change.</p></div>
+            <div class="wp-step"><div class="num">STEP 3</div><h4>Claim on-chain</h4><p>Choose how much to move. Your wallet will confirm the transaction. You pay the BNB network fee from your own wallet, so keep a little BNB in it.</p></div>
+          </div>
+          <p style="margin-top:16px">Each on-chain claim is split by the contracts: <strong>25%</strong> arrives in your wallet immediately, and <strong>75%</strong> is locked in the vesting contract and releases gradually over about 180 days (roughly six months). You can see both parts on BscScan.</p>
+          <p style="font-size:.82rem">Moving XERA on-chain does not mean it can be sold. XERA is not listed on any exchange. See the <a href="#disclosure">disclosure</a>.</p>
         </section>
 
         <section class="wp-section" id="statistics">
-          <div class="wp-eyebrow">Live data</div>
+          <div class="wp-eyebrow">5 · Live data</div>
           <h2>Statistics</h2>
-          <p>Pulled directly from the XERA ledger at the moment you load this page — nothing here is estimated or hardcoded.</p>
+          <p>These figures are read from the XERA platform ledger each time you load this page.</p>
           <div class="wp-stat-grid" id="statGrid">
             <div class="wp-stat"><span>Total supply</span><b id="s-total">—</b></div>
             <div class="wp-stat"><span>Mined / distributed</span><b id="s-distributed">—</b></div>
@@ -235,9 +267,9 @@
         </section>
 
         <section class="wp-section" id="tokenomics">
-          <div class="wp-eyebrow">Supply model</div>
+          <div class="wp-eyebrow">6 · Supply</div>
           <h2>Tokenomics</h2>
-          <p>Read directly from the live allocation ledger — the same numbers the admin console uses — so this can't drift out of sync with reality.</p>
+          <p>The table below comes from the live allocation ledger, the same source the admin console uses.</p>
           <div class="wp-progress-track"><div class="wp-progress-fill" id="miningProgressBar"></div></div>
           <p class="wp-progress-label" id="miningProgressLabel">Loading mining progress…</p>
           <table class="wp-table">
@@ -253,92 +285,101 @@
               <tr><td>Treasury allocation</td><td id="t-treasury">—</td></tr>
             </tbody>
           </table>
-          <p style="font-size:.8rem;margin-top:16px">XERA has a planned total supply of 500,000,000 tokens, including a 75,000,000 XERA allocation for mining. Mining rewards are limited by the published allocation. Figures shown here may update as the project progresses.</p>
+          <p style="font-size:.8rem;margin-top:16px">The total supply is fixed at 500,000,000 XERA, of which 75,000,000 XERA is allocated to mining. Mining rewards can never exceed that allocation. Allocation figures may be updated as the project progresses.</p>
           <p class="wp-error" id="tokenomicsError"></p>
         </section>
 
+        <section class="wp-section" id="security">
+          <div class="wp-eyebrow">7 · Trust</div>
+          <h2>Security and transparency</h2>
+          <ul class="wp-disc-list">
+            <li><strong>Verified code.</strong> The token, vesting and mining distributor contracts are published and verified on BscScan, so anyone can read them.</li>
+            <li><strong>Fixed supply.</strong> All 500,000,000 XERA were created once, when the token was deployed. The contract has no function to mint more.</li>
+            <li><strong>Shared control.</strong> The token reserve and the administrative roles are held by multi-signature wallets (Safe) that need two approvals for each action.</li>
+            <li><strong>Capped mining.</strong> The distributor can pay out at most its 75,000,000 XERA mining allocation, and each claim can be used only once.</li>
+            <li><strong>Vesting.</strong> 75% of each on-chain claim is locked and releases gradually, which is enforced by the vesting contract.</li>
+          </ul>
+          <p style="font-size:.8rem;margin-top:16px">Verified code is not a guarantee of value or of future listings. Read the <a href="#disclosure">disclosure</a>.</p>
+        </section>
+
         <section class="wp-section" id="roadmap">
-          <div class="wp-eyebrow">What's next</div>
+          <div class="wp-eyebrow">8 · What's next</div>
           <h2>Roadmap</h2>
-          <p>We only list something as live once it's actually live. Nothing below is a promise of a launch date — see <a href="#disclosure">Disclosure</a>.</p>
+          <p>We list something as live only when it is live. Nothing below is a promise of a launch date.</p>
 
           <div class="wp-roadmap-group">
             <h4 style="color:var(--success)">Live now</h4>
             <ul>
-              <li>XERA account access</li>
-              <li>Wallet</li>
-              <li>24-hour mining sessions managed by the platform</li>
-              <li>Daily claiming with streak tracking</li>
-              <li>Transaction / ledger history</li>
-              <li>Ecosystem directory (links to other Evoxera products)</li>
+              <li>XERA account and wallet</li>
+              <li>24-hour mining sessions and daily claiming with streak tracking</li>
+              <li>Transaction history</li>
+              <li>XERA token, vesting and mining distributor contracts deployed and verified on BNB Smart Chain</li>
+              <li>Ecosystem directory with links to other EVOXERA products</li>
             </ul>
           </div>
           <div class="wp-roadmap-group">
             <h4 style="color:var(--accent)">In development</h4>
             <ul>
-              <li>Expanded public transparency pages (this whitepaper, statistics, and tokenomics)</li>
-              <li>Additional ecosystem integrations as new Evoxera products launch</li>
+              <li>On-chain claims to your own wallet, opening in stages</li>
+              <li>Public transparency pages (this whitepaper, statistics and tokenomics)</li>
+              <li>Additional ecosystem integrations as new EVOXERA products launch</li>
             </ul>
           </div>
           <div class="wp-roadmap-group">
             <h4 style="color:var(--text-dim)">Under consideration</h4>
             <ul>
-              <li>Buying / selling XERA</li>
-              <li>Withdrawals</li>
+              <li>Buying and selling XERA</li>
               <li>Transfers between users</li>
               <li>Exchange or marketplace listing</li>
-              <li>External blockchain / on-chain migration</li>
+              <li>Support for additional blockchains</li>
               <li>Referral rewards</li>
             </ul>
-            <p style="font-size:.78rem;margin-top:10px">These are ideas we're exploring, not commitments. Moving any of them to "in development" or "live" depends on technical, legal, regulatory, and business decisions that haven't been made yet.</p>
+            <p style="font-size:.78rem;margin-top:10px">These are ideas we are exploring, not commitments. Moving any of them forward depends on technical, legal, regulatory and business decisions that have not been made yet.</p>
           </div>
         </section>
 
         <section class="wp-section" id="faq">
-          <div class="wp-eyebrow">Questions</div>
+          <div class="wp-eyebrow">9 · Questions</div>
           <h2>Frequently asked questions</h2>
-          <div class="wp-faq-item"><h4>What is XERA?</h4><p>XERA is a digital ecosystem asset being developed by EVOXERA TECHNOLOGY as part of the broader EVOS ecosystem. It currently offers a wallet, 24-hour mining sessions, and daily claiming.</p></div>
-          <div class="wp-faq-item"><h4>How does XERA mining work?</h4><p>Start a session from your dashboard. After 24 hours, return to claim your reward and begin another session.</p></div>
-          <div class="wp-faq-item"><h4>How long does a mining session last?</h4><p>24 hours from the moment you start it.</p></div>
-          <div class="wp-faq-item"><h4>Do I need to keep the website open while mining?</h4><p>No. Mining is tracked entirely on the server using its own timestamps — closing the tab or your browser doesn't stop or affect your session. The countdown you see in the app is just a display; it isn't what actually controls the timer.</p></div>
-          <div class="wp-faq-item"><h4>Is my mining balance stored on the server?</h4><p>Yes. Your balance and transaction history are maintained by the platform, and rewards are checked before they are credited.</p></div>
-          <div class="wp-faq-item"><h4>Can I currently withdraw XERA?</h4><p>No. Withdrawals are not active in the current version.</p></div>
-          <div class="wp-faq-item"><h4>Can I currently transfer XERA?</h4><p>No. Transfers between users are not active in the current version.</p></div>
-          <div class="wp-faq-item"><h4>Can I currently buy or sell XERA?</h4><p>No. Buying and selling are not active in the current version.</p></div>
-          <div class="wp-faq-item"><h4>Is XERA currently listed on an exchange?</h4><p>No. XERA is not listed on any exchange at this time.</p></div>
+          <p>Our <a href="/xera/faq.html">FAQ page</a> answers common questions about mining, KYC, the processing fee, vesting, scams and adding XERA to your wallet. These are the most common ones.</p>
+          <div class="wp-faq-item"><h4>Is XERA listed on an exchange?</h4><p>No. XERA is not listed on any exchange, and there is no official market price.</p></div>
+          <div class="wp-faq-item"><h4>Can I withdraw my XERA to my own wallet?</h4><p>On-chain claims are opening in stages, and they require KYC and a one-time processing fee. See <a href="#moving-xera">Moving XERA to your wallet</a>.</p></div>
+          <div class="wp-faq-item"><h4>Do I need to keep the website open while mining?</h4><p>No. Mining is tracked on our servers, so closing the tab or your browser does not affect your session.</p></div>
+          <div class="wp-faq-item"><h4>How do I know I have the real XERA token?</h4><p>Check that the contract address matches the one in <a href="#the-token">The XERA token</a>. Never trust a token by its name or logo alone.</p></div>
         </section>
 
         <section class="wp-section" id="disclosure">
-          <div class="wp-eyebrow">Please read</div>
+          <div class="wp-eyebrow">10 · Please read</div>
           <h2>Disclosure</h2>
           <p>Please read this before treating XERA as anything other than what it currently is.</p>
           <ul class="wp-disc-list">
-            <li>XERA is being introduced in phases, and some planned features are not yet available.</li>
-            <li>Currently available functionality — account access, wallet, 24-hour mining, daily claiming, and transaction history — should be clearly distinguished from ideas discussed for the future. See <a href="#roadmap">Roadmap</a> for that distinction.</li>
-            <li>We do not promise profits or guaranteed financial returns from mining, claiming, or holding XERA.</li>
-            <li>Mining XERA does not automatically give it any monetary value. XERA is not currently listed on any exchange and cannot currently be bought, sold, withdrawn, or transferred.</li>
-            <li>Any future feature — including buying, selling, withdrawals, transfers, exchange listing, or blockchain migration — depends on technical, operational, legal, regulatory, and business decisions that have not been made. Nothing on this site should be read as a commitment that any of these will happen, or happen by any particular date.</li>
-            <li>Statistics shown on this site (supply, distribution, user counts, etc.) are read directly from our live systems at the time of the request. They are not projections or estimates unless explicitly labeled as such.</li>
+            <li>XERA is being introduced in stages, and some planned features are not yet available.</li>
+            <li>What is available today (account, wallet, mining, daily claiming and transaction history) is separate from ideas for the future. See the <a href="#roadmap">roadmap</a>.</li>
+            <li>We do not promise profits or guaranteed financial returns from mining, claiming or holding XERA.</li>
+            <li>Mining XERA does not give it any monetary value. XERA is not listed on any exchange and cannot currently be bought or sold through EVOXERA TECHNOLOGY. On-chain claims are available only to eligible users, in stages.</li>
+            <li>Any future feature, including buying, selling, transfers, exchange listing or additional blockchains, depends on technical, operational, legal, regulatory and business decisions that have not been made. Nothing on this site is a commitment that any of these will happen, or happen by a particular date.</li>
+            <li>Statistics on this site are read from our live systems when you load the page. They are not projections or estimates unless labeled as such.</li>
+            <li>Cryptoassets carry risk, including the loss of the full amount. Only use wallets and seed phrases you control, and never share your seed phrase with anyone, including us.</li>
           </ul>
-          <p style="font-size:.8rem;margin-top:16px">If anything on this site reads as a guarantee of profit, price increase, investment return, or exchange listing, that isn't our intent — please <a href="/contact.html">let us know</a> so we can correct it.</p>
+          <p style="font-size:.8rem;margin-top:16px">If anything on this site reads like a guarantee of profit, price increase, investment return or exchange listing, that is not our intent. Please <a href="/contact.html">let us know</a> so we can correct it.</p>
         </section>
 
       <section class="xera-gallery" aria-label="XERA by EVOXERA futuristic technology visuals">
   <article class="xera-gallery-card feature">
     <img src="/assets/images/xera-gallery/xera-global-network.jpg" alt="XERA coin over a futuristic global digital network" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Global Digital Network</strong><span>XERA visualized as part of a connected digital ecosystem.</span></div>
+    <div class="xera-gallery-caption"><strong>Global Digital Network</strong><span>XERA as part of a connected digital ecosystem.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-ai-data-core.jpg" alt="XERA coin inside a futuristic AI and data center" loading="lazy">
-    <div class="xera-gallery-caption"><strong>AI &amp; Data</strong><span>Technology, data and intelligent infrastructure.</span></div>
+    <div class="xera-gallery-caption"><strong>AI &amp; Data</strong><span>Technology, data and intelligent systems.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-digital-mining.jpg" alt="XERA coin in a futuristic digital mining environment" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Digital Mining</strong><span>Participation in the early XERA ecosystem.</span></div>
+    <div class="xera-gallery-caption"><strong>Digital Mining</strong><span>Taking part in the early XERA ecosystem.</span></div>
   </article>
   <article class="xera-gallery-card">
     <img src="/assets/images/xera-gallery/xera-future-city.jpg" alt="XERA coin above a futuristic technology city" loading="lazy">
-    <div class="xera-gallery-caption"><strong>Future Infrastructure</strong><span>EVOXERA technology built for an evolving digital future.</span></div>
+    <div class="xera-gallery-caption"><strong>Future Infrastructure</strong><span>EVOXERA technology built for the future.</span></div>
   </article>
 </section>
 

@@ -127,23 +127,26 @@
 
           <!-- 2x2 square cards: Mining status, Notifications, Verification, Transfer fee.
                Notifications / Verification / Fee values come only from GET /api/xera/readiness (server-confirmed). -->
+          <!-- Home hero: ring + coin + countdown + Start/Claim. All ids below are driven by renderMining() in xera.js. -->
+          <div class="mini-card sq-mining home-hero" id="miningCardDash" data-state="idle">
+            <div class="hh-status"><span class="mini-dot" id="miningDotDash"></span><span id="ringCaptionDash">Ready to start</span></div>
+            <div class="hh-ring">
+              <svg viewBox="0 0 250 250" aria-hidden="true">
+                <circle class="hh-track" cx="125" cy="125" r="112"/>
+                <circle class="hh-dots" cx="125" cy="125" r="112"/>
+                <circle class="hh-fg" id="heroRingFg" cx="125" cy="125" r="112" transform="rotate(-90 125 125)"/>
+              </svg>
+              <img class="hh-coin" src="/assets/images/xeracoin-round.png" alt="" onerror="this.style.display='none'"/>
+              <div class="hh-time" id="countdownDash">24:00:00</div>
+            </div>
+            <button type="button" class="btn hh-cta" id="miningActionDash">Start mining</button>
+            <p class="hh-hint" id="rewardTextDash"></p>
+            <p class="banner-error" id="errorDash"></p>
+            <div class="hh-earn"><span id="miningEarnLabelDash">Earned so far</span><b id="miningEarnedDash">0 XERA</b></div>
+            <span hidden id="miningElapsedDash">--:--:--</span>
+          </div>
+
           <div class="dash-grid" id="dashGrid">
-            <button type="button" class="mini-card sq-card sq-mining" id="miningCardDash" data-goto="mine" data-state="idle" aria-label="Mining status. Open mining details">
-              <div class="sq-head">
-                <span class="sq-title"><img class="mini-coin" src="/assets/images/xeracoin-round.png" alt="" onerror="this.style.display='none'"/>Mining status</span>
-                <span class="mini-dot" id="miningDotDash"></span>
-              </div>
-              <div class="sq-body sq-body-left">
-                <div class="sq-sub" id="ringCaptionDash">Ready to start</div>
-                <div class="sq-time" id="miningElapsedDash">--:--:--</div>
-              </div>
-              <div class="sq-earn">
-                <span id="miningEarnLabelDash">Earned so far</span>
-                <b id="miningEarnedDash">0 XERA</b>
-              </div>
-              <span hidden id="countdownDash">24:00:00</span>
-              <span hidden id="rewardTextDash"></span>
-            </button>
 
             <div id="readinessCards" class="readiness-cards" hidden>
               <button type="button" class="mini-card sq-card rd-status-card" id="notifCard" data-goto="notifications" data-tone="neutral" aria-label="Notifications. Open notifications page">
@@ -176,10 +179,19 @@
                 </div>
                 <div class="sq-hint" id="feeHint"></div>
               </button>
+
+              <button type="button" class="mini-card sq-card rd-status-card" id="hashCard" data-goto="hashrate" data-tone="neutral" aria-label="Hashrate status. Open hashrate plans">
+                <div class="sq-head"><span class="sq-title">Hashrate</span><span class="sq-chev" aria-hidden="true">&rsaquo;</span></div>
+                <div class="sq-body">
+                  <span class="rd-icon sq-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M4 18a8 8 0 1 1 16 0M12 18l4-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </span>
+                  <b class="sq-label" id="hashLabel">Inactive</b>
+                </div>
+                <div class="sq-hint" id="hashHint">Tap to see plans</div>
+              </button>
             </div>
           </div>
-          <button hidden type="button" class="btn" id="miningActionDash">Start mining</button>
-          <p hidden class="banner-error" id="errorDash"></p>
 
           <div class="mini-card rewards-mini" id="rewardsMiniDash" hidden>
             <div class="mini-card-head">
@@ -488,6 +500,7 @@
 
           <div class="section-title">More</div>
           <div class="profile-links">
+            <button type="button" class="profile-link" data-goto="hashrate">Hashrate</button>
             <button type="button" class="profile-link" data-goto="rewards">Rewards</button>
             <button type="button" class="profile-link" id="profileOpenEcosystem">Ecosystem</button>
             <a class="profile-link" href="/xera/whitepaper.html">Whitepaper</a>
@@ -507,17 +520,12 @@
         <svg viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7M5 10v10h14V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Home</span>
       </button>
-      <button type="button" class="bottom-tab-item" data-tab="mine">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-        <span>Mine</span>
-      </button>
-      <button type="button" class="bottom-tab-item" data-tab="hashrate">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M7 4h10v16H7z" stroke="currentColor" stroke-width="1.7"/><path d="M10 8h4M10 12h4M10 16h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-        <span>Hashrate</span>
-      </button>
       <button type="button" class="bottom-tab-item" data-tab="wallet">
         <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M15 14h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Wallet</span>
+      </button>
+      <button type="button" class="bottom-tab-item bt-mid" data-tab="mine" aria-label="Mine">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/></svg>
       </button>
       <button type="button" class="bottom-tab-item" data-tab="activity">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 12h4l3 8 4-16 3 8h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -654,7 +662,7 @@
         <li>A mining session lasts <b>24 hours</b> from the moment you start it.</li>
         <li>You need to come back to <b>claim</b> your reward and start another session — it doesn't renew on its own.</li>
         <li>Every session and every reward is <b>validated by the server</b>, not the app on your phone.</li>
-        <li>XERA <b>cannot be withdrawn or transferred</b> in V1 — that's coming in a later phase.</li>
+        <li>Moving XERA to your wallet is an <b>on-chain claim</b>. It is opening in stages and needs KYC and a one-time processing fee. You pay the BNB network fee.</li>
         <li>The displayed reward is an estimate and is subject to the platform's mining rules, which can adjust the rate as the network grows.</li>
       </ul>
       <button class="btn" id="closeMiningInfoBtn" type="button">Got it</button>

@@ -25,7 +25,7 @@ migration SQL so they cannot drift silently.
 
 import hashlib
 
-AGREEMENT_VERSION = "xera-miner-agreement-2026-10-v1"
+AGREEMENT_VERSION = "xera-miner-agreement-2026-11-v2"
 AGREEMENT_TITLE = "XERA Miner Agreement and Rules"
 SUPPORT_EMAIL = "support@evoshub.xyz"
 
@@ -118,14 +118,19 @@ SECTIONS: list[dict] = [
     {
         "title": "9. In-platform balances and on-chain tokens",
         "paragraphs": [
-            "Your XERA mining balance is an in-platform balance recorded in the EVOS Hub. It is not a token on a blockchain. Showing a balance in the app does not mean tokens have been issued to a blockchain address.",
+            "Your XERA mining balance is an in-platform balance recorded in the EVOS Hub. It is not itself a token on a blockchain. XERA also exists as a token on BNB Smart Chain, but showing a balance in the app does not mean tokens have been sent to your wallet address. Tokens reach your wallet only through an on-chain claim under section 10.",
+            "The official token contract is 0x7e1C8b087172d7E0DEe7d3Cb3b76624dB12b44D5 on BNB Smart Chain. Tokens at any other address that use the name XERA are not ours.",
         ],
     },
     {
-        "title": "10. Future on-chain claiming and eligibility",
+        "title": "10. On-chain claiming, fees, vesting and eligibility",
         "paragraphs": [
-            "On-chain claiming has not launched. If it launches, it will be governed by separate rules, requirements and timelines that will be announced beforehand, which may include checks on eligibility, wallet details and account good standing.",
-            "Accepting this agreement or holding an in-platform balance does not by itself make you eligible to claim anything on-chain, and does not guarantee that you will be able to.",
+            "On-chain claiming moves some or all of your in-platform balance to a BNB Smart Chain wallet that you choose. It is being opened in stages, so it may not be available to your account yet, and we may pause, limit or close it at any time, for example for security or legal reasons.",
+            "To claim on-chain you must: (a) complete identity verification (KYC) to our satisfaction; (b) pay a one-time processing fee, currently US$1, paid in USDT on BNB Smart Chain, which we may change and which is shown to you before you pay; and (c) provide a wallet address that you control and that supports BNB Smart Chain.",
+            "Each on-chain claim is split by the smart contracts: 25% is delivered to your wallet immediately and 75% is locked in a vesting contract and released gradually over about 180 days. You cannot speed up the release of the locked part.",
+            "Network (gas) fees are paid by you, in BNB, from your own wallet, for every on-chain transaction. You need to hold enough BNB to cover them. Network fees go to the blockchain network, not to us, and we cannot refund or reduce them. The processing fee in this section is separate from network fees.",
+            "An on-chain claim cannot be undone. Once the transaction is confirmed on the blockchain, we cannot cancel it, reverse it, or recover tokens sent to a wrong or inaccessible address. Check the wallet address carefully before you confirm. Keep your wallet seed phrase and private keys secret: we will never ask for them.",
+            "Accepting this agreement or holding an in-platform balance does not by itself make you eligible to claim on-chain, and does not guarantee that you will be able to. We may decline or delay a claim where verification fails, where we suspect a breach of section 7, or where the law requires it. Amounts moved on-chain are deducted from your in-platform balance.",
         ],
     },
     {
@@ -151,6 +156,7 @@ SECTIONS: list[dict] = [
         "title": "14. Privacy and data handling",
         "paragraphs": [
             "When you accept, we record your account, the agreement version, a fingerprint (hash) of the text, the time, and technical details such as your IP address and browser type, to prove what was accepted and to protect the service against abuse. Mining and wallet activity is stored to run the service and keep accurate records. We do not publish private account information; public figures such as remaining bonus slots are aggregate only.",
+            "If you use on-chain claiming we also handle the identity documents and details you give for KYC, the wallet address you provide, and records of the processing-fee payment. We use these to verify you, to process and check claims, to prevent fraud and to meet legal obligations. Blockchain transactions are public and permanent: your wallet address and the amounts moved are visible to anyone on the blockchain and cannot be erased by us.",
         ],
     },
     {
