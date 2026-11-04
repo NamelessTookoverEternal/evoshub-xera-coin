@@ -74,14 +74,16 @@ class FakeDB:
 @pytest.fixture
 def api(monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN_SECRET", "admin-secret")
+    monkeypatch.setenv("XERA_TOKEN_SECRET", "user-secret")
     monkeypatch.setenv("SUPABASE_URL", "https://proj.supabase.co")
     import sys
     db = FakeDB()
     sys.modules["main"].supabase = db
-    for m in ("routes.updates", "xera.admin_auth"):
+    for m in ("routes.updates", "xera.admin_auth", "xera.user_auth"):
         sys.modules.pop(m, None)
     up = importlib.import_module("routes.updates")
     aa = importlib.import_module("xera.admin_auth")
+    ua = importlib.import_module("xera.user_auth")
     bucket, state = {}, {"put_fail_after": None, "puts": 0, "remove_fails": False}
 
     def put(path, data, ctype):
@@ -105,6 +107,7 @@ def api(monkeypatch):
     return types.SimpleNamespace(
         c=TestClient(app), db=db, bucket=bucket, state=state, up=up,
         a=lambda uid: {"Authorization": f"Bearer {aa.make_admin_token(uid)}"},
+        u=lambda uid: {"Authorization": f"Bearer {ua.make_user_token(uid)}"},
     )
 
 
@@ -281,3 +284,17 @@ def test_delete_keeps_the_post_if_storage_fails_so_it_can_be_retried(api):
     assert len(api.db.store["app_updates"]) == 1
     api.state["remove_fails"] = False
     assert api.c.delete(f"/api/admin/updates/{pid}", headers=api.a(7)).status_code == 200
+
+
+# ------------------------------------------------------------ app shortcut check
+def test_agent_status_true_only_for_active_agent_with_a_real_user_session(api):
+    assert api.c.get("/api/updates/agent-status", headers=api.u(7)).json() == {"status": "ok", "is_agent": True}
+    assert api.c.get("/api/updates/agent-status", headers=api.u(9)).json()["is_agent"] is False    # deactivated
+    assert api.c.get("/api/updates/agent-status", headers=api.u(123)).json()["is_agent"] is False  # ordinary user
+    assert api.c.get("/api/updates/agent-status").json()["is_agent"] is False                      # signed out
+    assert api.c.get("/api/updates/agent-status", headers={"Authorization": "Bearer x.y"}).json()["is_agent"] is False
+
+
+def test_an_admin_token_is_not_accepted_as_a_user_session_for_the_shortcut(api):
+    # different secret: the admin token must not verify as an app user token
+    assert api.c.get("/api/updates/agent-status", headers=api.a(7)).json()["is_agent"] is False

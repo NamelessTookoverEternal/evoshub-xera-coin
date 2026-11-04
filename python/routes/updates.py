@@ -32,6 +32,7 @@ from starlette.concurrency import run_in_threadpool
 
 from main import limiter, supabase
 from xera.admin_auth import AdminTokenInvalid, require_active_admin
+from xera.user_auth import XeraTokenInvalid, verify_user_token
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +180,25 @@ def _list(limit: int, before: int | None) -> dict:
 async def list_updates(request: Request, limit: int = PAGE_DEFAULT, before: int | None = None):
     limit = max(1, min(int(limit), PAGE_MAX))
     return await run_in_threadpool(_list, limit, before)
+
+
+# ------------------------------------------------------------ "is this signed-in app user an admin agent?"
+# Only decides whether the app shows the "Evoxera Admin" shortcut. It grants nothing: every admin page and
+# route still demands the separate admin login and re-checks admin_agents.is_active itself.
+
+def _is_agent(authorization: str) -> bool:
+    try:
+        user_id = verify_user_token(authorization.removeprefix("Bearer ").strip())
+    except (XeraTokenInvalid, RuntimeError):
+        return False
+    rows = supabase.table("admin_agents").select("is_active").eq("user_id", user_id).limit(1).execute().data or []
+    return bool(rows and rows[0].get("is_active"))
+
+
+@router.get("/agent-status")
+@limiter.limit("30/minute")
+async def agent_status(request: Request, authorization: str = Header(default="")):
+    return {"status": "ok", "is_agent": await run_in_threadpool(_is_agent, authorization)}
 
 
 # ------------------------------------------------------------ admin write
