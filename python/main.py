@@ -33,6 +33,7 @@ from xera.routes_chain import router as xera_chain_router
 from xera.routes_readiness import router as xera_readiness_router, admin_router as xera_admin_readiness_router
 from xera.routes_hashrate import router as xera_hashrate_router
 from xera.routes_referral import router as xera_referral_router
+from routes.updates import router as updates_router, admin_router as updates_admin_router
 _IS_PROD = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
 app = FastAPI(
     title="EVOS Business Hub API",
@@ -137,6 +138,8 @@ app.include_router(xera_readiness_router, prefix="/api/xera", tags=["xera-readin
 app.include_router(xera_admin_readiness_router, prefix="/api/admin/xera", tags=["xera-admin-kyc"])
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
+app.include_router(updates_router, prefix="/api/updates", tags=["updates"])
+app.include_router(updates_admin_router, prefix="/api/admin/updates")
 # EVOS Data Services: served by this same application (see routes/evosdata.py).
 mount_evosdata(app)
 # EVOSGPT: also served by this application (see routes/evosgpt.py), at /api/evosgpt.

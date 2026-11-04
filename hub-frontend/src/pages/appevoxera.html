@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#04060A">
+  <meta name="theme-color" content="#060810">
   <meta name="color-scheme" content="dark">
-  <meta name="description" content="Evoxera Technology product hub — explore EvosData, XERA, EVOSGPT and what's coming next.">
-  <title>Evoxera Technology — Products</title>
+  <meta name="description" content="EVOXERA TECHNOLOGY — explore XERA, the Ecosystem and Integrated products.">
+  <title>Evoxera Technology — Evos Hub</title>
 
   <link rel="icon" type="image/png" sizes="48x48" href="/assets/icons/favicon-48.png">
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
@@ -14,221 +14,89 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=Michroma&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="../css/global.css">
-  <link rel="stylesheet" href="../css/evoxera-launch.css">
+  <link rel="stylesheet" href="../css/app-home.css">
+  <link rel="stylesheet" href="../css/updates.css">
 </head>
-<body>
-  <div class="ehub">
-    <canvas class="fx-canvas" aria-hidden="true"></canvas>
+<body class="ah-body">
+  <div class="ah">
 
-    <header class="ehub__top">
-      <a class="ehub__brand" href="/appevoxera" aria-label="Evoxera Technology">
-        <span class="ehub__mark" role="img" aria-label="Evoxera Technology logo"></span>
-        <span class="ehub__brand-name">Evoxera<small>Technology</small></span>
+    <header class="ah-top">
+      <a class="ah-brand" href="/appevoxera" aria-label="Evoxera Technology">
+        <img src="/assets/images/evoxera-mark.png" alt="" width="34" height="34" decoding="async">
+        <span>EVOXERA</span>
       </a>
-      <div class="ehub__actions">
-        <span class="ehub__status"><i></i>Ecosystem</span>
-        <button type="button" class="ehub__install" id="install-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
-          Install Evos Hub
-        </button>
+      <div class="ah-actions ehub__actions">
+        <button type="button" class="ah-install" id="install-btn">Install</button>
+        <!-- hub-auth.js puts Log in / Sign up or the account menu here -->
       </div>
     </header>
 
-    <main class="ehub__main">
-      <section class="ehub__hero">
-        <h1 class="ehub__title"><span class="ln"><span>Evolution</span></span><span class="ln"><span>starts here.</span></span></h1>
-        <p class="ehub__sub">Explore the products and technologies being built by Evoxera.</p>
+    <main class="ah-main">
+
+      <section class="ah-greet" aria-label="Greeting">
+        <p class="ah-greet-eyebrow" id="greetEyebrow">Welcome</p>
+        <h1 class="ah-greet-name">Hi, <span id="welcomeName">there</span> <span aria-hidden="true">&#128075;</span></h1>
       </section>
 
-      <section class="ehub__deck" aria-label="Products">
-        <a class="ptile ptile--data" id="card-evosdata" href="/evosdata">
-          <span class="ptile__face">
-            <svg class="ptile__art" viewBox="0 0 400 300" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
-              <circle cx="340" cy="250" r="60" opacity=".9"/>
-              <circle cx="340" cy="250" r="110" opacity=".7"/>
-              <circle class="art-arc--drift" cx="340" cy="250" r="160" opacity=".6"/>
-              <circle cx="340" cy="250" r="210" opacity=".4"/>
-              <circle class="art-arc--drift" cx="340" cy="250" r="260" opacity=".3"/>
-              <circle cx="340" cy="250" r="310" opacity=".18"/>
-              <g fill="currentColor" stroke="none">
-                <circle cx="340" cy="250" r="5"/>
-                <circle cx="250" cy="187" r="3.4"/>
-                <circle cx="272" cy="105" r="3"/>
-                <circle cx="133" cy="213" r="2.6"/>
-                <circle cx="180" cy="45" r="2.4"/>
-                <circle cx="340" cy="190" r="2.6"/>
-              </g>
-            </svg>
-            <span class="ptile__glass" aria-hidden="true">
-              <svg class="ptile__logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                <path d="M9 31a15 15 0 0 1 15-15"/><path d="M9 39a23 23 0 0 1 23-23"/><path d="M9 47a31 31 0 0 1 31-31" opacity=".55"/>
-                <circle cx="12" cy="36" r="3.2" fill="currentColor" stroke="none"/>
-              </svg>
-              <img class="ptile__img" src="/assets/images/evosdata.jpg" alt="" width="96" height="96" decoding="async" draggable="false">
-            </span>
-            <span class="ptile__top"><span class="ptile__tag"><i></i>Ghana</span></span>
-            <span class="ptile__body">
-              <span class="ptile__name">EvosData</span>
-              <span class="ptile__desc">Data &amp; connectivity</span>
-              <span class="ptile__open">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-            </span>
-          </span>
-        </a>
+      <!-- One XERA status card; tapping it opens XERA. Values are fetched, never invented. -->
+      <a class="ah-xera" id="xeraStatusCard" href="/xera" data-state="loading" aria-label="Open XERA">
+        <img class="ah-xera-coin" src="/assets/images/xeracoin-round.png" alt="" width="64" height="64" onerror="this.style.visibility='hidden'">
+        <div class="ah-xera-body">
+          <p class="ah-xera-label">XERA balance</p>
+          <p class="ah-xera-balance"><b id="xeraCardBalance">&mdash;</b> <small>XERA</small></p>
+          <span class="ah-xera-pill" id="xeraCardPill">Checking&hellip;</span>
+        </div>
+        <span class="ah-xera-chev" aria-hidden="true">&rsaquo;</span>
+      </a>
 
-        <a class="ptile ptile--xera" href="/xera">
-          <span class="ptile__face">
-            <svg class="ptile__art" viewBox="0 0 400 300" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
-              <defs>
-                <radialGradient id="ex-core" cx=".38" cy=".34" r=".8">
-                  <stop offset="0" stop-color="#C9CEFF"/>
-                  <stop offset=".5" stop-color="currentColor"/>
-                  <stop offset="1" stop-color="#14183A"/>
-                </radialGradient>
-              </defs>
-              <circle cx="200" cy="150" r="134" stroke-dasharray="2 7" opacity=".35"/>
-              <g class="art-orbit">
-                <ellipse cx="200" cy="150" rx="172" ry="56" opacity=".8"/>
-                <ellipse cx="200" cy="150" rx="172" ry="56" transform="rotate(60 200 150)" opacity=".6"/>
-                <ellipse cx="200" cy="150" rx="172" ry="56" transform="rotate(120 200 150)" opacity=".45"/>
-                <g fill="currentColor" stroke="none">
-                  <circle cx="372" cy="150" r="3.6"/>
-                  <circle cx="114" cy="224.5" r="3"/>
-                  <circle cx="114" cy="75.5" r="2.6"/>
-                </g>
-              </g>
-              <circle cx="200" cy="150" r="24" fill="url(#ex-core)" stroke="none"/>
-            </svg>
-            <span class="ptile__glass" aria-hidden="true">
-              <svg class="ptile__logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                <ellipse cx="24" cy="24" rx="20" ry="7.5" transform="rotate(-28 24 24)" opacity=".6"/>
-                <path d="M14 12l20 24M34 12L14 36"/>
-                <circle cx="24" cy="24" r="3" fill="currentColor" stroke="none"/>
-              </svg>
-              <img class="ptile__img" src="/assets/images/xeracoin-round.png" alt="" width="96" height="96" decoding="async" draggable="false">
-            </span>
-            <span class="ptile__top"></span>
-            <span class="ptile__body">
-              <span class="ptile__name">XERA</span>
-              <span class="ptile__desc">Digital ecosystem</span>
-              <span class="ptile__open">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-            </span>
-          </span>
-        </a>
+      <!-- Admin announcements: latest post preview; the full feed lives at /updates. Public, read-only. -->
+      <a class="ah-updates" id="updatesCard" href="/updates" aria-label="Open updates">
+        <div class="ah-updates-head">
+          <span class="ah-updates-title">Updates</span>
+          <span class="ah-updates-count" id="updatesCount" hidden></span>
+          <span class="ah-updates-all">See all &rsaquo;</span>
+        </div>
+        <div class="ah-updates-row" id="updatesRow"><p class="ah-updates-empty">Loading&hellip;</p></div>
+      </a>
 
-        <a class="ptile ptile--gpt" id="card-evosgpt" href="/evosgpt">
-          <span class="ptile__face">
-            <svg class="ptile__art" viewBox="0 0 400 300" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
-              <g class="art-orbit" style="transform-origin:200px 150px">
-                <circle cx="200" cy="150" r="52" opacity=".9"/>
-                <circle cx="200" cy="150" r="96" opacity=".6"/>
-                <circle class="art-arc--drift" cx="200" cy="150" r="140" opacity=".45"/>
-                <circle class="art-arc--drift" cx="200" cy="150" r="184" opacity=".25"/>
-                <g fill="currentColor" stroke="none">
-                  <circle cx="252" cy="150" r="3.6"/>
-                  <circle cx="132" cy="102" r="3"/>
-                  <circle cx="296" cy="106" r="2.6"/>
-                  <circle cx="148" cy="262" r="2.4"/>
-                </g>
-              </g>
-              <path d="M170 150h60M200 120v60M179 129l42 42M221 129l-42 42" opacity=".55"/>
-              <circle cx="200" cy="150" r="7" fill="currentColor" stroke="none"/>
-            </svg>
-            <span class="ptile__glass" aria-hidden="true">
-              <svg class="ptile__logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                <circle cx="24" cy="24" r="17" opacity=".6"/>
-                <path d="M24 11v26M11 24h26M15 15l18 18M33 15L15 33" opacity=".85"/>
-                <circle cx="24" cy="24" r="4" fill="currentColor" stroke="none"/>
-              </svg>
-              <img class="ptile__img" src="/assets/images/evosgpt.jpg" alt="" width="96" height="96" decoding="async" draggable="false">
-            </span>
-            <span class="ptile__top"><span class="ptile__tag"><i></i>AI assistant</span></span>
-            <span class="ptile__body">
-              <span class="ptile__name">EVOSGPT</span>
-              <span class="ptile__desc">AI built for Ghana</span>
-              <span class="ptile__open">Open <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-            </span>
-          </span>
-        </a>
-        <button type="button" class="ptile ptile--more" id="card-more" aria-haspopup="dialog" aria-controls="more-dialog">
-          <span class="ptile__face">
-            <svg class="ptile__art" viewBox="0 0 400 300" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true" focusable="false">
-              <circle cx="200" cy="150" r="138" stroke-dasharray="2 7" opacity=".35"/>
-              <g class="art-orbit">
-                <circle cx="200" cy="150" r="92" opacity=".7"/>
-                <path d="M200 150 292 150M200 150 154 70M200 150 154 230M200 150 108 150M200 150 246 70M200 150 246 230" opacity=".5"/>
-                <g fill="currentColor" stroke="none">
-                  <circle cx="292" cy="150" r="7"/>
-                  <circle cx="154" cy="70" r="5.5"/>
-                  <circle cx="154" cy="230" r="5.5"/>
-                  <circle cx="108" cy="150" r="4.5" opacity=".7"/>
-                  <circle cx="246" cy="70" r="4" opacity=".7"/>
-                  <circle cx="246" cy="230" r="4" opacity=".7"/>
-                </g>
-              </g>
-              <circle cx="200" cy="150" r="22" fill="currentColor" opacity=".18" stroke="none"/>
-              <circle cx="200" cy="150" r="9" fill="currentColor" stroke="none"/>
-            </svg>
-            <span class="ptile__glass" aria-hidden="true">
-              <svg class="ptile__logo" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" focusable="false">
-                <rect x="9" y="9" width="12" height="12" rx="3" opacity=".85"/>
-                <rect x="27" y="9" width="12" height="12" rx="3" opacity=".6"/>
-                <rect x="9" y="27" width="12" height="12" rx="3" opacity=".6"/>
-                <circle cx="33" cy="33" r="6.5"/>
-                <path d="M33 30v6M30 33h6"/>
-              </svg>
-            </span>
-            <span class="ptile__top"><span class="ptile__tag"><i></i>Ecosystem</span></span>
-            <span class="ptile__body">
-              <span class="ptile__name">Other products</span>
-              <span class="ptile__desc">Website Creation and more from Evoxera</span>
-              <span class="ptile__open">Explore <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-            </span>
-          </span>
-        </button>
+      <h2 class="ah-title">Ecosystem</h2>
+      <div class="ah-grid" id="appGrid">
+        <a class="ah-app" href="/xera"><span class="ah-tile" style="--c:#5b6cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg><img src="/assets/images/xeracoin-round.png" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">XERA</span></a>
+        <a class="ah-app" href="/evosdata"><span class="ah-tile" style="--c:#12b886"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v-3M9.3 18v-6M14.7 18v-9M20 18V4"/></svg><img src="/assets/images/evos-data.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">EVOS Data</span></a>
+        <a class="ah-app" href="/evosgpt"><span class="ah-tile" style="--c:#f59f00"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><circle cx="12" cy="12" r="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg><img src="/assets/images/evosgpt.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">EVOSGPT</span></a>
+        <a class="ah-app" href="/games/evolution-1-lanes/"><span class="ah-tile" style="--c:#e8590c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="5" r="2"/><path d="M5 21l4-7 3 2 2-5 4 3M9 14l-1-4 5-2"/></svg></span><span class="ah-app-name">Evolution 1</span></a>
+        <a class="ah-app" href="/website-creation.html"><span class="ah-tile" style="--c:#1c7ed6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12.5h18"/></svg><img src="/assets/images/website-creation.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Website Creation</span></a>
+        <a class="ah-app ah-app--soon" href="#" aria-disabled="true" tabindex="-1"><span class="ah-tile" style="--c:#9c36b5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.4 5.5 3.4 9s-1 6.5-3.4 9c-2.4-2.5-3.4-5.5-3.4-9s1-6.5 3.4-9z"/></svg><img src="/assets/images/marketplace.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Marketplace</span></a>
+      </div>
+
+      <h2 class="ah-title" id="activity">Recent activity</h2>
+      <section class="ah-activity" aria-label="Recent activity">
+        <div id="activityList"><p class="ah-empty">Loading&hellip;</p></div>
       </section>
+
+      <nav class="ah-links" aria-label="More">
+        <a href="/integrated.html">Integrated</a>
+        <a href="/about.html">Company</a>
+        <a href="/home">Website</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/policy.html">Policy</a>
+      </nav>
+      <p class="ah-copy">&copy; 2026 Evoxera Technology</p>
     </main>
 
-    <footer class="ehub__foot">
-      <span>© 2026 Evoxera Technology</span>
-      <a href="/home">Evos Hub website</a>
-    </footer>
-  </div>
-
-  <div class="edlg" id="evosdata-dialog" role="dialog" aria-modal="true" aria-labelledby="evosdata-dialog-title" hidden>
-    <div class="edlg__panel">
-      <h2 id="evosdata-dialog-title">EvosData is currently available only in Ghana.</h2>
-      <p>We're focused on Ghana for now. Other Evoxera products are open to everyone.</p>
-      <p class="edlg__own">You can proceed on your own accord.</p>
-      <div class="edlg__btns">
-        <button type="button" class="edlg__ok" id="evosdata-dialog-close">OK</button>
-        <button type="button" class="edlg__go" id="evosdata-dialog-proceed">Proceed</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="edlg" id="more-dialog" role="dialog" aria-modal="true" aria-labelledby="more-dialog-title" hidden>
-    <div class="edlg__panel edlg__panel--list">
-      <h2 id="more-dialog-title">Other products &amp; ecosystem</h2>
-      <p>More from Evoxera Technology, live now.</p>
-      <ul class="edlg__list">
-        <li>
-          <a class="edlg__item" href="/website-creation" id="more-website">
-            <span class="edlg__item-text"><strong>Website Creation</strong><span>Get a professional website built by our team.</span></span>
-            <span class="edlg__pill"><i></i>Active</span>
-          </a>
-        </li>
-      </ul>
-      <div class="edlg__btns">
-        <button type="button" class="edlg__ok" id="more-dialog-close">Close</button>
-      </div>
-    </div>
+    <nav class="ah-bar" aria-label="Evos Hub">
+      <a class="ah-bar-link active" href="/appevoxera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span>Home</span></a>
+      <a class="ah-bar-link" href="/ecosystem.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V14M10 20V10M16 20V6M22 20H2" stroke-linecap="round"/></svg><span>Ecosystem</span></a>
+      <a class="ah-bar-link ah-bar-mid" id="barMid" href="/xera" aria-label="XERA"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="currentColor"/></svg></a>
+      <a class="ah-bar-link" href="#activity" id="barActivity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/></svg><span>Activity</span></a>
+      <a class="ah-bar-link" href="/xera" id="barProfile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round"/></svg><span>Profile</span></a>
+    </nav>
   </div>
 
   <script type="module" src="../js/appevoxera.js"></script>
-  <script type="module" src="../js/evoxera-fx.js"></script>
 <script src="/hub-back.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Post updates — EVOS Business Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/animations.css">
+  <link rel="stylesheet" href="../css/updates.css">
+  <style>
+    :root{--accent:#4c7eff;--ok:#33d6a6;--dim:var(--text3);--line:var(--border);--surface-2:var(--bg2);--display:var(--font-display,inherit)}
+    .form-input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:9px;padding:10px 12px;font-family:var(--font-body);font-size:14px;color:var(--text);outline:none;resize:vertical}
+    .admin-tabs{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .admin-tab{background:none;border:0;padding:10px 4px;margin-right:16px;font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;text-decoration:none}
+    .admin-tab.active{color:var(--text);border-bottom-color:var(--blue)}
+    .au-wrap{max-width:720px}
+    .au-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg,20px);padding:18px;margin-bottom:24px}
+    .au-box h3{margin:0 0 12px;font-size:16px}
+    .au-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .au-count{font-size:12px;color:var(--text3)}
+    .au-previews{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .au-prev{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+    .au-prev img{width:100%;height:100%;object-fit:cover;display:block}
+    .au-prev button{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;line-height:1}
+    .au-msg{font-size:13px;min-height:16px;margin-top:8px}
+    .au-msg.error{color:#ff6b6b}.au-msg.ok{color:#2ce6a6}
+    .au-hint{font-size:12px;color:var(--text3);margin:6px 0 0}
+    .au-manage{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .au-manage button{font-size:12.5px;padding:6px 12px}
+    .au-edit{margin-top:10px}
+    /* post cards reuse updates.css (tokens aliased in :root above) */
+    .up-actions{display:none}
+    .up-card{background:var(--surface);border-color:var(--border)}
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/"><img class="nav-logo__img nav-logo__img--mark" src="/assets/images/evoxera-mark.png" alt="Evoxera Technology" width="34" height="34" decoding="async"><span class="nav-logo__text">EVOXERA</span></a>
+    <span id="admin-whoami" style="font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
+    <button class="btn btn--ghost" id="admin-signout" style="padding:8px 14px;font-size:13px;flex-shrink:0;">Sign out</button>
+  </nav>
+
+  <main class="section au-wrap" style="padding-top:120px;">
+    <span class="section-label">Agent Console</span>
+    <h1 class="section-title" style="font-size:28px;margin-bottom:14px;">App updates</h1>
+
+    <div class="admin-tabs">
+      <a class="admin-tab" href="/admin-website-chat.html">Website requests</a>
+      <a class="admin-tab active" href="/admin-updates.html">App updates</a>
+    </div>
+
+    <form class="au-box" id="au-form" novalidate>
+      <h3>New update</h3>
+      <textarea id="au-body" class="form-input" rows="5" maxlength="4000" placeholder="Write an announcement. It shows to everyone in the app with an “Evoxera Admin” badge." aria-label="Update text"></textarea>
+      <div class="au-previews" id="au-previews"></div>
+      <div class="au-row">
+        <div>
+          <input type="file" id="au-files" accept="image/jpeg,image/png,image/webp" multiple hidden>
+          <button type="button" class="btn btn--ghost" id="au-add" style="padding:8px 14px;font-size:13px;">Add images</button>
+          <span class="au-count" id="au-count">0 of 4</span>
+        </div>
+        <div>
+          <span class="au-count" id="au-chars">0 / 4000</span>
+          <button type="submit" class="btn btn--primary" id="au-send" style="margin-left:10px;">Post update</button>
+        </div>
+      </div>
+      <p class="au-hint">JPEG, PNG or WebP · up to 4 images · photos are resized and location data is removed before upload. Links in the text become clickable.</p>
+      <p class="au-msg" id="au-msg" role="status"></p>
+    </form>
+
+    <h3 style="margin:0 0 12px;font-size:16px;">Published</h3>
+    <div id="au-list"><p class="au-hint">Loading…</p></div>
+    <button type="button" class="btn btn--ghost" id="au-more" hidden style="margin-top:6px;">Load older</button>
+  </main>
+
+  <script type="module" src="../js/admin-updates.js"></script>
+</body>
+</html>

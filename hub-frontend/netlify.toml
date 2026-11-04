@@ -35,6 +35,10 @@
   to = "/appevoxera.html"
   status = 200
 [[redirects]]
+  from = "/updates"
+  to = "/updates.html"
+  status = 200
+[[redirects]]
   from = "/home"
   to = "/home.html"
   status = 200
