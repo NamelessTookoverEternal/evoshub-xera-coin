@@ -68,7 +68,31 @@ function enterGuestMode() {
 const LOCK_FREE_TABS = ['dashboard', 'mine', 'profile'];
 function isMiningLocked() { return !!$('walletView') && $('walletView').classList.contains('mining-locked'); }
 
+// Master switch for the on-chain wallet screen: xera_chain_config.onchain_enabled, via GET /chain/config.
+// Stays false (screen closed, button hidden) until the server says true, and on any error.
+let onchainEnabled = false;
+function applyOnchainGate() {
+    const btn = $('openChainClaim');
+    if (btn) { btn.hidden = !onchainEnabled; btn.style.display = onchainEnabled ? '' : 'none'; }
+    window.__xeraOnchainEnabled = onchainEnabled;
+}
+async function loadOnchainGate() {
+    try {
+        const res = await fetch(API + '/api/xera/chain/config', { cache: 'no-store' });
+        const data = res.ok ? await res.json() : null;
+        onchainEnabled = !!(data && data.onchain_enabled === true);
+    } catch (_e) {
+        onchainEnabled = false;
+    }
+    applyOnchainGate();
+    // If the chain screen was open while the flag was off, close it.
+    const active = document.querySelector('.tab-panel.active');
+    if (!onchainEnabled && active && active.dataset.panel === 'chain') switchTab('wallet');
+}
+document.addEventListener('DOMContentLoaded', () => { applyOnchainGate(); loadOnchainGate(); });
+
 function switchTab(name) {
+    if (name === 'chain' && !onchainEnabled) name = 'wallet';
     if (isMiningLocked() && !LOCK_FREE_TABS.includes(name)) name = 'mine';
     if (isGuest() && GATED_TABS[name]) { askSignIn(GATED_TABS[name]); return; }
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.dataset.panel === name));

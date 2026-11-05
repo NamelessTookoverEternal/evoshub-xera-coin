@@ -462,6 +462,7 @@ async function refreshWallets() {
         const { wallets } = await req(PFX + '/wallet/linked');
         state.wallets = { BNB: null, TON: null };
         for (const w of wallets) state.wallets[w.chain] = w;
+        refreshGasNote();
     } catch (_err) {
         // Non-fatal — the cards still render in their last known state.
     }
@@ -535,12 +536,14 @@ async function connectBnbWallet() {
         await loadNetworkConfig();
 
         // Preferred: the wallet picker (lists wallets, deep links on mobile, QR on desktop).
+        let pickerProblem = appKitConfigured() ? '' : 'not_configured';
         if (appKitConfigured()) {
             let picked = null;
             try {
                 picked = await connectWithAppKit(state.network && state.network.chain_id);
             } catch (err) {
                 if (err && err.cancelled) { return; }            // user closed the picker — not an error
+                pickerProblem = 'failed';
                 console.warn('Wallet picker unavailable, falling back to browser wallet', err);
             }
             if (picked) {
@@ -551,6 +554,9 @@ async function connectBnbWallet() {
 
         const providers = await discoverProviders();
         if (!providers.length) {
+            if (pickerProblem) console.warn(pickerProblem === 'not_configured'
+                ? 'XERA wallet picker is off: VITE_REOWN_PROJECT_ID was not set when this site was built.'
+                : 'XERA wallet picker failed to open (check the Reown project domain allowlist and the console error above).');
             setError('No browser wallet detected. You can connect a supported wallet (MetaMask, Trust Wallet, Binance Wallet…) or add your BNB wallet address manually. On mobile, open this page inside your wallet app’s browser.');
             return;
         }
@@ -707,6 +713,59 @@ function forgetPendingTx(ref) { const m = pendingTxs(); delete m[ref]; try { loc
 
 const inFlight = new Set(); // reference_ids with a settle running in THIS tab (UX only — the backend enforces the real guard)
 
+// ---------------------------------------------------------------- BNB for the network fee
+// Users send the claim from their OWN wallet, so they pay the BNB gas fee themselves. We check the
+// balance first so a user with no BNB sees a clear message instead of a raw wallet error. This is
+// only a guard: if the balance can't be read we never block, and the wallet stays the authority.
+// (Admin pilot mode uses the server's relayer, which pays gas, so none of this applies there.)
+const MIN_BNB_FOR_GAS = 0.0005;
+
+function fmtBnb(n) {
+    if (n === 0) return '0';
+    return n < 0.00001 ? '<0.00001' : Number(n.toFixed(5)).toString();
+}
+
+// Wallet provider first (works on any network the wallet is on), else a read-only public RPC for
+// the configured network, which needs no wallet connection at all. Returns BNB as a number, or null.
+async function readBnbBalance(address, provider) {
+    const parse = (hex) => Number(BigInt(hex)) / 1e18;
+    if (provider) {
+        try { return parse(await provider.request({ method: 'eth_getBalance', params: [address, 'latest'] })); } catch (_e) { /* fall through */ }
+    }
+    const rpc = state.network && state.network.public_rpc_url;
+    if (!rpc) return null;
+    try {
+        const r = await fetch(rpc, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }) });
+        const d = await r.json();
+        return d && typeof d.result === 'string' ? parse(d.result) : null;
+    } catch (_e) { return null; }
+}
+
+function lowBnbMessage(balance) {
+    return `You need a little BNB for the network fee. Your wallet has ${fmtBnb(balance)} BNB. Add a small amount of BNB to your linked wallet, then try again.`;
+}
+
+// Shows the wallet's BNB balance on the claim card and (user mode only) holds the button back when
+// it is clearly too low. Never blocks when the balance is unknown.
+async function refreshGasNote() {
+    const el = $('chainGasNote');
+    if (!el) return;
+    const w = state.wallets.BNB;
+    state.gasLow = false;
+    if (CFG.relay || !w || !w.verified) { el.hidden = true; updateClaimPreview(); return; }
+    await loadNetworkConfig();
+    const bal = await readBnbBalance(w.address, null);
+    if (bal === null) { el.hidden = true; updateClaimPreview(); return; }
+    state.gasLow = bal < MIN_BNB_FOR_GAS;
+    el.hidden = false;
+    el.className = `chain-gas-note ${state.gasLow ? 'warn' : 'ok'}`;
+    el.textContent = state.gasLow
+        ? lowBnbMessage(bal)
+        : `Network fee: you pay a small BNB fee from your own wallet. Your wallet has ${fmtBnb(bal)} BNB.`;
+    updateClaimPreview();
+}
+
 // ================= MOVE XERA TO YOUR WALLET (amount-based claims) =================
 // The user chooses an amount. The backend debits it from the in-app balance and
 // signs ONE single-use claim; the contract sends 25% to the wallet and locks 75%
@@ -756,7 +815,7 @@ function updateClaimPreview() {
             );
         }
     }
-    submit.disabled = !ok || inFlight.has('amount');
+    submit.disabled = !ok || inFlight.has('amount') || (!CFG.relay && !!state.gasLow);
 }
 
 async function loadClaimables({ keepError = false } = {}) {
@@ -773,6 +832,7 @@ async function loadClaimables({ keepError = false } = {}) {
             for (const c of ov.claims) list.append(renderClaimRow(c));
         }
         updateClaimPreview();
+        refreshGasNote();
     } catch (err) {
         $('chainClaimError').textContent = userMessage(err, 'Could not load your claimable balance. Please try again.');
     }
@@ -885,6 +945,18 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
 
         if (state.network && state.providerChainId !== state.network.chain_id) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
+        }
+
+        // Check BEFORE the server signs: signing reserves the amount, and a claim that can't be
+        // sent for lack of gas would just sit as "in progress". Uses the account that will pay.
+        if (!CFG.relay) {
+            let payer = wallet.address;
+            try {
+                const accts = await entry.provider.request({ method: 'eth_accounts' });
+                payer = accts.find((a) => a.toLowerCase() === wallet.address.toLowerCase()) || accts[0] || payer;
+            } catch (_e) { /* keep the linked address */ }
+            const bal = await readBnbBalance(payer, entry.provider);
+            if (bal !== null && bal < MIN_BNB_FOR_GAS) throw userError(lowBnbMessage(bal));
         }
 
         if (button) button.textContent = 'Signing…';
@@ -1062,6 +1134,7 @@ async function loadClaimHistory() {
 // ================= INIT =================
 
 async function openChainTab() {
+    if (window.__xeraOnchainEnabled !== true) return; // on-chain claims switched off (onchain_enabled)
     clearMessages();
     await loadNetworkConfig();
     renderNetworkBanner();

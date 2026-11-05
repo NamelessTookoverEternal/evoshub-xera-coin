@@ -250,11 +250,16 @@ def chain_public_config(request: Request):
     except ChainConfigError:
         raise HTTPException(status_code=503, detail="Chain configuration is temporarily unavailable.")
     # The token contract address is public on-chain data; the UI uses it for "Add XERA to wallet".
+    # onchain_enabled is the master switch (xera_chain_config.onchain_enabled). The user wallet
+    # screen only opens when it is true. Fail closed: any error reads as "not enabled".
+    onchain_enabled = False
     try:
-        bnb["xera_token_address"] = (get_chain_config("BNB").get("xera_token_address") or "").strip() or None
+        cfg = get_chain_config("BNB")
+        bnb["xera_token_address"] = (cfg.get("xera_token_address") or "").strip() or None
+        onchain_enabled = bool(cfg.get("onchain_enabled"))
     except Exception:
         bnb["xera_token_address"] = None
-    return {"status": "ok", "bnb": bnb}
+    return {"status": "ok", "bnb": bnb, "onchain_enabled": onchain_enabled}
 
 
 # ------------------------------------------------------------
