@@ -22,7 +22,7 @@ from xera.mining import start_session, get_status, claim, current_rate, MiningEr
 from xera.daily import get_daily_status, claim_daily, DailyClaimError
 from xera import agreement as agreement_mod
 from xera.launch import (
-    LaunchError, accept_agreement, mark_welcome_seen, public_launch_info, user_launch_info,
+    LaunchError, accept_agreement, agreement_signature, mark_welcome_seen, public_launch_info, user_launch_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -187,6 +187,17 @@ def launch_status_route(request: Request, authorization: str = Header(default=""
     user_id = _current_user_id(request, authorization)
     try:
         return {"status": "ok", "launch": user_launch_info(user_id)}
+    except LaunchError as e:
+        return _launch_error_response(e)
+
+
+@router.get("/launch/agreement/signature")
+@limiter.limit("30/minute")
+def launch_agreement_signature(request: Request, authorization: str = Header(default="")):
+    """Read-only: the caller's own signature on the current agreement. Records nothing."""
+    user_id = _current_user_id(request, authorization)
+    try:
+        return {"status": "ok", "signature": agreement_signature(user_id)}
     except LaunchError as e:
         return _launch_error_response(e)
 

@@ -93,7 +93,7 @@
       <div class="topbar-inner">
         <div class="wordmark"><span class="dot"></span>XERA <small style="opacity:.5;font-size:.62em;letter-spacing:.08em">BY EVOXERA</small></div>
         <div class="topbar-actions">
-          <a class="icon-btn" id="backToSite" href="/xera" aria-label="XERA overview" title="XERA overview">
+          <a class="icon-btn" id="backToSite" href="/appevoxera" aria-label="Back to EVOS Hub" title="Back to EVOS Hub">
             <svg viewBox="0 0 24 24" fill="none"><path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
           <a class="icon-btn" href="/xera/whitepaper.html" aria-label="Whitepaper" title="Whitepaper">
@@ -415,6 +415,7 @@
             </div>
             <p class="chain-claim-msg" id="chainClaimMsg" role="status" aria-live="polite"></p>
             <div class="chain-claim-split" id="chainClaimSplit" aria-live="polite"></div>
+            <p class="chain-gas-note" id="chainGasNote" role="status" aria-live="polite" hidden></p>
             <button type="button" class="btn chain-claim-submit" id="chainClaimSubmit" disabled>Move to wallet</button>
             <p class="chain-manual-hint">
               <b>25%</b> arrives in your wallet right away. The other <b>75%</b> is locked in vesting and unlocks
@@ -500,12 +501,11 @@
 
           <div class="section-title">More</div>
           <div class="profile-links">
-            <button type="button" class="profile-link" data-goto="hashrate">Hashrate</button>
-            <button type="button" class="profile-link" data-goto="rewards">Rewards</button>
-            <button type="button" class="profile-link" id="profileOpenEcosystem">Ecosystem</button>
-            <a class="profile-link" href="/xera/whitepaper.html">Whitepaper</a>
-            <button type="button" class="profile-link" id="profileOpenStats">XERA statistics</button>
-            <a class="profile-link" href="/">← Back to EVOS Hub</a>
+            <button type="button" class="profile-link" data-goto="rewards"><img src="/assets/images/xeracoin-round.png" alt="" width="40" height="40" loading="lazy"/><span>Rewards</span></button>
+            <button type="button" class="profile-link" id="profileOpenAgreement"><img src="/assets/images/xera-token-logo-32.png" alt="" width="40" height="40" loading="lazy"/><span>Agreement</span></button>
+            <a class="profile-link" href="/xera/whitepaper.html"><img src="/assets/images/xera-token-logo-32.png" alt="" width="40" height="40" loading="lazy"/><span>Whitepaper</span></a>
+            <button type="button" class="profile-link" id="profileOpenStats"><img src="/assets/images/xeracoin-round.png" alt="" width="40" height="40" loading="lazy"/><span>XERA statistics</span></button>
+            <a class="profile-link" href="/appevoxera"><img src="/assets/images/evoxera-mark.png" alt="" width="40" height="40" loading="lazy"/><span>Back to EVOS Hub</span></a>
           </div>
 
           <button type="button" class="btn logout-btn" id="logoutProfile">Sign out</button>

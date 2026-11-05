@@ -8,7 +8,7 @@ let tickHandle = null;
 
 import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
 import { mountGuestBanner, requireAuthFor } from './guest-access.js';
-import { maybeShowWelcome, startMiningWithOnboarding, resetLaunchSession } from './xera-launch.js';
+import { maybeShowWelcome, startMiningWithOnboarding, resetLaunchSession, showAgreementView } from './xera-launch.js';
 import { initReadiness, resetReadiness } from './xera-readiness.js';
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
@@ -188,8 +188,16 @@ function renderProfile() {
 }
 
 $('logoutProfile').onclick = () => { doLogout(); };
-$('profileOpenEcosystem').onclick = () => { $('ecosystemModal').hidden = false; loadEcosystem(); };
 $('profileOpenStats').onclick = openStats;
+$('profileOpenAgreement').onclick = async (e) => {
+    const btn = e.currentTarget;
+    if (btn.dataset.busy) return;
+    btn.dataset.busy = '1';
+    let name = '';
+    try { name = (JSON.parse(localStorage.getItem('xera_evos_user') || '{}').full_name) || ''; } catch (err) { /* ignore */ }
+    try { await showAgreementView(req, name); } catch (err) { alert(err.message || 'Could not open the agreement.'); }
+    finally { delete btn.dataset.busy; }
+};
 
 // ================= WALLET / MINING =================
 
@@ -348,6 +356,19 @@ function setRing(fraction, done) {
     fg.classList.toggle('done', !!done);
 }
 
+// Home hero: ring progress + state colour (idle teal, active blue, ready amber).
+const HERO_CIRC = 2 * Math.PI * 112;
+function setHero(state, fraction) {
+    const card = $('miningCardDash');
+    if (card) card.dataset.state = state;
+    const fg = $('heroRingFg');
+    if (fg) {
+        fg.style.strokeDasharray = String(HERO_CIRC);
+        fg.style.strokeDashoffset = String(HERO_CIRC * (1 - Math.max(0, Math.min(1, fraction))));
+        fg.style.opacity = state === 'idle' ? '0' : '1';
+    }
+}
+
 function setMiningSceneState(state) {
     const scene = $('miningScene');
     if (scene) scene.dataset.state = state;
@@ -391,6 +412,7 @@ function renderMining() {
 
     if (!mining) {
         setRing(0, false);
+        setHero('idle', 0);
         setMiningSceneState('idle');
         $('countdown').textContent = '24:00:00';
         $('countdownDash').textContent = '24:00:00';
@@ -403,7 +425,8 @@ function renderMining() {
         setDashMiningProgress(null, 0);
         [btn, btnDash].forEach((b) => { b.textContent = 'Start mining'; b.classList.remove('ready'); b.disabled = false; });
         setMiningLock(true);
-        if (signedIn) $('ringCaptionDash').textContent = 'Tap here to start mining';
+        $('rewardTextDash').textContent = signedIn ? 'Tap to begin your 24-hour session' : '';
+        if (signedIn) $('ringCaptionDash').textContent = 'Ready to mine';
         return;
     }
 
@@ -422,6 +445,7 @@ function renderMining() {
 
     if (remain <= 0) {
         setRing(1, true);
+        setHero('ready', 1);
         setMiningSceneState('ready');
         $('countdown').textContent = '00:00:00';
         $('countdownDash').textContent = '00:00:00';
@@ -433,10 +457,11 @@ function renderMining() {
         $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
         [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
         setMiningLock(true);
-        $('ringCaptionDash').textContent = 'Session complete. Tap to claim';
+        $('ringCaptionDash').textContent = 'Session complete';
     } else {
         setMiningLock(false);
         setRing(fraction, false);
+        setHero('active', fraction);
         setMiningSceneState('active');
         const s = Math.floor(remain / 1000);
         const h = String(Math.floor(s / 3600)).padStart(2, '0');
@@ -664,6 +689,23 @@ function loadHashrate() {
     return hashrateLoading;
 }
 
+// Home "Hashrate" card: Active / Awaiting payment / Inactive, from the person's own sessions.
+function renderHashCard() {
+    const card = $('hashCard');
+    if (!card) return;
+    const list = isGuest() ? [] : (hashrateSessions || []);
+    const active = list.find((s) => s.status === 'ACTIVE');
+    const pending = !active && list.find((s) => s.status === 'PENDING_PAYMENT');
+    const v = active
+        ? { tone: 'ok', label: 'Active', hint: `${hashrateTierLabel(active.tier_id)} is boosting your mining` }
+        : pending
+            ? { tone: 'warn', label: 'Awaiting payment', hint: 'Activates once payment is confirmed' }
+            : { tone: 'neutral', label: 'Inactive', hint: 'Tap to see plans' };
+    card.dataset.tone = v.tone;
+    $('hashLabel').textContent = v.label;
+    $('hashHint').textContent = v.hint;
+}
+
 async function doLoadHashrate() {
     if (!$('hashrateGrid')) return;
     $('hashrateError').textContent = '';
@@ -694,6 +736,7 @@ async function doLoadHashrate() {
     } else if (catalogRes.status === 'fulfilled') {
         $('hashrateError').textContent = sessionsRes.reason?.message || 'Could not load your hashrate sessions.';
     }
+    renderHashCard();
 }
 
 // USDT (BNB Smart Chain) is the main rail; Paystack stays as the alternative.

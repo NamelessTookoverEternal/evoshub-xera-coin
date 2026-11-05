@@ -138,6 +138,35 @@ def accept_agreement(user_id: int, version: str, content_sha256: str,
     }
 
 
+def agreement_signature(user_id: int) -> dict:
+    """
+    Read-only: what THIS user signed. user_id must come from the verified token.
+    Never records anything. `signed` is true only for the CURRENT version; an
+    older signed version is reported separately so the app can say a new one
+    needs accepting.
+    """
+    try:
+        res = (supabase.table("xera_miner_agreement_acceptances")
+               .select("agreement_version,accepted_at")
+               .eq("user_id", user_id)
+               .order("accepted_at", desc=True)
+               .limit(10)
+               .execute())
+    except Exception:
+        logger.exception("XERA agreement signature lookup failed")
+        raise LaunchError("launch_not_ready")
+    rows = res.data or []
+    current = next((r for r in rows if r.get("agreement_version") == AGREEMENT_VERSION), None)
+    older = next((r for r in rows if r.get("agreement_version") != AGREEMENT_VERSION), None)
+    return {
+        "signed": current is not None,
+        "agreement_version": AGREEMENT_VERSION,
+        "accepted_at": current.get("accepted_at") if current else None,
+        "older_version": older.get("agreement_version") if (older and not current) else None,
+        "older_accepted_at": older.get("accepted_at") if (older and not current) else None,
+    }
+
+
 def mark_welcome_seen(user_id: int, notice_version: str) -> dict:
     try:
         supabase.rpc("xera_mark_launch_notice_seen", {

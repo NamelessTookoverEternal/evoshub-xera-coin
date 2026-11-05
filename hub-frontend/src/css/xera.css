@@ -316,13 +316,17 @@ button{-webkit-tap-highlight-color:transparent}
 
 .profile-row{display:flex;justify-content:space-between;font-size:.88rem;padding:6px 0}
 .profile-row span{color:var(--text-dim)}
-.profile-links{display:flex;flex-direction:column;gap:8px}
+.profile-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:600px}
+@media(min-width:480px){.profile-links{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .profile-link{
-    display:block;text-align:left;text-decoration:none;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    aspect-ratio:1/1;text-align:center;text-decoration:none;font-family:inherit;
     background:var(--surface);border:1px solid var(--border);color:var(--text);
-    border-radius:var(--radius-md);padding:13px 16px;font-size:.88rem;font-weight:500;
+    border-radius:var(--radius-md);padding:12px;font-size:.88rem;font-weight:500;line-height:1.25;
     cursor:pointer;
 }
+.profile-link img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#fff;flex:none}
+.profile-link span{min-width:0;word-break:break-word}
 .logout-btn{background:transparent;border:1px solid var(--border-strong);color:var(--danger);margin-top:6px}
 
 .balance-block{
@@ -1411,3 +1415,9 @@ body{
   .chain-claim-selector{flex-wrap:wrap}
   .chain-claim-row .btn{width:100%;min-height:44px}
 }
+
+/* BNB network-fee note on the claim card */
+.chain-gas-note{margin:0;padding:9px 12px;border-radius:12px;font-size:.8rem;line-height:1.4;overflow-wrap:anywhere;border:1px solid var(--border,rgba(255,255,255,.12))}
+.chain-gas-note[hidden]{display:none}
+.chain-gas-note.ok{color:var(--text-dim,#9aa6bd);background:rgba(255,255,255,.03)}
+.chain-gas-note.warn{color:#f5b942;background:rgba(245,185,66,.10);border-color:rgba(245,185,66,.45)}

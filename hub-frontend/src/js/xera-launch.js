@@ -20,7 +20,7 @@ const WELCOME_COPY = {
     points: [
         { icon: '🔄', title: 'Fresh start', text: 'The test period has ended and all test data (balances, sessions, transactions and daily-claim progress) was reset. Your account was kept.' },
         { icon: '🎁', title: 'Early-miner bonus', text: 'The first 100 eligible miners to start a mining session may receive a one-time bonus of 100 XERA. Eligibility is decided by the platform when your session starts and is not guaranteed.' },
-        { icon: '🔒', title: 'In-platform balance', text: 'Your XERA balance is an in-platform balance. On-chain claiming has not launched, and no value, exchange listing or profit is promised.' },
+        { icon: '🔒', title: 'In-platform balance', text: 'Your XERA balance is an in-platform balance. On-chain claiming to your own wallet is opening in stages for verified users. No value, exchange listing or profit is promised.' },
     ],
 };
 
@@ -231,6 +231,63 @@ async function showAgreement(req) {
 
         // Short text that already fits on screen: nothing to scroll.
         requestAnimationFrame(checkEnd);
+    });
+}
+
+// ------------------------------------------------- read-only agreement view
+/** Profile > Agreement. Shows the current agreement text and, below it, who signed it.
+ *  Read-only: nothing here records an acceptance. The signature comes from the server. */
+export async function showAgreementView(req, signerName) {
+    let doc, sig = null;
+    try {
+        doc = (await req('/api/xera/launch/agreement')).agreement;
+    } catch (e) {
+        throw new Error('Could not load the agreement. Please check your connection and try again.');
+    }
+    try { sig = (await req('/api/xera/launch/agreement/signature')).signature; } catch (e) { sig = null; }
+
+    const when = (iso) => { try { return new Date(iso).toLocaleString([], { dateStyle: 'long', timeStyle: 'short' }); } catch (e) { return iso; } };
+    const scroller = el('div', { class: 'xl-scroll xl-scroll-tall', tabindex: '0', role: 'region', 'aria-label': `${doc.title}, version ${doc.version}` });
+    scroller.append(el('p', { class: 'xl-ver', text: `Version ${doc.version}` }));
+    for (const s of doc.sections) {
+        scroller.append(el('h3', { class: 'xl-sec', text: s.title }));
+        for (const p of s.paragraphs) scroller.append(el('p', { class: 'xl-p', text: p }));
+    }
+
+    const declaration = 'I have read and agree to the XERA Miner Agreement and Rules.';
+    let sign;
+    if (sig && sig.signed) {
+        const tick = el('input', { type: 'checkbox', checked: '', disabled: '', 'aria-label': declaration });
+        sign = el('div', { class: 'xl-sign xl-sign-ok' }, [
+            el('label', { class: 'xl-sign-decl' }, [tick, el('span', { text: declaration })]),
+            el('div', { class: 'xl-sign-row' }, [el('span', { text: 'Signed by' }), el('b', { class: 'xl-sign-name', text: signerName || 'Account holder' })]),
+            el('div', { class: 'xl-sign-row' }, [el('span', { text: 'Date' }), el('b', { text: sig.accepted_at ? when(sig.accepted_at) : '—' })]),
+            el('div', { class: 'xl-sign-row' }, [el('span', { text: 'Version' }), el('b', { text: sig.agreement_version || doc.version })]),
+        ]);
+    } else {
+        const tick = el('input', { type: 'checkbox', disabled: '', 'aria-label': declaration });
+        const note = sig && sig.older_version
+            ? `You signed an earlier version (${sig.older_version}). You will be asked to accept this version before you start your next mining session.`
+            : 'Not signed yet. You will be asked to read and accept this agreement before you start mining.';
+        sign = el('div', { class: 'xl-sign' }, [
+            el('label', { class: 'xl-sign-decl' }, [tick, el('span', { text: declaration })]),
+            el('p', { class: 'xl-sign-note', text: sig ? note : 'Could not check your signature right now. Please try again later.' }),
+        ]);
+    }
+
+    return waitForModal((done) => {
+        const modal = openModal({
+            labelId: 'xlViewTitle', dismissible: true, onClose: done,
+            content: [
+                el('h2', { id: 'xlViewTitle', class: 'xl-title xl-center', text: doc.title }),
+                scroller,
+                el('h3', { class: 'xl-sec xl-sign-h', text: 'Signature' }),
+                sign,
+                el('div', { class: 'xl-actions xl-actions-full' }, [
+                    el('button', { class: 'xl-btn xl-ghost', type: 'button', text: 'Close', onclick: () => modal.close('close') }),
+                ]),
+            ],
+        });
     });
 }
 
