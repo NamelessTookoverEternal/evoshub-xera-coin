@@ -31,7 +31,6 @@
 <link href="../../css/xera-space.css" rel="stylesheet"/>
   <link rel="stylesheet" href="../../css/xera-gallery.css">
   <link rel="stylesheet" href="../../css/xera-readiness.css">
-  <style id="xera-chain-phase-visibility">[data-panel="chain"]{display:none!important}</style>
 </head>
 <body>
 <!-- App startup splash: coin, then title + "powered by". Plays once per session (see js/xera-splash.js). -->
@@ -362,8 +361,8 @@
             <div class="wp-stat"><span>Total earned (all-time)</span><b id="totalEarned">—</b></div>
             <div class="wp-stat"><span>Mining allocation left ecosystem-wide</span><b id="walletRemainingSupply">—</b></div>
           </div>
-          <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">This wallet currently reflects the XERA you have mined and claimed. On-chain claiming, withdrawals, and transfers are not yet available.</p>
-          <p class="info-link">On-chain claiming on BNB or TON is planned for a later phase.</p>
+          <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">This balance is held in your EVOS account. You can move part of it to your own BNB Smart Chain wallet once KYC and the one-time fee are complete. Buying, withdrawals and transfers are not yet available.</p>
+          <button type="button" class="btn" id="openChainClaim" data-goto="chain" style="margin-top:12px">Move XERA to your wallet</button>
           <div class="section-title">Coming soon</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>
@@ -384,7 +383,8 @@
           <div class="section-title" style="margin-top:18px">Wallets</div>
           <div id="chainNetworkBanner" class="chain-network" hidden></div>
           <div id="chainWalletCardBNB" class="chain-wallet-card" data-chain="BNB"></div>
-          <div id="chainWalletCardTON" class="chain-wallet-card" data-chain="TON"></div>
+          <div id="chainWalletCardTON" class="chain-wallet-card" data-chain="TON" aria-disabled="true" title="TON is coming soon" style="opacity:.4;pointer-events:none;filter:grayscale(1)"></div>
+          <p style="font-size:.74rem;color:var(--text-secondary);margin:-4px 0 8px">TON wallets are coming soon. BNB Smart Chain only for now.</p>
           <p class="chain-safety-note">
             Only ever enter your <b>public wallet address</b>. XERA never asks for a seed phrase, recovery phrase,
             private key or wallet password — if anything asks you for one, it is not us.
@@ -397,7 +397,7 @@
             <label for="chainSelect">Send to</label>
             <select id="chainSelect">
               <option value="BNB">BNB Smart Chain</option>
-              <option value="TON">TON</option>
+              <option value="TON" disabled>TON (coming soon)</option>
             </select>
           </div>
 

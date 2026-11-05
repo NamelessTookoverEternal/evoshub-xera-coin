@@ -99,7 +99,7 @@ function switchTab(name) {
     document.querySelectorAll('.tab-nav-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.bottom-tab-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     $('walletView').querySelector('.scroll').scrollTop = 0;
-    if (name === 'wallet') loadWalletTotals();
+    if (name === 'wallet') { loadWalletTotals(); loadOnchainGate(); } // re-check the on-chain switch so no refresh is needed
     if (name === 'hashrate' && token()) loadHashrate();
     if (name === 'profile' && token()) loadReferral();
 }
