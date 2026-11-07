@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { smartFetch } from "../config";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 const NETWORKS = ["MTN", "TELECEL", "AIRTELTIGO"];
 const NETWORK_LABELS = { MTN: "MTN", TELECEL: "Telecel", AIRTELTIGO: "AirtelTigo" };
 const DEFAULT_FEE_PERCENT = 4; // fallback used only until /agent/withdraw/fee-info loads
@@ -121,7 +122,7 @@ export default function AgentWithdraw({ user, setPage }) {
   const validateStep3 = () => {
     const cleaned = mobileNumber.replace(/[\s\-()]/g, "");
     if (!network)              { say("Select your mobile money network."); return false; }
-    if (cleaned.length < 9)    { say("Enter a valid mobile number."); return false; }
+    if (!isGhanaPhone(cleaned)) { say(GHANA_ONLY_MSG); return false; }
     return true;
   };
 

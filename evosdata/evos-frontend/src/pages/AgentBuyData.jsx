@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 
 import { smartFetch } from "../config";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 const NETWORK_CONFIG = {
   MTN: {
@@ -46,7 +47,8 @@ function ConfirmModal({ bundle, network, cfg, walletBalance, onClose, onConfirm,
 
   const cost = Number(bundle.cost_price);
   const hasFunds = walletBalance >= cost;
-  const canSubmit = phone.trim().length >= 9 && accepted && !processing && hasFunds;
+  const phoneOk = isGhanaPhone(phone);
+  const canSubmit = phoneOk && accepted && !processing && hasFunds;
 
   // Informational-only MTN pre-check — never blocks the purchase, just warns.
   // Bounded to 12s (backend caps its own DataMart call at ~9s worst case,
@@ -55,7 +57,7 @@ function ConfirmModal({ bundle, network, cfg, walletBalance, onClose, onConfirm,
   // rather than as-you-type, so the scarce 2-checks/minute vendor quota is
   // spent on real purchase attempts instead of being burned by keystrokes.
   const checkNumber = async (num) => {
-    if (network !== "MTN" || num.trim().length < 9) return null;
+    if (network !== "MTN" || !isGhanaPhone(num)) return null;
     setVerifying(true);
     setVerifyTimedOut(false);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
@@ -68,7 +70,7 @@ function ConfirmModal({ bundle, network, cfg, walletBalance, onClose, onConfirm,
       const res = await smartFetch(`/verify-number`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: num.trim(), network }),
+        body: JSON.stringify({ phoneNumber: toGhanaPhone(num), network }),
         signal: controller.signal,
       });
       clearTimeout(t);
@@ -109,12 +111,12 @@ function ConfirmModal({ bundle, network, cfg, walletBalance, onClose, onConfirm,
       await checkNumber(phone);
       return;
     }
-    onConfirm(phone.trim());
+    onConfirm(toGhanaPhone(phone));
   };
 
   const handleProceed = () => {
     setShowVerifyResult(false);
-    onConfirm(phone.trim());
+    onConfirm(toGhanaPhone(phone));
   };
 
   return (
@@ -184,6 +186,9 @@ function ConfirmModal({ bundle, network, cfg, walletBalance, onClose, onConfirm,
           style={modal.input}
           disabled={processing}
         />
+        {phone.trim().length > 0 && !phoneOk && (
+          <p style={{ color: "#f87171", fontSize: 12, margin: "6px 2px 0" }}>⚠️ {GHANA_ONLY_MSG}</p>
+        )}
         {checkingBlocking && (
           <p style={modal.verifyChecking}>🔎 Checking number...</p>
         )}

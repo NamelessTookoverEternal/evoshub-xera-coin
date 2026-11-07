@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { asset } from "../lib/basePath";
 
 import { smartFetch } from "../config";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 const NETWORK_CONFIG = {
   MTN: {
@@ -166,7 +167,8 @@ function ConfirmModal({ selected, networkLabel, networkCfg, onClose, onConfirm, 
   const [verifyTimedOut, setVerifyTimedOut] = useState(false); // watchdog: unblocks Pay if check is slow
   const [showVerifyResult, setShowVerifyResult] = useState(false); // popup stays up until the user proceeds or cancels
   const resultTimerRef = useRef(null);
-  const canSubmit = phone.trim().length >= 9 && accepted && !processing;
+  const phoneOk = isGhanaPhone(phone);
+  const canSubmit = phoneOk && accepted && !processing;
   const network = selected.network;
 
   // Informational-only MTN pre-check — never blocks the purchase, just warns.
@@ -176,7 +178,7 @@ function ConfirmModal({ selected, networkLabel, networkCfg, onClose, onConfirm, 
   // own DataMart call at ~9s worst case, see main.py) so this can never
   // hang indefinitely.
   const checkNumber = async (num) => {
-    if (network !== "MTN" || num.trim().length < 9) return null;
+    if (network !== "MTN" || !isGhanaPhone(num)) return null;
     setVerifying(true);
     setVerifyTimedOut(false);
     if (resultTimerRef.current) clearTimeout(resultTimerRef.current);
@@ -187,7 +189,7 @@ function ConfirmModal({ selected, networkLabel, networkCfg, onClose, onConfirm, 
       const res = await smartFetch(`/verify-number`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: num.trim(), network }),
+        body: JSON.stringify({ phoneNumber: toGhanaPhone(num), network }),
         signal: controller.signal,
       });
       clearTimeout(t);
@@ -228,12 +230,12 @@ function ConfirmModal({ selected, networkLabel, networkCfg, onClose, onConfirm, 
       await checkNumber(phone);
       return;
     }
-    onConfirm(phone.trim());
+    onConfirm(toGhanaPhone(phone));
   };
 
   const handleProceed = () => {
     setShowVerifyResult(false);
-    onConfirm(phone.trim());
+    onConfirm(toGhanaPhone(phone));
   };
 
   return (
@@ -283,6 +285,9 @@ function ConfirmModal({ selected, networkLabel, networkCfg, onClose, onConfirm, 
           style={modal.input}
           disabled={processing}
         />
+        {phone.trim().length > 0 && !phoneOk && (
+          <p style={{ color: "#f87171", fontSize: 12, margin: "6px 2px 0" }}>⚠️ {GHANA_ONLY_MSG}</p>
+        )}
 
         <label style={modal.checkRow}>
           <input
@@ -380,7 +385,8 @@ function CheckerConfirmModal({ selected, checkerCfg, onClose, onConfirm, process
   const [phone, setPhone] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [accepted, setAccepted] = useState(false);
-  const canSubmit = phone.trim().length >= 9 && accepted && quantity >= 1 && !processing;
+  const phoneOk = isGhanaPhone(phone);
+  const canSubmit = phoneOk && accepted && quantity >= 1 && !processing;
   const total = round2(Number(selected.final_price) * quantity);
 
   return (
@@ -425,6 +431,9 @@ function CheckerConfirmModal({ selected, checkerCfg, onClose, onConfirm, process
           style={modal.input}
           disabled={processing}
         />
+        {phone.trim().length > 0 && !phoneOk && (
+          <p style={{ color: "#f87171", fontSize: 12, margin: "6px 2px 0" }}>⚠️ {GHANA_ONLY_MSG}</p>
+        )}
 
         <label style={modal.label}>🔢 Quantity</label>
         <input
@@ -455,7 +464,7 @@ function CheckerConfirmModal({ selected, checkerCfg, onClose, onConfirm, process
         </label>
 
         <button
-          onClick={() => onConfirm(phone.trim(), quantity)}
+          onClick={() => onConfirm(toGhanaPhone(phone), quantity)}
           disabled={!canSubmit}
           style={{ ...modal.buyBtn, opacity: canSubmit ? 1 : 0.45, cursor: canSubmit ? "pointer" : "not-allowed" }}
         >
@@ -486,14 +495,14 @@ function TrackModal({ onClose }) {
     setSearched(false);
 
     const cleaned = phone.trim();
-    if (!cleaned || cleaned.length < 9) {
-      setError("Enter a valid phone number");
+    if (!isGhanaPhone(cleaned)) {
+      setError(GHANA_ONLY_MSG);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await smartFetch(`/orders/track?phone=${encodeURIComponent(cleaned)}`);
+      const res = await smartFetch(`/orders/track?phone=${encodeURIComponent(toGhanaPhone(cleaned))}`);
       const data = await res.json();
 
       if (data.orders && data.orders.length > 0) {

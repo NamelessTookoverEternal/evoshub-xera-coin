@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import API, { verifyNumber } from "../api";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 export default function Shop() {
   const [step, setStep] = useState(1);
@@ -50,7 +51,7 @@ export default function Shop() {
     .filter((p) => p.network === network)
     .sort((a, b) => Number(a.price) - Number(b.price));
 
-  const validPhone = (num) => /^0\d{9}$/.test(num);
+  const validPhone = (num) => isGhanaPhone(num);
 
   // Informational-only pre-check — never blocks a purchase, just warns.
   // Fired once, on submit (see handleBuy) rather than as-you-type, so the
@@ -96,7 +97,7 @@ export default function Shop() {
     setPendingMsg("");
     if (!network || !bundle) { setError("Select network and bundle"); return; }
     if (!phone) { setError("Enter phone number"); return; }
-    if (!validPhone(phone)) { setError("Phone must be 10 digits and start with 0"); return; }
+    if (!validPhone(phone)) { setError(GHANA_ONLY_MSG); return; }
     if (!agree) { setError("You must confirm the refund policy"); return; }
 
     // MTN: run the verify check first and stop — the popup then shows the
@@ -118,7 +119,7 @@ export default function Shop() {
       setLoading(true);
 
       const res = await API.post("/orders/create", {
-        user_id, network, bundle, phone,
+        user_id, network, bundle, phone: toGhanaPhone(phone),
         email: email || "guest@evoshub.com",
       });
 
@@ -353,7 +354,7 @@ export default function Shop() {
               type="tel"
               placeholder="e.g. 0244000000"
               value={phone}
-              maxLength={10}
+              maxLength={16}
               onChange={(e) => {
                 setPhone(e.target.value);
                 setVerifyInfo(null);
@@ -362,7 +363,7 @@ export default function Shop() {
               }}
             />
             {phone.length > 0 && !validPhone(phone) && (
-              <p style={styles.phoneHint}>⚠️ Must be 10 digits starting with 0</p>
+              <p style={styles.phoneHint}>⚠️ Enter a Ghana number (EVOS Data is Ghana only), e.g. 0551234567</p>
             )}
             {phone.length > 0 && validPhone(phone) && (
               <p style={styles.phoneHintGood}>✅ Looks good!</p>

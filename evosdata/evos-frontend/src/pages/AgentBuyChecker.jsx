@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { smartFetch } from "../config";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 const CHECKER_CONFIG = {
   WAEC: { emoji: "🟢", color: "#16a34a", accent: "#22c55e", bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.35)", label: "WAEC", desc: "West African Senior School Certificate result checker" },
@@ -55,7 +56,7 @@ export default function AgentBuyChecker({ user, setPage }) {
 
   const totalCost = round2(basePrice * quantity);
   const hasFunds = walletBalance >= totalCost;
-  const canSubmit = checkerType && phone.trim().length >= 9 && quantity >= 1 && !processing && hasFunds;
+  const canSubmit = checkerType && isGhanaPhone(phone) && quantity >= 1 && !processing && hasFunds;
 
   const submit = async () => {
     setError("");
@@ -72,13 +73,13 @@ export default function AgentBuyChecker({ user, setPage }) {
         body: JSON.stringify({
           agent_id: user.id,
           checker_type: checkerType,
-          phone_number: phone.trim(),
+          phone_number: toGhanaPhone(phone),
           quantity,
         }),
       });
       const data = await res.json();
       if (data.status === "success") {
-        setSuccessMsg(`✅ ${quantity}x ${checkerType} queued for ${phone.trim()}!`);
+        setSuccessMsg(`✅ ${quantity}x ${checkerType} queued for ${toGhanaPhone(phone)}!`);
         setPhone("");
         setQuantity(1);
         setCheckerType("");

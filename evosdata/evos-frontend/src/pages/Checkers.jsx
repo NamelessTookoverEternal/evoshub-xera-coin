@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCheckerProducts, createCheckerOrder, trackCheckers } from "../api";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 export default function Checkers() {
   const [step, setStep] = useState(1);
@@ -41,7 +42,7 @@ export default function Checkers() {
     loadProducts();
   }, []);
 
-  const validPhone = (num) => /^0\d{9}$/.test(num);
+  const validPhone = (num) => isGhanaPhone(num);
 
   const checkerCards = [
     { name: "WAEC", label: "WAEC", emoji: "🟢", desc: "West African Senior School Certificate result checker" },
@@ -72,7 +73,7 @@ export default function Checkers() {
     if (!checkerType) { setError("Select a checker type"); return; }
     if (!quantity || quantity < 1 || quantity > 20) { setError("Quantity must be between 1 and 20"); return; }
     if (!phone) { setError("Enter the phone number to receive the checker"); return; }
-    if (!validPhone(phone)) { setError("Phone must be 10 digits and start with 0"); return; }
+    if (!validPhone(phone)) { setError(GHANA_ONLY_MSG); return; }
     if (!agree) { setError("Please confirm the phone number is correct"); return; }
 
     try {
@@ -80,7 +81,7 @@ export default function Checkers() {
       const res = await createCheckerOrder({
         user_id,
         checker_type: checkerType,
-        phone_number: phone,
+        phone_number: toGhanaPhone(phone),
         quantity,
         email: email || undefined,
       });
@@ -109,7 +110,7 @@ export default function Checkers() {
   const handleTrack = async () => {
     setTrackError("");
     setTrackResults(null);
-    if (!validPhone(trackPhone)) { setTrackError("Enter a valid 10-digit phone number"); return; }
+    if (!validPhone(trackPhone)) { setTrackError(GHANA_ONLY_MSG); return; }
     try {
       setTrackLoading(true);
       const res = await trackCheckers(trackPhone);
@@ -302,7 +303,7 @@ export default function Checkers() {
               onChange={(e) => setPhone(e.target.value)}
             />
             {phone.length > 0 && !validPhone(phone) && (
-              <p style={styles.phoneHint}>⚠️ Must be 10 digits starting with 0</p>
+              <p style={styles.phoneHint}>⚠️ Enter a Ghana number (EVOS Data is Ghana only), e.g. 0551234567</p>
             )}
             {phone.length > 0 && validPhone(phone) && (
               <p style={styles.phoneHintGood}>✅ Looks good!</p>

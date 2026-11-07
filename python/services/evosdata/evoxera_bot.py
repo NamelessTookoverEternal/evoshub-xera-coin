@@ -395,6 +395,10 @@ def fetch_price(db_network: str, bundle: str) -> Optional[float]:
     return float(res.data[0]["price"]) if res.data else None
 
 
+_GHANA_MOBILE_PREFIXES = frozenset({"024", "025", "053", "054", "055", "059",
+                                    "020", "050", "026", "027", "056", "057"})
+
+
 def normalise_ghana_phone(raw: str) -> Optional[str]:
     """Return a 10-digit 0XXXXXXXXX number, or None if it is not one."""
     digits = re.sub(r"\D", "", raw or "")
@@ -402,7 +406,10 @@ def normalise_ghana_phone(raw: str) -> Optional[str]:
         digits = "0" + digits[3:]
     elif len(digits) == 9:
         digits = "0" + digits
-    return digits if re.fullmatch(r"0\d{9}", digits) else None
+    # Ghana-only: must also be a real Ghana mobile prefix (same list as core.GHANA_MOBILE_PREFIXES).
+    if re.fullmatch(r"0\d{9}", digits) and digits[:3] in _GHANA_MOBILE_PREFIXES:
+        return digits
+    return None
 
 
 def money(v: float) -> str:

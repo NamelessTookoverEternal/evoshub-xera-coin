@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { registerUser } from "../api";
+import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 export default function Register({ setPage }) {
   const [form, setForm] = useState({
@@ -33,8 +34,8 @@ export default function Register({ setPage }) {
     if (password.length < 6) return setError("Password must be at least 6 characters");
     if (password !== confirmPassword) return setError("Passwords do not match");
 
-    const cleanPhone = phone.replace(/\D/g, "");
-    if (cleanPhone.length < 10) return setError("Enter a valid phone number");
+    const cleanPhone = toGhanaPhone(phone);
+    if (!cleanPhone) return setError(GHANA_ONLY_MSG);
 
     try {
       setLoading(true);

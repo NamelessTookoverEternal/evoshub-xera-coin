@@ -170,11 +170,45 @@ BG_TIMEOUT = 25
 # =========================
 PHONE_RE = re.compile(r"^\d{9,15}$")
 
+# EVOS Data is Ghana-only. Every phone/mobile-money number that reaches the
+# backend is checked HERE, so the rule holds no matter what the browser sends.
+# Mobile prefixes of the three networks we sell: MTN, Telecel (Vodafone), AirtelTigo.
+GHANA_MOBILE_PREFIXES = frozenset({
+    "024", "025", "053", "054", "055", "059",   # MTN
+    "020", "050",                               # Telecel
+    "026", "027", "056", "057",                 # AirtelTigo
+})
+GHANA_ONLY_MESSAGE = ("EVOS Data is currently available in Ghana only. "
+                      "Enter a valid Ghana number, e.g. 0551234567.")
+
+def ghana_phone(raw) -> str:
+    """Return the canonical 10-digit local form (0XXXXXXXXX) of a Ghana mobile
+    number, or raise ValueError. Accepts 0551234567, 551234567, 233551234567,
+    +233551234567 and 00233551234567, with spaces/dashes/brackets."""
+    s = re.sub(r"[\s\-\(\)\.]", "", str(raw or ""))
+    if s.startswith("+"):
+        s = s[1:]
+    if s.startswith("00233"):
+        s = s[2:]
+    if not s.isdigit() or not s.isascii():
+        raise ValueError(GHANA_ONLY_MESSAGE)
+    if len(s) == 12 and s.startswith("233"):
+        local = "0" + s[3:]
+    elif len(s) == 10 and s.startswith("0"):
+        local = s
+    elif len(s) == 9 and not s.startswith("0"):
+        local = "0" + s
+    else:
+        raise ValueError(GHANA_ONLY_MESSAGE)
+    if local[:3] not in GHANA_MOBILE_PREFIXES:
+        raise ValueError(GHANA_ONLY_MESSAGE)
+    return local
+
 def normalise_phone(raw: str) -> str:
-    cleaned = re.sub(r"[\s\-\(\)]", "", raw.strip())
-    if not PHONE_RE.match(cleaned):
-        raise HTTPException(status_code=400, detail="Invalid phone number")
-    return cleaned
+    try:
+        return ghana_phone(raw)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # =========================
@@ -312,7 +346,7 @@ class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=20)
     full_name: str = Field(min_length=2, max_length=50)
     email: EmailStr
-    phone: str = Field(min_length=9, max_length=15)
+    phone: str = Field(min_length=9, max_length=25)
     password: str = Field(min_length=6, max_length=128)
     referred_by: Optional[str] = None
 
@@ -324,10 +358,7 @@ class RegisterRequest(BaseModel):
 
     @validator("phone")
     def phone_digits_only(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class LoginRequest(BaseModel):
@@ -339,7 +370,7 @@ class CreateOrderRequest(BaseModel):
     user_id: Optional[int] = None
     network: str = Field(min_length=2, max_length=20)
     bundle: str = Field(min_length=2, max_length=20)
-    phone: str = Field(min_length=9, max_length=15)
+    phone: str = Field(min_length=9, max_length=25)
     email: Optional[EmailStr] = None
 
     @validator("network")
@@ -351,29 +382,23 @@ class CreateOrderRequest(BaseModel):
 
     @validator("phone")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class VerifyNumberRequest(BaseModel):
-    phoneNumber: str = Field(min_length=9, max_length=15)
+    phoneNumber: str = Field(min_length=9, max_length=25)
     network: Optional[str] = None  # informational only — check is MTN-specific
 
     @validator("phoneNumber")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class AgentBuyDataRequest(BaseModel):
     agent_id: int
     network: str = Field(min_length=2, max_length=20)
     bundle: str = Field(min_length=2, max_length=20)
-    phone_number: str = Field(min_length=9, max_length=15)
+    phone_number: str = Field(min_length=9, max_length=25)
 
     @validator("network")
     def network_valid(cls, v):
@@ -384,17 +409,14 @@ class AgentBuyDataRequest(BaseModel):
 
     @validator("phone_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class StoreOrderRequest(BaseModel):
     agent_id: int
     network: str = Field(min_length=2, max_length=20)
     bundle: str = Field(min_length=2, max_length=20)
-    phone_number: str = Field(min_length=9, max_length=15)
+    phone_number: str = Field(min_length=9, max_length=25)
     email: Optional[EmailStr] = None
 
     @validator("network")
@@ -406,16 +428,13 @@ class StoreOrderRequest(BaseModel):
 
     @validator("phone_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class CheckerStoreOrderRequest(BaseModel):
     agent_id: int
     checker_type: str = Field(min_length=3, max_length=10)
-    phone_number: str = Field(min_length=9, max_length=15)
+    phone_number: str = Field(min_length=9, max_length=25)
     quantity: int = Field(default=1, ge=1, le=20)
     email: Optional[EmailStr] = None
 
@@ -428,10 +447,7 @@ class CheckerStoreOrderRequest(BaseModel):
 
     @validator("phone_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class DepositInitiateRequest(BaseModel):
@@ -443,17 +459,14 @@ class DepositInitiateRequest(BaseModel):
 class WithdrawRequest(BaseModel):
     agent_id: int
     amount: float = Field(gt=0, le=10000)
-    mobile_number: str = Field(min_length=9, max_length=15)
+    mobile_number: str = Field(min_length=9, max_length=25)
     network: str = Field(min_length=2, max_length=20)
     account_name: Optional[str] = Field(default="", max_length=80)
     provider: str = Field(default="paystack")   # "paystack" or "moolre" — chosen on step 1
 
     @validator("mobile_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid mobile number")
-        return cleaned
+        return ghana_phone(v)
 
     @validator("provider")
     def provider_valid(cls, v):
@@ -465,16 +478,13 @@ class WithdrawRequest(BaseModel):
 
 class VerifyAccountRequest(BaseModel):
     agent_id: int
-    mobile_number: str = Field(min_length=9, max_length=15)
+    mobile_number: str = Field(min_length=9, max_length=25)
     network: str = Field(min_length=2, max_length=20)
     provider: str = Field(default="paystack")
 
     @validator("mobile_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid mobile number")
-        return cleaned
+        return ghana_phone(v)
 
     @validator("provider")
     def provider_valid(cls, v):
@@ -489,7 +499,7 @@ class VerifyAccountRequest(BaseModel):
 class CreateCheckerOrderRequest(BaseModel):
     user_id: Optional[int] = None
     checker_type: str = Field(min_length=3, max_length=10)
-    phone_number: str = Field(min_length=9, max_length=15)
+    phone_number: str = Field(min_length=9, max_length=25)
     quantity: int = Field(default=1, ge=1, le=20)
     email: Optional[EmailStr] = None
 
@@ -502,16 +512,13 @@ class CreateCheckerOrderRequest(BaseModel):
 
     @validator("phone_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 
 class AgentBuyCheckerRequest(BaseModel):
     agent_id: int
     checker_type: str = Field(min_length=3, max_length=10)
-    phone_number: str = Field(min_length=9, max_length=15)
+    phone_number: str = Field(min_length=9, max_length=25)
     quantity: int = Field(default=1, ge=1, le=20)
 
     @validator("checker_type")
@@ -523,10 +530,7 @@ class AgentBuyCheckerRequest(BaseModel):
 
     @validator("phone_number")
     def phone_clean(cls, v):
-        cleaned = re.sub(r"[\s\-\(\)]", "", v)
-        if not re.match(r"^\d{9,15}$", cleaned):
-            raise ValueError("Invalid phone number")
-        return cleaned
+        return ghana_phone(v)
 
 # =========================
 # HELPERS
