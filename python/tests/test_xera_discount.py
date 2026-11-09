@@ -129,17 +129,48 @@ def test_guest_gets_sign_in_message():
     assert q["reason"] == "not_signed_in" and not q["eligible"]
 
 
-def test_unverified_user_needs_kyc():
+def test_unverified_user_can_still_have_the_discount_for_35_xera():
     db = make_db()
     db.tables["xera_kyc"] = [{"user_id": 42, "status": "PENDING"}]
+    q = xd.quote(db, 42, 5.0)
+    assert q["eligible"] and q["verified"] is False
+    assert q["xera_amount"] == 35.0 and q["xera_if_verified"] == 20.0
+    assert q["discount_ghs"] == 0.2 and q["final_price"] == 4.8        # same cash discount
+    assert q["_calc"]["xera_amount"] == Decimal("35.0000")             # the hold uses 35, not 20
+
+
+def test_verified_user_still_pays_20():
+    q = xd.quote(make_db(), 42, 5.0)
+    assert q["verified"] is True and q["xera_amount"] == 20.0
+
+
+def test_no_kyc_record_at_all_counts_as_unverified():
+    db = make_db()
+    db.tables["xera_kyc"] = []
+    q = xd.quote(db, 42, 5.0)
+    assert q["eligible"] and q["xera_amount"] == 35.0
+
+
+def test_bigger_bundles_scale_for_both_kinds_of_user():
+    db = make_db()
+    assert xd.quote(db, 42, 10.0)["xera_amount"] == 40.0
+    db.tables["xera_kyc"] = []
+    assert xd.quote(db, 42, 10.0)["xera_amount"] == 70.0
+
+
+def test_multiplier_zero_means_kyc_required_again():
+    db = make_db(unverified_multiplier=0)
+    db.tables["xera_kyc"] = []
     q = xd.quote(db, 42, 5.0)
     assert q["reason"] == "kyc_required" and not q["eligible"]
 
 
-def test_kyc_rule_can_be_switched_off():
-    db = make_db(require_kyc=False)
+def test_unverified_short_balance_asks_for_the_35_amount():
+    db = make_db()
     db.tables["xera_kyc"] = []
-    assert xd.quote(db, 42, 5.0)["eligible"] is True
+    db.spendable = Decimal("30")
+    q = xd.quote(db, 42, 5.0)
+    assert not q["eligible"] and q["xera_short"] == 5.0 and "Earn 5 more XERA" in q["message"]
 
 
 def test_not_enough_xera_shows_full_price_and_how_much_more():
@@ -226,6 +257,14 @@ def test_without_the_toggle_the_price_is_unchanged(shop):
     assert db.tables["orders"][0]["price"] == 5.0
     assert not [c for c in db.calls if c[0] == "xera_discount_hold"]
     assert "xera_discount" not in out
+
+
+def test_unverified_buyer_is_held_for_35_at_checkout(shop):
+    db, ps = shop
+    db.tables["xera_kyc"] = []
+    call_create(order(True))
+    hold = [c for c in db.calls if c[0] == "xera_discount_hold"][0][1]
+    assert hold["p_xera"] == "35.0000" and hold["p_discount_ghs"] == "0.20" and ps.bodies[0]["amount"] == 480
 
 
 def test_with_the_toggle_paystack_is_charged_the_discounted_amount_and_xera_is_held(shop):

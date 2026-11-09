@@ -36,7 +36,8 @@ DEFAULT_CONFIG = {
     "discount_pct": Decimal("4"),
     "max_pct": Decimal("10"),
     "hold_minutes": 30,
-    "require_kyc": True,
+    "require_kyc": True,          # legacy column, no longer used: see unverified_multiplier
+    "unverified_multiplier": Decimal("1.75"),   # unverified users pay 1.75x the XERA (20 -> 35). 0 = KYC required
 }
 
 
@@ -69,6 +70,9 @@ def load_config(sb) -> dict:
             cfg["max_pct"] = _dec(row.get("max_pct"), DEFAULT_CONFIG["max_pct"])
             cfg["hold_minutes"] = int(row.get("hold_minutes") or DEFAULT_CONFIG["hold_minutes"])
             cfg["require_kyc"] = bool(row.get("require_kyc", True))
+            if row.get("unverified_multiplier") is not None:
+                cfg["unverified_multiplier"] = _dec(row.get("unverified_multiplier"),
+                                                    DEFAULT_CONFIG["unverified_multiplier"])
     except Exception as exc:  # table not migrated yet, or a transient error -> feature stays off
         logger.warning("XERA DISCOUNT: config unavailable (%s) - treating as disabled", exc)
         cfg["enabled"] = False
@@ -130,6 +134,8 @@ def quote(sb, user_id: Optional[int], price: Any, cfg: Optional[dict] = None) ->
         "xera_per_ghs": float(cfg["xera_per_ghs"]),
         "spendable": 0.0,
         "xera_short": 0.0,
+        "verified": False,
+        "xera_if_verified": float(calc["xera_amount"]),
         "hold_minutes": cfg["hold_minutes"],
         "_calc": calc,
     }
@@ -143,10 +149,19 @@ def quote(sb, user_id: Optional[int], price: Any, cfg: Optional[dict] = None) ->
         out.update(reason="no_discount", message="No XERA discount on this bundle.")
         return out
     try:
-        if cfg["require_kyc"] and not _kyc_verified(sb, user_id):
-            out.update(reason="kyc_required",
-                       message="Verify your identity in the XERA app to use your XERA discount.")
-            return out
+        verified = _kyc_verified(sb, user_id)
+        if not verified:
+            mult = cfg["unverified_multiplier"]
+            if mult <= 0:
+                out.update(reason="kyc_required",
+                           message="Verify your identity in the XERA app to use your XERA discount.")
+                return out
+            # Same cash discount, more XERA for accounts that have not done KYC.
+            calc = dict(calc)
+            calc["xera_amount"] = (calc["xera_amount"] * mult).quantize(XERA_UNIT, ROUND_HALF_UP)
+            out["_calc"] = calc
+            out["xera_amount"] = float(calc["xera_amount"])
+        out["verified"] = bool(verified)
         spendable = _scalar(sb.rpc("xera_discount_spendable", {"p_user_id": int(user_id)}).execute())
     except Exception as exc:
         logger.warning("XERA DISCOUNT: quote lookup failed for user %s: %s", user_id, exc)
