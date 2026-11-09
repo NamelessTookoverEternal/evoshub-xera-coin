@@ -148,6 +148,10 @@ def _urls_for(product: str) -> tuple[str, str]:
     if product == "xera_transfer_fee":
         success = os.getenv("XERA_FEE_SUCCESS_URL", "").strip()
         cancel = os.getenv("XERA_FEE_CANCEL_URL", "").strip() or success
+    elif product == "website_order":
+        # e.g. https://evoshub.xyz/website-creation.html?pay=crypto
+        success = os.getenv("WEBSITE_PAYMENT_RETURN_URL", "").strip()
+        cancel = success
     else:
         # Where the customer lands after paying, e.g. https://evoshub.xyz/xera/?pay=crypto
         success = os.getenv("XERA_CRYPTO_SUCCESS_URL", "").strip() or os.getenv("XERA_HASHRATE_CALLBACK_URL", "").strip()
@@ -178,7 +182,10 @@ class NowPaymentsProvider(HashratePaymentProvider):
             "price_currency": CHARGE_CURRENCY.lower(),
             "pay_currency": pay_currency(),
             "order_id": reference,
-            "order_description": "XERA transfer processing fee" if product == "xera_transfer_fee" else "XERA hashrate",
+            "order_description": {
+                "xera_transfer_fee": "XERA transfer processing fee",
+                "website_order": "EVOXERA website creation",
+            }.get(product, "XERA hashrate"),
             "ipn_callback_url": ipn_url,
         }
         if success_url:

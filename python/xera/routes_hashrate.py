@@ -163,7 +163,23 @@ async def paystack_webhook(request: Request, x_paystack_signature: str = Header(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
-    # One Paystack account/webhook URL serves hashrate AND the one-time transfer fee: route by reference.
+    # One Paystack account/webhook URL serves hashrate, the transfer fee AND website orders: route by reference.
+    from services import website_orders
+    if website_orders.is_website_reference((payload.get("data") or {}).get("reference", "")):
+        from xera.payments import paystack_provider
+        try:
+            signature_ok = paystack_provider.verify_webhook_signature(raw_body, x_paystack_signature)
+        except RuntimeError:
+            raise HTTPException(status_code=503, detail="Payments are not configured.")
+        if not signature_ok:
+            raise HTTPException(status_code=401, detail="Invalid webhook signature.")
+        try:
+            result = await website_orders.handle_paystack_webhook(payload)
+        except PaymentProviderError as e:
+            logger.error("Website order Paystack verify failed: %s", e)
+            raise HTTPException(status_code=502, detail="Could not verify the payment right now.")   # Paystack retries
+        return {"ok": True, **result}
+
     from xera import readiness
     if readiness.is_fee_reference((payload.get("data") or {}).get("reference", "")):
         try:
@@ -217,6 +233,14 @@ async def nowpayments_webhook(request: Request, x_nowpayments_sig: str = Header(
         raise HTTPException(status_code=400, detail="Invalid JSON body.")
 
     order_id = payload.get("order_id") or ""
+    from services import website_orders
+    if website_orders.is_website_reference(order_id):
+        try:
+            result = await website_orders.handle_nowpayments_ipn(payload)
+        except PaymentProviderError as e:
+            logger.error("Website order NOWPayments verify failed: %s", e)
+            raise HTTPException(status_code=502, detail="Could not verify the payment right now.")   # NOWPayments retries
+        return {"ok": True, **result}
     try:
         if readiness.is_fee_reference(order_id):
             result = await run_in_threadpool(readiness.handle_fee_ipn, payload)

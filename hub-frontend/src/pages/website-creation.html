@@ -26,6 +26,30 @@
     .pkg-card.selected { border-color:var(--blue); box-shadow:0 0 0 2px var(--blue-dim); }
     .pkg-price { font-family:var(--font-display); font-size:26px; font-weight:800; margin:8px 0 4px; }
     .pkg-price span { font-size:13px; font-weight:500; color:var(--text3); }
+    .pkg-was { text-decoration:line-through; color:var(--text3); font-size:15px; font-weight:500; margin-right:6px; }
+    .pkg-badges { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 8px; min-height:0; }
+    .pkg-badges:empty { display:none; }
+    .pkg-off { font-size:11.5px; font-weight:600; color:#fff; background:var(--green,#1f9d55); border-radius:999px; padding:2px 9px; }
+    .pkg-xera { font-size:12px; color:var(--text2); }
+    .pkg-approx { font-size:12px; color:var(--text3); margin:-2px 0 8px; min-height:0; }
+    .pay-row { display:flex; justify-content:space-between; gap:12px; font-size:14px; padding:6px 0; }
+    .pay-row--total { border-top:1px solid var(--border2); margin-top:6px; padding-top:12px; font-weight:700; font-size:16px; }
+    .pay-row .was { text-decoration:line-through; color:var(--text3); }
+    .pay-methods { display:grid; gap:10px; margin:18px 0 12px; }
+    .file-note { font-size:11.5px; color:var(--text3); margin-top:6px; line-height:1.5; }
+    .file-list { list-style:none; padding:0; margin:8px 0 0; font-size:12.5px; color:var(--text2); }
+    .file-list li { display:flex; justify-content:space-between; gap:10px; padding:3px 0; }
+    .file-list .bad { color:#c0392b; }
+    .receipt-table { width:100%; border-collapse:collapse; font-size:13.5px; margin:14px 0; }
+    .receipt-table td { padding:7px 0; border-bottom:1px solid var(--border2); vertical-align:top; }
+    .receipt-table td:last-child { text-align:right; }
+    .paid-pill { display:inline-block; background:var(--green,#1f9d55); color:#fff; font-size:12px; font-weight:600; border-radius:999px; padding:3px 11px; }
+    @media print {
+      body * { visibility:hidden !important; }
+      #wr-receipt-panel, #wr-receipt-panel * { visibility:visible !important; }
+      #wr-receipt-panel { position:absolute; left:0; top:0; width:100%; max-width:none !important; box-shadow:none; border:none; }
+      #wr-receipt-panel .no-print { display:none !important; }
+    }
     /* Honeypot: off-screen, not display:none — trips up bots that skip hidden fields */
     .hp-field { position:absolute; left:-9999px; top:-9999px; }
   </style>
@@ -39,7 +63,6 @@
     <li><a href="/xera">XERA</a></li>
     <li><a href="/ecosystem.html">Ecosystem</a></li>
     <li><a href="/integrated.html">Integrated</a></li>
-    <li><a href="/about.html">Company</a></li>
     <li><a href="/contact.html">Contact</a></li>
   </ul>
     <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
@@ -54,22 +77,28 @@
   <main class="section" style="padding-top:140px;">
     <span class="section-label">Website Creation</span>
     <h1 class="section-title">Let's build your website</h1>
-    <p class="section-desc" style="margin-bottom:8px;">Pick a package, tell us about your project, and chat live with our team to lock in the details.</p>
+    <p class="section-desc" style="margin-bottom:8px;">Pick a package, tell us about your project and upload your logo or designs. Then pay right away, or talk to our team first.</p>
 
     <div class="pkg-grid">
       <div class="card pkg-card" data-package="starter">
         <span class="badge badge--soon">Starter</span>
-        <div class="pkg-price">GH₵800 <span>one-time</span></div>
+        <div class="pkg-price"><span class="pkg-was" data-was="starter">GH₵800</span><span data-now="starter">GH₵400</span> <span>one-time</span></div>
+        <div class="pkg-badges" data-badges="starter"><span class="pkg-off">50% off</span><span class="pkg-xera">Extra 10% off when you pay with XERA</span></div>
+        <div class="pkg-approx" data-approx="starter"></div>
         <p style="font-size:13px;color:var(--text2);">Single-page site — perfect for a small business or personal brand.</p>
       </div>
       <div class="card pkg-card" data-package="business">
         <span class="badge badge--live"><span class="badge-pulse"></span>Popular</span>
-        <div class="pkg-price">GH₵2,200 <span>one-time</span></div>
+        <div class="pkg-price"><span class="pkg-was" data-was="business" hidden></span><span data-now="business">GH₵2,200</span> <span>one-time</span></div>
+        <div class="pkg-badges" data-badges="business"><span class="pkg-xera">Extra 10% off when you pay with XERA</span></div>
+        <div class="pkg-approx" data-approx="business"></div>
         <p style="font-size:13px;color:var(--text2);">Multi-page site with contact form, gallery, and basic SEO setup.</p>
       </div>
       <div class="card pkg-card" data-package="premium">
         <span class="badge badge--soon">Premium</span>
-        <div class="pkg-price">GH₵5,000 <span>one-time</span></div>
+        <div class="pkg-price"><span class="pkg-was" data-was="premium" hidden></span><span data-now="premium">GH₵5,000</span> <span>one-time</span></div>
+        <div class="pkg-badges" data-badges="premium"><span class="pkg-xera">Extra 10% off when you pay with XERA</span></div>
+        <div class="pkg-approx" data-approx="premium"></div>
         <p style="font-size:13px;color:var(--text2);">Full custom design, e-commerce ready, admin dashboard, priority support.</p>
       </div>
       <div class="card pkg-card" data-package="custom">
@@ -81,14 +110,14 @@
 
     <div class="card" style="max-width:560px;">
       <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:6px;">Tell us about your project</p>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:22px;">We'll open a live chat with our team right after you submit.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:22px;">Next you can pay straight away, or talk to our team first.</p>
 
       <form id="website-request-form" novalidate>
         <div class="field">
           <label for="wr-package">Package</label>
           <select id="wr-package" name="package" class="form-select" required>
             <option value="" disabled selected>Choose a package…</option>
-            <option value="starter">Starter — GH₵800</option>
+            <option value="starter">Starter — GH₵400 (was GH₵800)</option>
             <option value="business">Business — GH₵2,200</option>
             <option value="premium">Premium — GH₵5,000</option>
             <option value="custom">Custom — let's talk</option>
@@ -105,6 +134,13 @@
           <textarea id="wr-brief" name="project_brief" rows="4" class="form-textarea" placeholder="What's the website for? Any pages, features, or examples you like?" required maxlength="4000"></textarea>
         </div>
 
+        <div class="field">
+          <label for="wr-files">Logo, designs or documents (optional)</label>
+          <input id="wr-files" type="file" class="form-input" multiple accept="image/png,image/jpeg,image/webp,image/gif,application/pdf">
+          <p class="file-note">Up to 8 files, 5&nbsp;MB each. Images (PNG, JPG, WEBP, GIF) or PDF. Helpful: your logo, brand colours, sample sites you like, text for your pages.</p>
+          <ul class="file-list" id="wr-file-list"></ul>
+        </div>
+
         <!-- Honeypot: real visitors never fill this in -->
         <div class="hp-field" aria-hidden="true">
           <label for="wr-website">Leave this field empty</label>
@@ -112,16 +148,62 @@
         </div>
 
         <p id="wr-error" style="display:none;color:#c0392b;font-size:13px;margin-bottom:12px;"></p>
-        <button type="submit" class="btn btn--primary" style="width:100%;" id="wr-submit">Submit &amp; start chat</button>
+        <button type="submit" class="btn btn--primary" style="width:100%;" id="wr-submit">Continue</button>
         <p style="font-size:11.5px;color:var(--text3);text-align:center;margin-top:12px;">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19"/></svg> Pay online with Paystack — <span style="opacity:.8;">coming soon</span>. For now we confirm payment over WhatsApp after your chat.
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" style="display:inline-block;vertical-align:-2px;margin-right:4px"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19"/></svg> Pay by Paystack (card or mobile money) or USDT crypto on the next step.
         </p>
       </form>
     </div>
+    <!-- Step 2: pay now or talk first -->
+    <div class="card" id="wr-choose-panel" style="max-width:560px; display:none;">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:4px;">Your request is in</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Pay now to get started right away, or talk to our team first.</p>
+
+      <div id="wr-pay-summary"></div>
+
+      <label id="wr-xera-row" style="display:none;align-items:flex-start;gap:9px;font-size:13.5px;margin:14px 0 4px;cursor:pointer;">
+        <input type="checkbox" id="wr-use-xera" style="margin-top:3px;">
+        <span id="wr-xera-text"></span>
+      </label>
+      <p id="wr-xera-note" style="display:none;font-size:12.5px;color:var(--text3);margin:10px 0 0;"></p>
+
+      <div class="pay-methods">
+        <button type="button" class="btn btn--primary" id="wr-pay-paystack">Pay now with Paystack</button>
+        <button type="button" class="btn btn--primary" id="wr-pay-crypto">Pay now with USDT (crypto)</button>
+        <button type="button" class="btn btn--ghost" id="wr-talk-first">Talk to us first</button>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin:0;">Talking first? We usually reply within 3 to 5 hours. You can still pay any time afterwards.</p>
+      <p id="wr-pay-error" style="display:none;color:#c0392b;font-size:13px;margin-top:12px;"></p>
+    </div>
+
+    <!-- Waiting for the provider to confirm -->
+    <div class="card" id="wr-pending-panel" style="max-width:560px; display:none;">
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:6px;">Confirming your payment…</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="wr-pending-text">This usually takes a few seconds. Crypto payments can take a few minutes to confirm on the network.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="btn btn--ghost" id="wr-pending-back">Choose another way to pay</button>
+        <button type="button" class="btn btn--ghost" id="wr-pending-chat">Chat with our team</button>
+      </div>
+    </div>
+
+    <!-- Receipt + follow-up (after payment) -->
+    <div class="card" id="wr-receipt-panel" style="max-width:560px; display:none;">
+      <span class="paid-pill">Payment confirmed</span>
+      <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin:10px 0 2px;">Receipt <span id="wr-receipt-no"></span></p>
+      <p style="font-size:12.5px;color:var(--text3);margin:0;" id="wr-receipt-date"></p>
+      <table class="receipt-table"><tbody id="wr-receipt-rows"></tbody></table>
+      <div class="no-print" style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" class="btn btn--primary" id="wr-followup">Follow up with customer service</button>
+        <button type="button" class="btn btn--ghost" id="wr-print">Print / save receipt</button>
+      </div>
+      <p class="no-print" style="font-size:12px;color:var(--text3);margin:12px 0 0;">A copy was also emailed to you. Use the follow-up button any time to reach our team about this order.</p>
+    </div>
+
     <!-- Live chat panel — hidden until a request has been submitted -->
     <div class="card" id="wr-chat-panel" style="max-width:560px; display:none;">
       <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:4px;">Live chat with our team</p>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">We've received your request — an agent will join shortly. Feel free to add more details below.</p>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="wr-chat-intro">We've received your request. We usually reply within 3 to 5 hours. Feel free to add more details below.</p>
+      <div id="wr-chat-paybar" style="display:none;margin-bottom:14px;"><button type="button" class="btn btn--primary" id="wr-chat-paynow">Pay now</button></div>
       <div id="wr-chat-log" style="height:320px;overflow-y:auto;border:1px solid var(--border2);border-radius:9px;padding:14px;background:var(--bg2);margin-bottom:14px;display:flex;flex-direction:column;gap:10px;"></div>
       <form id="wr-chat-form" style="display:flex;gap:8px;" novalidate>
         <input id="wr-chat-input" type="text" class="form-input" placeholder="Type a message…" maxlength="2000" required autocomplete="off">
@@ -170,6 +252,7 @@
       <div class="site-footer__bottom">
         <span style="font-size:12px;color:var(--text3);"><a href="/admin-login.html" class="footer-mark" aria-label="Admin sign in">©</a> 2026 EVOS Business Hub · EVOXERA TECHNOLOGY · All Rights Reserved</span>
         <div class="footer-legal" style="display:flex;gap:20px;flex-wrap:wrap;">
+          <a href="/about.html" style="font-size:12px;color:var(--text3);">Company</a>
           <a href="/privacy.html" style="font-size:12px;color:var(--text3);">Privacy Policy</a>
           <a href="/terms.html" style="font-size:12px;color:var(--text3);">Terms of Service</a>
           <a href="/policy.html" style="font-size:12px;color:var(--text3);">Corporate Policy</a>

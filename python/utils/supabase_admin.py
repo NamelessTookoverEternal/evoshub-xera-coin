@@ -258,6 +258,130 @@ async def insert_website_request(row: dict) -> dict:
     return data[0] if isinstance(data, list) else data
 
 
+# --- Website orders: payments, receipts, uploads -----------------------------------
+#
+# service_role only. Callers (services/website_orders.py) have already proven who the
+# visitor is; these helpers just talk to PostgREST / Storage.
+
+WEBSITE_BUCKET = "website-uploads"
+
+
+def _svc_headers(extra: dict | None = None) -> dict:
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.")
+    h = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+
+async def get_website_request(*, request_id: str | None = None, payment_reference: str | None = None) -> dict | None:
+    """One website_requests row by id or by payment reference (all columns)."""
+    if request_id:
+        params = {"select": "*", "id": f"eq.{request_id}", "limit": 1}
+    elif payment_reference:
+        params = {"select": "*", "payment_reference": f"eq.{payment_reference}", "limit": 1}
+    else:
+        return None
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(f"{SUPABASE_URL}/rest/v1/website_requests", headers=_svc_headers(), params=params)
+    if resp.status_code != 200:
+        raise RuntimeError(f"Supabase website_requests lookup failed: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data[0] if data else None
+
+
+async def patch_website_request(request_id: str, fields: dict, *, only_if: dict | None = None) -> dict | None:
+    """
+    PATCH one row. `only_if` adds extra PostgREST filters (e.g. {"payment_status": "neq.paid"})
+    so a state change is atomic: returns None if no row matched (someone else got there first).
+    """
+    params = {"id": f"eq.{request_id}"}
+    if only_if:
+        params.update(only_if)
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.patch(
+            f"{SUPABASE_URL}/rest/v1/website_requests",
+            headers=_svc_headers({"Prefer": "return=representation"}),
+            params=params,
+            json=fields,
+        )
+    if resp.status_code not in (200, 204):
+        raise RuntimeError(f"Supabase website_requests update failed: {resp.status_code} {resp.text}")
+    data = resp.json() if resp.text else []
+    return data[0] if isinstance(data, list) and data else None
+
+
+async def count_website_files(request_id: str) -> int:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/website_request_files",
+            headers=_svc_headers({"Prefer": "count=exact"}),
+            params={"select": "id", "request_id": f"eq.{request_id}", "limit": 1},
+        )
+    if resp.status_code not in (200, 206):
+        raise RuntimeError(f"Supabase website_request_files count failed: {resp.status_code} {resp.text}")
+    total = resp.headers.get("content-range", "*/0").split("/")[-1]
+    return int(total) if total.isdigit() else 0
+
+
+async def upload_website_file(storage_path: str, content: bytes, mime_type: str) -> None:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0)) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/storage/v1/object/{WEBSITE_BUCKET}/{storage_path}",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": mime_type,
+                "x-upsert": "false",
+            },
+            content=content,
+        )
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Supabase storage upload failed: {resp.status_code} {resp.text}")
+
+
+async def insert_website_file_row(row: dict) -> dict:
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/website_request_files",
+            headers=_svc_headers({"Prefer": "return=representation"}),
+            json=row,
+        )
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Supabase website_request_files insert failed: {resp.status_code} {resp.text}")
+    data = resp.json()
+    return data[0] if isinstance(data, list) else data
+
+
+async def list_website_files(request_id: str, *, signed: bool = False) -> list[dict]:
+    """Files for one request. With signed=True each row gets a 10-minute `url` (admin view)."""
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/website_request_files",
+            headers=_svc_headers(),
+            params={"select": "id,storage_path,file_name,mime_type,size_bytes,created_at",
+                    "request_id": f"eq.{request_id}", "order": "created_at.asc"},
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Supabase website_request_files list failed: {resp.status_code} {resp.text}")
+        rows = resp.json()
+        if signed:
+            for r in rows:
+                s = await client.post(
+                    f"{SUPABASE_URL}/storage/v1/object/sign/{WEBSITE_BUCKET}/{r['storage_path']}",
+                    headers=_svc_headers(),
+                    json={"expiresIn": 600},
+                )
+                signed_path = (s.json() or {}).get("signedURL") if s.status_code == 200 else None
+                r["url"] = f"{SUPABASE_URL}/storage/v1{signed_path}" if signed_path else None
+    return rows
+
+
 # --- Admin website-request inbox --------------------------------------------------
 #
 # All service_role, on purpose: website_requests / website_chat_messages RLS
@@ -281,7 +405,8 @@ async def list_website_requests() -> list[dict]:
                 "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             },
             params={
-                "select": "id,full_name,email,package,status,project_brief,created_at",
+                "select": "id,full_name,email,package,status,project_brief,created_at,"
+                          "payment_status,payment_method,amount_due_ghs,receipt_no,contact_path",
                 "order": "created_at.desc",
             },
         )

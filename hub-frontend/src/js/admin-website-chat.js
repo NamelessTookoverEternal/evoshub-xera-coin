@@ -96,7 +96,8 @@ function renderThreadList() {
     const name = document.createElement('h4')
     name.textContent = r.full_name + '  ·  ' + r.package
     const meta = document.createElement('p')
-    meta.textContent = `${r.email} — ${r.status}`
+    const paidTag = r.payment_status === 'paid' ? ' · PAID' : r.payment_status === 'pending' ? ' · payment pending' : ''
+    meta.textContent = `${r.email} — ${r.status}${paidTag}`
     item.appendChild(name)
     item.appendChild(meta)
     item.addEventListener('click', () => openRequest(r.id))
@@ -186,6 +187,13 @@ async function openRequest(requestId) {
   const h = document.createElement('strong')
   h.textContent = `${req.full_name} — ${req.package}`
   headerEl.appendChild(h)
+  if (req.payment_status === 'paid') {
+    const paid = document.createElement('div')
+    paid.style.cssText = 'font-size:12.5px;margin-top:4px;color:var(--text2);'
+    paid.textContent = `Paid GH₵${Number(req.amount_due_ghs || 0).toLocaleString()} via ${req.payment_method} · receipt ${req.receipt_no}`
+    headerEl.appendChild(paid)
+  }
+  loadFiles(requestId, headerEl)
 
   statusSel.disabled = false
   statusSel.value = req.status
@@ -201,6 +209,30 @@ async function openRequest(requestId) {
     req.status = 'in_chat'
     statusSel.value = 'in_chat'
     renderThreadList()
+  }
+}
+
+// Customer uploads (logos, designs, documents) — short-lived signed links from the backend.
+async function loadFiles(requestId, container) {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/website-requests/${requestId}/files`, { headers: authHeaders() })
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data.files || !data.files.length || activeRequestId !== requestId) return
+    const box = document.createElement('div')
+    box.style.cssText = 'font-size:12.5px;margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;'
+    data.files.forEach((f) => {
+      if (!f.url) return
+      const a = document.createElement('a')
+      a.href = f.url
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      a.textContent = `${f.file_name} (${(f.size_bytes / 1024).toFixed(0)} KB)`
+      box.appendChild(a)
+    })
+    container.appendChild(box)
+  } catch (err) {
+    console.error('[admin-inbox] failed to load files', err)
   }
 }
 

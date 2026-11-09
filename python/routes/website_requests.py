@@ -15,14 +15,19 @@ Flow:
 """
 
 import os
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from services import website_orders as orders
 from utils.supabase_admin import (
     VisitorTokenInvalid,
+    get_website_request,
     insert_website_request,
+    patch_website_request,
     verify_visitor_token,
 )
+from xera.payments.base import PaymentProviderError
 from utils.email_sender import send_email
 from utils.rate_limit import limiter
 from utils.text_sanitize import clean_text as _clean_text
@@ -121,6 +126,160 @@ async def create_website_request(
 
     return {
         "status": "received",
-        "message": "Thanks! Your request is in. You can chat with our team now.",
+        "message": "Thanks! Your request is in.",
         "request_id": inserted.get("id"),
+        "pricing": orders.package_pricing(payload.package),   # None for quote-only packages
+        "methods": orders.methods_available(),
     }
+
+
+# ---------------------------------------------------------------------------------
+# Pricing, files, payment, receipt
+# ---------------------------------------------------------------------------------
+
+async def _visitor_id(authorization: str) -> str:
+    try:
+        return await verify_visitor_token(authorization.removeprefix("Bearer ").strip())
+    except VisitorTokenInvalid:
+        raise HTTPException(status_code=401, detail="Invalid or expired session. Please refresh and try again.")
+
+
+async def _own_request(request_id: str, authorization: str) -> dict:
+    """The request row, only if it belongs to the verified visitor (404 otherwise, never a hint)."""
+    visitor = await _visitor_id(authorization)
+    row = await get_website_request(request_id=request_id)
+    if not row or row.get("visitor_id") != visitor:
+        raise HTTPException(status_code=404, detail="Request not found.")
+    return row
+
+
+def _xera_user_id(x_xera_authorization: str) -> int | None:
+    """Optional XERA session (separate from the visitor session). Bad/missing token = not signed in."""
+    token = x_xera_authorization.removeprefix("Bearer ").strip()
+    if not token:
+        return None
+    try:
+        from xera.user_auth import verify_user_token, XeraTokenInvalid
+        try:
+            return verify_user_token(token)
+        except XeraTokenInvalid:
+            return None
+    except Exception:
+        return None
+
+
+def _order_error(e: "orders.WebsiteOrderError"):
+    raise HTTPException(status_code=e.status, detail=e.message)
+
+
+@router.get("/website-requests/pricing")
+@limiter.limit("60/minute")
+async def website_pricing(request: Request):
+    """Public price cards (list price, discounted price, XERA saving) so the page never hard-codes prices."""
+    return {"packages": orders.all_pricing(), "methods": orders.methods_available()}
+
+
+@router.post("/website-requests/{request_id}/files")
+@limiter.limit("40/hour")
+async def upload_request_file(
+    request: Request,
+    request_id: str,
+    file: UploadFile = File(...),
+    authorization: str = Header(default=""),
+):
+    await _own_request(request_id, authorization)
+    # Read one byte past the cap so an oversize file is rejected without buffering all of it.
+    content = await file.read(orders.MAX_FILE_BYTES + 1)
+    try:
+        saved = await orders.save_upload(request_id, file.filename or "", content)
+    except orders.WebsiteOrderError as e:
+        _order_error(e)
+    except Exception as e:
+        print(f"[WEBSITE-UPLOAD ERROR] {e}")
+        raise HTTPException(status_code=502, detail="Could not save that file. Please try again.")
+    return {"status": "ok", "file": saved}
+
+
+@router.post("/website-requests/{request_id}/talk-first")
+@limiter.limit("20/hour")
+async def choose_talk_first(request: Request, request_id: str, authorization: str = Header(default="")):
+    row = await _own_request(request_id, authorization)
+    if row.get("payment_status") != "paid" and row.get("contact_path") != "talk":
+        await patch_website_request(request_id, {"contact_path": "talk"})
+    return {"status": "ok"}
+
+
+@router.get("/website-requests/{request_id}/payment")
+@limiter.limit("60/minute")
+async def payment_state(
+    request: Request,
+    request_id: str,
+    authorization: str = Header(default=""),
+    x_xera_authorization: str = Header(default=""),
+):
+    """
+    Everything the pay step needs in one call: price card, which methods work, the XERA
+    quote for this visitor, and the live payment status. Also reconciles a pending Paystack
+    payment directly with Paystack, so the page does not depend on the webhook being fast.
+    """
+    row = await _own_request(request_id, authorization)
+    row = await orders.reconcile_paystack(row)
+    pricing = orders.package_pricing(row["package"])
+
+    xera = None
+    if pricing and row.get("payment_status") != "paid":
+        try:
+            from main import supabase as sb
+            q = await run_in_threadpool(orders.xera_quote, sb, _xera_user_id(x_xera_authorization), pricing["price"])
+            xera = {k: v for k, v in q.items() if not k.startswith("_")}
+        except Exception as exc:
+            print(f"[WEBSITE-XERA QUOTE WARNING] {exc}")
+
+    return {
+        "status": row.get("payment_status", "unpaid"),
+        "payment_method": row.get("payment_method"),
+        "receipt_no": row.get("receipt_no"),
+        "package": row["package"],
+        "pricing": pricing,
+        "methods": orders.methods_available(),
+        "xera": xera,
+    }
+
+
+class PayIn(BaseModel):
+    method: str = Field(..., min_length=1, max_length=20)
+    use_xera: bool = False
+
+
+@router.post("/website-requests/{request_id}/pay")
+@limiter.limit("10/hour")
+async def pay_for_request(
+    request: Request,
+    request_id: str,
+    data: PayIn,
+    authorization: str = Header(default=""),
+    x_xera_authorization: str = Header(default=""),
+):
+    row = await _own_request(request_id, authorization)
+    try:
+        return await orders.start_payment(
+            row,
+            method=data.method.strip().lower(),
+            use_xera=data.use_xera,
+            xera_user_id=_xera_user_id(x_xera_authorization),
+        )
+    except orders.WebsiteOrderError as e:
+        _order_error(e)
+    except PaymentProviderError as e:
+        print(f"[WEBSITE-PAY PROVIDER ERROR] {request_id}: {e}")
+        raise HTTPException(status_code=502, detail="The payment provider is unavailable right now. Please try again shortly.")
+
+
+@router.get("/website-requests/{request_id}/receipt")
+@limiter.limit("30/minute")
+async def get_receipt(request: Request, request_id: str, authorization: str = Header(default="")):
+    row = await _own_request(request_id, authorization)
+    try:
+        return {"receipt": orders.build_receipt(row)}
+    except orders.WebsiteOrderError as e:
+        _order_error(e)

@@ -47,6 +47,7 @@ from utils.supabase_admin import (
     get_admin_agent,
     get_public_user_by_id,
     get_public_user_by_identifier,
+    list_website_files,
     list_website_requests,
     update_website_request_status,
     list_chat_messages,
@@ -234,3 +235,12 @@ async def admin_update_status(
     await _require_active_admin(authorization)
     updated = await update_website_request_status(request_id, data.status)
     return {"status": "ok", "request": updated}
+
+
+@router.get("/admin/website-requests/{request_id}/files")
+@limiter.limit("60/minute")
+async def admin_list_files(request: Request, request_id: str, authorization: str = Header(default="")):
+    """Customer uploads for one request, each with a 10-minute signed download link."""
+    await _require_active_admin(authorization)
+    files = await list_website_files(request_id, signed=True)
+    return {"status": "ok", "files": files}

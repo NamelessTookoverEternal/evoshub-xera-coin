@@ -1,28 +1,141 @@
-// EVOSHUB — Website Creation: intake form + live chat
+// EVOSHUB — Website Creation: intake form -> pay now / talk first -> receipt + live chat
 //
-// Flow: visitor fills the form -> we ensure an anonymous Supabase session ->
-// insert one row in website_requests (RLS stamps it as theirs) -> switch to
-// the chat panel, which reads/writes website_chat_messages over Realtime,
-// scoped to that request by RLS (see 20260709_website_creation.sql).
+// Flow: visitor fills the form and attaches files -> we ensure an anonymous Supabase
+// session -> the backend saves the request and the files -> the visitor either pays
+// (Paystack or USDT crypto, optional XERA saving) or talks to our team first.
+// After payment they get a receipt and a follow-up button that opens the chat.
+//
+// All prices and every payment decision come from the backend. This file only
+// displays what it is told and sends "this request, this method, use XERA yes/no".
 import { supabase, ensureVisitorSession } from './supabase-client.js'
 
 const LOCAL_STORAGE_KEY = 'evoshub_website_request_id'
+const FOLLOWUP_KEY = 'evoshub_website_followup_sent'
+const XERA_TOKEN_KEY = 'xera_evos_token'
 const MIN_FORM_TIME_MS = 2500 // real humans take at least this long to fill the form
+const MAX_FILES = 8
+const MAX_FILE_BYTES = 5 * 1024 * 1024
+const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf']
 
-const form        = document.getElementById('website-request-form')
-const errorEl     = document.getElementById('wr-error')
-const submitBtn   = document.getElementById('wr-submit')
+const API_BASE = import.meta.env.VITE_API_BASE_URL ||
+  ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : 'https://api.evoshub.xyz') // same fallback pattern as xera.js/xera-chain.js — see .env.example
+
+const $ = (id) => document.getElementById(id)
+const form        = $('website-request-form')
+const errorEl     = $('wr-error')
+const submitBtn   = $('wr-submit')
 const pkgCards    = document.querySelectorAll('.pkg-card')
-const pkgSelect   = document.getElementById('wr-package')
-const chatPanel   = document.getElementById('wr-chat-panel')
-const chatLog     = document.getElementById('wr-chat-log')
-const chatForm    = document.getElementById('wr-chat-form')
-const chatInput   = document.getElementById('wr-chat-input')
-const chatError   = document.getElementById('wr-chat-error')
+const pkgSelect   = $('wr-package')
+const fileInput   = $('wr-files')
+const fileListEl  = $('wr-file-list')
+const choosePanel = $('wr-choose-panel')
+const pendingPanel = $('wr-pending-panel')
+const receiptPanel = $('wr-receipt-panel')
+const chatPanel   = $('wr-chat-panel')
+const chatLog     = $('wr-chat-log')
+const chatForm    = $('wr-chat-form')
+const chatInput   = $('wr-chat-input')
+const chatError   = $('wr-chat-error')
 
 const formLoadedAt = Date.now()
 let activeRequestId = null
 let realtimeChannel = null
+let payState = null      // last GET /payment response
+let displayFx = { currency: 'GHS', rate: 1, converted: false }
+let pollTimer = null
+let receiptData = null
+
+// --- Small helpers ---------------------------------------------------------------------
+const ghs = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 })
+
+function approx(amountGhs) {
+  if (!displayFx.converted) return ''
+  try {
+    const v = Number(amountGhs) * displayFx.rate
+    return '≈ ' + new Intl.NumberFormat(undefined, { style: 'currency', currency: displayFx.currency, maximumFractionDigits: 2 }).format(v)
+  } catch { return '' }
+}
+
+function show(panel) {
+  ;[choosePanel, pendingPanel, receiptPanel, chatPanel].forEach((p) => { p.style.display = p === panel ? 'block' : 'none' })
+  form.closest('.card').style.display = 'none'
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function showErr(el, msg) { el.textContent = msg; el.style.display = 'block' }
+function hideErr(el) { el.style.display = 'none'; el.textContent = '' }
+function showError(msg) { showErr(errorEl, msg) }
+function clearError() { hideErr(errorEl) }
+
+async function authHeaders(extra = {}) {
+  const session = await ensureVisitorSession()
+  const h = { Authorization: `Bearer ${session.access_token}`, ...extra }
+  let xera = ''
+  try { xera = localStorage.getItem(XERA_TOKEN_KEY) || '' } catch { /* storage blocked */ }
+  if (xera) h['X-Xera-Authorization'] = `Bearer ${xera}`
+  return h
+}
+
+async function api(path, { method = 'GET', body, formData } = {}) {
+  const headers = await authHeaders(body ? { 'Content-Type': 'application/json' } : {})
+  const res = await fetch(`${API_BASE}/api/website-requests${path}`, {
+    method,
+    headers,
+    body: formData || (body ? JSON.stringify(body) : undefined),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const err = new Error(typeof data.detail === 'string' ? data.detail : `request_failed_${res.status}`)
+    err.status = res.status
+    throw err
+  }
+  return data
+}
+
+// --- Price cards (prices come from the backend; the HTML holds the same defaults) --------
+function renderCards(packages) {
+  Object.values(packages || {}).forEach((p) => {
+    if (!p) return
+    const was = document.querySelector(`[data-was="${p.package}"]`)
+    const now = document.querySelector(`[data-now="${p.package}"]`)
+    const badges = document.querySelector(`[data-badges="${p.package}"]`)
+    const ap = document.querySelector(`[data-approx="${p.package}"]`)
+    if (now) now.textContent = ghs(p.price)
+    if (was) {
+      was.hidden = !(p.percent_off > 0)
+      was.textContent = ghs(p.list_price)
+    }
+    if (badges) {
+      badges.textContent = ''
+      if (p.percent_off > 0) {
+        const off = document.createElement('span'); off.className = 'pkg-off'; off.textContent = `${p.percent_off}% off`
+        badges.appendChild(off)
+      }
+      if (p.xera_percent > 0) {
+        const x = document.createElement('span'); x.className = 'pkg-xera'
+        x.textContent = `Extra ${p.xera_percent}% off when you pay with XERA`
+        badges.appendChild(x)
+      }
+    }
+    if (ap) ap.textContent = approx(p.price)
+  })
+}
+
+async function loadPricingAndCurrency() {
+  try {
+    const [pr, fx] = await Promise.all([
+      fetch(`${API_BASE}/api/website-requests/pricing`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${API_BASE}/api/xera/hashrate/currency`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+    if (fx && fx.currency) displayFx = fx
+    if (pr && pr.packages) renderCards(pr.packages)
+  } catch (err) {
+    console.warn('[website-request-form] pricing refresh failed, showing built-in prices', err)
+  }
+}
+loadPricingAndCurrency()
 
 // --- Package card <-> select sync -------------------------------------------------
 pkgCards.forEach((card) => {
@@ -36,26 +149,61 @@ pkgSelect.addEventListener('change', () => {
   pkgCards.forEach((c) => c.classList.toggle('selected', c.dataset.package === pkgSelect.value))
 })
 
-// --- Form submit --------------------------------------------------------------------
-function showError(msg) {
-  errorEl.textContent = msg
-  errorEl.style.display = 'block'
+// --- File picking (client-side limits are a convenience; the server enforces them) ----------
+let pickedFiles = []
+function renderPickedFiles(results = null) {
+  fileListEl.textContent = ''
+  pickedFiles.forEach((f, i) => {
+    const li = document.createElement('li')
+    const name = document.createElement('span'); name.textContent = f.name
+    const state = document.createElement('span')
+    const r = results && results[i]
+    if (r && r.error) { state.className = 'bad'; state.textContent = r.error }
+    else if (r && r.ok) state.textContent = 'Uploaded'
+    else state.textContent = `${(f.size / 1024 / 1024).toFixed(1)} MB`
+    li.append(name, state)
+    fileListEl.appendChild(li)
+  })
 }
-function clearError() {
-  errorEl.style.display = 'none'
-  errorEl.textContent = ''
+fileInput.addEventListener('change', () => {
+  clearError()
+  const all = Array.from(fileInput.files || [])
+  const problems = []
+  const ok = all.filter((f) => {
+    if (!ALLOWED_TYPES.includes(f.type)) { problems.push(`${f.name}: only images and PDFs are accepted`); return false }
+    if (f.size > MAX_FILE_BYTES) { problems.push(`${f.name}: larger than 5 MB`); return false }
+    return true
+  })
+  if (ok.length > MAX_FILES) problems.push(`Only the first ${MAX_FILES} files will be sent`)
+  pickedFiles = ok.slice(0, MAX_FILES)
+  renderPickedFiles()
+  if (problems.length) showError(problems.join('. ') + '.')
+})
+
+async function uploadFiles(requestId) {
+  const results = []
+  for (const f of pickedFiles) {
+    const fd = new FormData()
+    fd.append('file', f, f.name)
+    try {
+      await api(`/${requestId}/files`, { method: 'POST', formData: fd })
+      results.push({ ok: true })
+    } catch (err) {
+      results.push({ error: err.message || 'failed' })
+    }
+    renderPickedFiles(results)
+  }
+  return results
 }
 
+// --- Form submit --------------------------------------------------------------------
 form.addEventListener('submit', async (e) => {
   e.preventDefault()
   clearError()
 
   // Honeypot: bots fill every field, humans never see this one.
   const honeypot = form.querySelector('#wr-website').value
-  if (honeypot) {
-    // Silently "succeed" so the bot doesn't learn anything, but do nothing.
-    return
-  }
+  if (honeypot) return // silently "succeed" so the bot learns nothing, but do nothing
 
   // Basic bot-speed check — a real person needs at least a couple seconds.
   if (Date.now() - formLoadedAt < MIN_FORM_TIME_MS) {
@@ -73,27 +221,12 @@ form.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Submitting…'
 
   try {
-    const session = await ensureVisitorSession()
-
-    // Submitted through the FastAPI backend rather than a direct client
-    // insert: the backend independently re-verifies this session's access
-    // token against Supabase's own Auth server (never trusts a client-sent
-    // id), re-sanitizes every field server-side, and applies a per-IP rate
-    // limit — a layer a purely client-side insert can't provide, since a
-    // bot can always mint a fresh anonymous session to dodge a per-visitor
-    // limit. The DB-level RLS policies and triggers still apply underneath
-    // this as a second, independent line of defense.
-    const apiBase = import.meta.env.VITE_API_BASE_URL ||
-      ((location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-        ? 'http://localhost:8000'
-        : 'https://api.evoshub.xyz') // same fallback pattern as xera.js/xera-chain.js — see .env.example
-    const res = await fetch(`${apiBase}/api/website-requests`, {
+    // Submitted through the FastAPI backend rather than a direct client insert: the backend
+    // re-verifies this session's token with Supabase Auth, re-sanitizes every field, and
+    // applies a per-IP rate limit. DB-level RLS still applies underneath as a second line.
+    const body = await api('', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
+      body: {
         full_name:     data.full_name.trim(),
         email:         data.email.trim(),
         phone:         data.phone?.trim() || null,
@@ -103,31 +236,218 @@ form.addEventListener('submit', async (e) => {
         timeline:      data.timeline?.trim() || null,
         project_brief: data.project_brief.trim(),
         website:       honeypot || null,
-      }),
+      },
     })
+    try { localStorage.setItem(LOCAL_STORAGE_KEY, body.request_id) } catch { /* storage blocked */ }
+    activeRequestId = body.request_id
 
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) throw new Error(body.detail || `request_failed_${res.status}`)
-
-    localStorage.setItem(LOCAL_STORAGE_KEY, body.request_id)
-    startChat(body.request_id)
+    if (pickedFiles.length) {
+      submitBtn.textContent = 'Uploading files…'
+      const results = await uploadFiles(body.request_id)
+      if (results.some((r) => r.error)) {
+        // The request itself is saved; tell them which files missed and carry on.
+        console.warn('[website-request-form] some uploads failed', results)
+      }
+    }
+    await enterNextStep(body.request_id, body.pricing)
   } catch (err) {
     console.error('[website-request-form] submit failed', err)
     const msg = String(err.message || '')
-    if (msg.includes('rate limit') || msg.includes('429')) {
+    if (msg.includes('rate limit') || err.status === 429) {
       showError("You've submitted a few requests already — please wait a bit before sending another.")
     } else {
       showError('Something went wrong submitting your request. Please try again.')
     }
     submitBtn.disabled = false
-    submitBtn.textContent = 'Submit & start chat'
+    submitBtn.textContent = 'Continue'
+  }
+})
+
+// --- Step 2: pay now / talk first ----------------------------------------------------------
+async function enterNextStep(requestId, pricing) {
+  activeRequestId = requestId
+  if (!pricing) { // "Let's talk" package: quote only, straight to the team
+    await startChat(requestId, { payable: false })
+    return
+  }
+  await showChoose(requestId)
+}
+
+async function showChoose(requestId) {
+  try {
+    payState = await api(`/${requestId}/payment`)
+  } catch (err) {
+    console.error('[website-request-form] payment state failed', err)
+    await startChat(requestId, { payable: false })
+    return
+  }
+  routeByStatus()
+}
+
+function routeByStatus() {
+  if (payState.status === 'paid') return showPaid()
+  if (payState.status === 'pending') return showPending()
+  renderChoose()
+  show(choosePanel)
+}
+
+function row(label, value, cls = '') {
+  const r = document.createElement('div'); r.className = `pay-row ${cls}`
+  const a = document.createElement('span'); a.textContent = label
+  const b = document.createElement('span')
+  if (typeof value === 'string') b.textContent = value
+  else b.appendChild(value)
+  r.append(a, b)
+  return r
+}
+
+function currentTotals() {
+  const p = payState.pricing
+  const useX = $('wr-use-xera').checked && payState.xera && payState.xera.eligible
+  const discount = useX ? Number(payState.xera.discount_ghs) : 0
+  return { p, useX, discount, total: Math.round((p.price - discount) * 100) / 100 }
+}
+
+function renderChoose() {
+  const p = payState.pricing
+  const x = payState.xera
+  const wrap = $('wr-pay-summary')
+  wrap.textContent = ''
+
+  const xeraRow = $('wr-xera-row')
+  const xeraNote = $('wr-xera-note')
+  xeraRow.style.display = 'none'
+  xeraNote.style.display = 'none'
+  if (x && x.enabled) {
+    if (x.eligible) {
+      xeraRow.style.display = 'flex'
+      $('wr-xera-text').textContent =
+        `Pay with XERA and save an extra ${p.xera_percent}% (${ghs(x.discount_ghs)}). Uses ${Number(x.xera_amount).toLocaleString()} XERA from your wallet.`
+    } else if (x.reason === 'not_signed_in') {
+      xeraNote.style.display = 'block'
+      xeraNote.textContent = ''
+      const a = document.createElement('a'); a.href = '/xera'; a.textContent = 'Sign in to XERA'
+      xeraNote.append(a, ` to save an extra ${p.xera_percent}% (${ghs(p.xera_saving)}).`)
+    } else if (x.message) {
+      xeraNote.style.display = 'block'
+      xeraNote.textContent = x.message
+    }
+  }
+
+  const draw = () => {
+    wrap.textContent = ''
+    const t = currentTotals()
+    wrap.appendChild(row(p.label, ghs(p.price)))
+    if (p.percent_off > 0) {
+      const was = document.createElement('span'); was.className = 'was'; was.textContent = ghs(p.list_price)
+      wrap.appendChild(row(`Regular price (${p.percent_off}% off applied)`, was))
+    }
+    if (t.useX) wrap.appendChild(row('XERA saving', '−' + ghs(t.discount)))
+    const total = document.createElement('span')
+    total.textContent = ghs(t.total)
+    const hint = approx(t.total)
+    if (hint) { const s = document.createElement('small'); s.style.cssText = 'font-weight:500;color:var(--text3);margin-left:8px;'; s.textContent = hint; total.appendChild(s) }
+    wrap.appendChild(row('Total today', total, 'pay-row--total'))
+  }
+  draw()
+  $('wr-use-xera').onchange = draw
+
+  $('wr-pay-paystack').style.display = payState.methods.paystack ? '' : 'none'
+  $('wr-pay-crypto').style.display = payState.methods.crypto ? '' : 'none'
+  hideErr($('wr-pay-error'))
+}
+
+async function pay(method) {
+  const btns = [$('wr-pay-paystack'), $('wr-pay-crypto'), $('wr-talk-first')]
+  btns.forEach((b) => { b.disabled = true })
+  hideErr($('wr-pay-error'))
+  try {
+    const useXera = $('wr-use-xera').checked && payState.xera && payState.xera.eligible
+    const res = await api(`/${activeRequestId}/pay`, { method: 'POST', body: { method, use_xera: !!useXera } })
+    window.location.assign(res.url) // provider's hosted checkout; it returns to this page afterwards
+  } catch (err) {
+    console.error('[website-request-form] pay failed', err)
+    showErr($('wr-pay-error'), err.message && err.message.length < 200 ? err.message : 'Could not start the payment. Please try again.')
+    btns.forEach((b) => { b.disabled = false })
+    if (err.status === 409 || err.status === 401) { try { await showChoose(activeRequestId) } catch { /* keep current view */ } }
+  }
+}
+$('wr-pay-paystack').addEventListener('click', () => pay('paystack'))
+$('wr-pay-crypto').addEventListener('click', () => pay('crypto'))
+$('wr-talk-first').addEventListener('click', async () => {
+  try { await api(`/${activeRequestId}/talk-first`, { method: 'POST' }) } catch (err) { console.warn('[website-request-form] talk-first not recorded', err) }
+  await startChat(activeRequestId, { payable: true })
+})
+
+// --- Waiting for confirmation ----------------------------------------------------------------
+function showPending() {
+  show(pendingPanel)
+  $('wr-pending-text').textContent = payState.payment_method === 'crypto'
+    ? 'Waiting for your USDT payment to confirm on the network. This can take a few minutes. You can leave this page open.'
+    : 'This usually takes a few seconds.'
+  clearInterval(pollTimer)
+  let tries = 0
+  pollTimer = setInterval(async () => {
+    tries += 1
+    try {
+      payState = await api(`/${activeRequestId}/payment`)
+      if (payState.status !== 'pending') { clearInterval(pollTimer); routeByStatus() }
+    } catch (err) { console.warn('[website-request-form] poll failed', err) }
+    if (tries > 120) clearInterval(pollTimer) // ~10 minutes; they can come back, we resume on reload
+  }, 5000)
+}
+$('wr-pending-back').addEventListener('click', async () => {
+  clearInterval(pollTimer)
+  // Starting another payment replaces the pending attempt on the server.
+  payState.status = 'unpaid'
+  renderChoose(); show(choosePanel)
+})
+$('wr-pending-chat').addEventListener('click', () => startChat(activeRequestId, { payable: true }))
+
+// --- Paid: receipt + follow-up ---------------------------------------------------------------
+async function showPaid() {
+  clearInterval(pollTimer)
+  try {
+    receiptData = (await api(`/${activeRequestId}/receipt`)).receipt
+  } catch (err) {
+    console.error('[website-request-form] receipt failed', err)
+    receiptData = null
+  }
+  const r = receiptData
+  $('wr-receipt-no').textContent = r ? r.receipt_no : (payState.receipt_no || '')
+  $('wr-receipt-date').textContent = r && r.paid_at ? new Date(r.paid_at).toLocaleString() : ''
+  const rows = $('wr-receipt-rows')
+  rows.textContent = ''
+  if (r) {
+    const add = (k, v) => { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = k; const b = document.createElement('td'); b.textContent = v; tr.append(a, b); rows.appendChild(tr) }
+    add('Customer', r.customer.name + (r.customer.business ? ` (${r.customer.business})` : ''))
+    add('Item', r.item)
+    if (r.package_discount > 0) add('Regular price', ghs(r.list_price))
+    add('Package price', ghs(r.price))
+    if (r.xera_discount > 0) add('XERA saving', '−' + ghs(r.xera_discount))
+    add('Total paid', ghs(r.amount_paid) + (r.crypto_usd ? `  (≈ $${r.crypto_usd.toFixed(2)} USDT)` : ''))
+    add('Payment method', r.method)
+    add('Reference', r.reference)
+  }
+  show(receiptPanel)
+}
+$('wr-print').addEventListener('click', () => window.print())
+$('wr-followup').addEventListener('click', async () => {
+  await startChat(activeRequestId, { payable: false, paid: true })
+  // Tell customer service once per receipt, so repeat clicks just reopen the chat.
+  const no = receiptData ? receiptData.receipt_no : payState.receipt_no
+  let already = ''
+  try { already = localStorage.getItem(FOLLOWUP_KEY) || '' } catch { /* storage blocked */ }
+  if (no && already !== no) {
+    await sendChatMessage(`Hi, I'm following up on my paid order (receipt ${no}).`)
+    try { localStorage.setItem(FOLLOWUP_KEY, no) } catch { /* storage blocked */ }
   }
 })
 
 // --- Chat panel ----------------------------------------------------------------------
 function renderMessage(msg) {
-  const row = document.createElement('div')
-  row.style.cssText = 'display:flex; flex-direction:column; align-items:' +
+  const rowEl = document.createElement('div')
+  rowEl.style.cssText = 'display:flex; flex-direction:column; align-items:' +
     (msg.sender_role === 'admin' ? 'flex-start' : 'flex-end') + ';'
 
   const bubble = document.createElement('div')
@@ -135,12 +455,10 @@ function renderMessage(msg) {
     (msg.sender_role === 'admin'
       ? 'background:var(--surface2); color:var(--text);'
       : 'background:var(--blue); color:#fff;')
-  // Always render via textContent — never innerHTML with raw user text — so
-  // even if server-side sanitization ever changed, the browser still can't
-  // execute anything from a chat message.
+  // Always render via textContent — never innerHTML with raw user text.
   bubble.textContent = msg.body
-  row.appendChild(bubble)
-  chatLog.appendChild(row)
+  rowEl.appendChild(bubble)
+  chatLog.appendChild(rowEl)
   chatLog.scrollTop = chatLog.scrollHeight
 }
 
@@ -150,40 +468,40 @@ async function loadMessages(requestId) {
     .select('id, sender_role, body, created_at')
     .eq('request_id', requestId)
     .order('created_at', { ascending: true })
-
-  if (error) {
-    console.error('[website-chat] load failed', error)
-    return
-  }
+  if (error) { console.error('[website-chat] load failed', error); return }
   chatLog.innerHTML = ''
   data.forEach(renderMessage)
 }
 
 function subscribeToChat(requestId) {
   if (realtimeChannel) supabase.removeChannel(realtimeChannel)
-
   realtimeChannel = supabase
     .channel(`website_chat_${requestId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'website_chat_messages',
-        filter: `request_id=eq.${requestId}`,
-      },
-      (payload) => renderMessage(payload.new)
-    )
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'website_chat_messages', filter: `request_id=eq.${requestId}` },
+      (payload) => renderMessage(payload.new))
     .subscribe()
 }
 
-async function startChat(requestId) {
+async function startChat(requestId, { payable = false, paid = false } = {}) {
   activeRequestId = requestId
-  form.closest('.card').style.display = 'none'
-  chatPanel.style.display = 'block'
-  chatPanel.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  clearInterval(pollTimer)
+  show(chatPanel)
+  $('wr-chat-intro').textContent = paid
+    ? 'Thanks for your payment. Tell us anything else we should know, or ask us a question. We usually reply within 3 to 5 hours.'
+    : "We've received your request. We usually reply within 3 to 5 hours. Feel free to add more details below."
+  $('wr-chat-paybar').style.display = payable ? 'block' : 'none'
   await loadMessages(requestId)
   subscribeToChat(requestId)
+}
+$('wr-chat-paynow').addEventListener('click', () => showChoose(activeRequestId))
+
+async function sendChatMessage(body) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const { error } = await supabase.from('website_chat_messages').insert({
+    request_id: activeRequestId, sender_id: session.user.id, sender_role: 'visitor', body,
+  })
+  if (error) throw error
 }
 
 chatForm.addEventListener('submit', async (e) => {
@@ -192,18 +510,10 @@ chatForm.addEventListener('submit', async (e) => {
   const body = chatInput.value.trim()
   if (!body || !activeRequestId) return
 
-  const sendBtn = document.getElementById('wr-chat-send')
+  const sendBtn = $('wr-chat-send')
   sendBtn.disabled = true
-
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    const { error } = await supabase.from('website_chat_messages').insert({
-      request_id:  activeRequestId,
-      sender_id:   session.user.id,
-      sender_role: 'visitor',
-      body,
-    })
-    if (error) throw error
+    await sendChatMessage(body)
     chatInput.value = ''
   } catch (err) {
     console.error('[website-chat] send failed', err)
@@ -216,27 +526,34 @@ chatForm.addEventListener('submit', async (e) => {
   }
 })
 
-// --- Resume an existing session on page reload ----------------------------------------
+// --- Resume an existing request on page load / after returning from the payment page ----------
 ;(async function resumeIfExisting() {
-  const savedId = localStorage.getItem(LOCAL_STORAGE_KEY)
+  let savedId = null
+  try { savedId = localStorage.getItem(LOCAL_STORAGE_KEY) } catch { /* storage blocked */ }
   if (!savedId) return
 
   try {
     await ensureVisitorSession()
-    // RLS guarantees this only returns something if it's still this
-    // visitor's own row — a stale/foreign id in localStorage just returns
-    // nothing and we silently fall back to showing the empty form.
+    // RLS guarantees this only returns something if it's still this visitor's own row — a
+    // stale/foreign id in localStorage just returns nothing and we show the empty form.
     const { data, error } = await supabase
       .from('website_requests')
-      .select('id')
+      .select('id, package, contact_path, payment_status')
       .eq('id', savedId)
       .maybeSingle()
 
-    if (!error && data) {
-      startChat(data.id)
-    } else {
-      localStorage.removeItem(LOCAL_STORAGE_KEY)
+    if (error || !data) {
+      try { localStorage.removeItem(LOCAL_STORAGE_KEY) } catch { /* ignore */ }
+      return
     }
+    activeRequestId = data.id
+    if (data.package === 'custom') return startChat(data.id, { payable: false })
+
+    const returnedFromPayment = new URLSearchParams(location.search).has('pay')
+    if (data.contact_path === 'talk' && data.payment_status === 'unpaid' && !returnedFromPayment) {
+      return startChat(data.id, { payable: true })
+    }
+    await showChoose(data.id) // routes to choose / pending / receipt by the live payment status
   } catch (err) {
     console.error('[website-request-form] resume failed', err)
   }
