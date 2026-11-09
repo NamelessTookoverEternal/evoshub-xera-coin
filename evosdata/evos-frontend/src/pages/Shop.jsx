@@ -24,6 +24,30 @@ export default function Shop() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const user_id = user?.id || null;
 
+  // ── XERA discount (hidden unless the server says it is switched on) ──
+  const [xeraQuote, setXeraQuote] = useState(null);   // server answer for this bundle
+  const [useXera, setUseXera] = useState(false);
+
+  useEffect(() => {
+    setUseXera(false);
+    setXeraQuote(null);
+    if (!user_id || !network || !bundle || !(Number(bundlePrice) > 0)) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/xera-discount/quote", {
+          params: { network, bundle, user_id },
+          headers: { "X-User-Token": localStorage.getItem("userToken") || "" },
+        });
+        if (!cancelled && res.data?.enabled) setXeraQuote(res.data);
+      } catch { /* quote is optional: the normal price still works */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user_id, network, bundle, bundlePrice]);
+
+  const xeraOn = !!(useXera && xeraQuote?.eligible);
+  const payAmount = xeraOn ? Number(xeraQuote.final_price) : Number(bundlePrice);
+
   useEffect(() => {
     const saved = localStorage.getItem("selectedNetwork");
     if (saved) {
@@ -121,6 +145,7 @@ export default function Shop() {
       const res = await API.post("/orders/create", {
         user_id, network, bundle, phone: toGhanaPhone(phone),
         email: email || "guest@evoshub.com",
+        ...(xeraOn ? { use_xera: true } : {}),   // the server works out the price; this only asks for it
       });
 
       const data = res.data;
@@ -336,10 +361,38 @@ export default function Shop() {
               <div style={{ ...styles.summaryRow, borderBottom: "none" }}>
                 <span style={styles.summaryLabel}>Amount</span>
                 <span style={{ ...styles.summaryVal, color: "#c8ff3e", fontSize: 20, fontWeight: 900 }}>
-                  GH₵ {Number(bundlePrice).toFixed(2)}
+                  {xeraOn && (
+                    <span style={{ textDecoration: "line-through", opacity: 0.5, fontSize: 14, marginRight: 8 }}>
+                      GH₵ {Number(bundlePrice).toFixed(2)}
+                    </span>
+                  )}
+                  GH₵ {payAmount.toFixed(2)}
                 </span>
               </div>
             </div>
+
+            {xeraQuote && (xeraQuote.eligible ? (
+              <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer",
+                              padding: "10px 12px", marginBottom: 14, borderRadius: 10,
+                              border: "1px solid rgba(200,255,62,0.35)", background: "rgba(200,255,62,0.06)" }}>
+                <input type="checkbox" checked={useXera} onChange={(e) => setUseXera(e.target.checked)}
+                       style={{ marginTop: 3 }} />
+                <span style={{ fontSize: 13, lineHeight: 1.45 }}>
+                  Use <b>{Number(xeraQuote.xera_amount)} XERA</b> for <b>GH₵ {Number(xeraQuote.discount_ghs).toFixed(2)} off</b>
+                  {" "}(pay GH₵ {Number(xeraQuote.final_price).toFixed(2)}).
+                  <span style={{ display: "block", opacity: 0.6, fontSize: 11.5 }}>
+                    Promotional discount. Your XERA balance: {Number(xeraQuote.spendable)}.
+                  </span>
+                  {xeraQuote.verified === false && Number(xeraQuote.xera_if_verified) < Number(xeraQuote.xera_amount) && (
+                    <span style={{ display: "block", opacity: 0.8, fontSize: 11.5, marginTop: 2 }}>
+                      Verify your identity in the XERA app to pay only {Number(xeraQuote.xera_if_verified)} XERA.
+                    </span>
+                  )}
+                </span>
+              </label>
+            ) : (xeraQuote.message && xeraQuote.reason !== "disabled" && xeraQuote.reason !== "no_discount") ? (
+              <p style={{ fontSize: 12, opacity: 0.65, margin: "0 0 14px" }}>🪙 {xeraQuote.message}</p>
+            ) : null)}
 
             <label style={styles.inputLabel}>📱 Recipient Phone Number</label>
             <input
@@ -417,7 +470,7 @@ export default function Shop() {
               >
                 {loading
                   ? pendingMsg ? "⏳ Redirecting to payment..." : "⏳ Processing..."
-                  : `💳 Pay GH₵ ${Number(bundlePrice).toFixed(2)} via Paystack`}
+                  : `💳 Pay GH₵ ${payAmount.toFixed(2)} via Paystack`}
               </button>
             )}
 
