@@ -1536,6 +1536,27 @@ def get_prices(request: Request):
 # XERA DISCOUNT QUOTE (read-only; the real decision is made again inside /orders/create)
 # Returns {"enabled": false, ...} while the feature is switched off, so the page can hide it.
 # =========================
+@router.get("/xera-discount/info")
+@limiter.limit("60/minute")
+def xera_discount_info(request: Request):
+    """Public, no login: lets the bundle list show the XERA offer to everyone (guests too).
+    Display only - the real price and XERA amount are always recomputed in /orders/create."""
+    try:
+        cfg = xera_discount.load_config(supabase)
+        if not cfg["enabled"]:
+            return {"enabled": False}
+        pct = min(cfg["discount_pct"], cfg["max_pct"])
+        return {
+            "enabled": True,
+            "discount_pct": float(pct),
+            "xera_per_ghs": float(cfg["xera_per_ghs"]),
+            "unverified_multiplier": float(cfg["unverified_multiplier"]),
+        }
+    except Exception as e:
+        logger.error("XERA DISCOUNT INFO ERROR: %s", str(e))
+        return {"enabled": False}
+
+
 @router.get("/xera-discount/quote")
 @limiter.limit("30/minute")
 def xera_discount_quote(request: Request, network: str = Query(..., min_length=2, max_length=20),

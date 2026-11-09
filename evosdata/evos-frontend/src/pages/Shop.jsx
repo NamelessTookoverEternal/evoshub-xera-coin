@@ -27,9 +27,30 @@ export default function Shop() {
   // ── XERA discount (hidden unless the server says it is switched on) ──
   const [xeraQuote, setXeraQuote] = useState(null);   // server answer for this bundle
   const [useXera, setUseXera] = useState(false);
+  const [xeraInfo, setXeraInfo] = useState(null);     // public offer (works for guests)
+  const [xeraQuoteFailed, setXeraQuoteFailed] = useState(false);
+
+  useEffect(() => {
+    let off = false;
+    API.get("/xera-discount/info")
+      .then((r) => { if (!off && r.data?.enabled) setXeraInfo(r.data); })
+      .catch(() => {});
+    return () => { off = true; };
+  }, []);
+
+  // Display-only estimate for the bundle list / guests. The server recomputes it for real.
+  const xeraOffer = (price) => {
+    if (!xeraInfo) return null;
+    const p = Number(price);
+    const discount = Math.round(p * xeraInfo.discount_pct) / 100;
+    if (!(p > 0) || !(discount > 0) || discount >= p) return null;
+    const xera = Math.round(discount * xeraInfo.xera_per_ghs * 100) / 100;
+    return { discount, xera, final: p - discount };
+  };
 
   useEffect(() => {
     setUseXera(false);
+    setXeraQuoteFailed(false);
     setXeraQuote(null);
     if (!user_id || !network || !bundle || !(Number(bundlePrice) > 0)) return undefined;
     let cancelled = false;
@@ -40,7 +61,7 @@ export default function Shop() {
           headers: { "X-User-Token": localStorage.getItem("userToken") || "" },
         });
         if (!cancelled && res.data?.enabled) setXeraQuote(res.data);
-      } catch { /* quote is optional: the normal price still works */ }
+      } catch { if (!cancelled) setXeraQuoteFailed(true); /* quote is optional: the normal price still works */ }
     })();
     return () => { cancelled = true; };
   }, [user_id, network, bundle, bundlePrice]);
@@ -329,6 +350,11 @@ export default function Shop() {
                   >
                     <div style={styles.bundleSize}>{b.bundle}</div>
                     <div style={styles.bundlePrice}>GH₵ {Number(b.price).toFixed(2)}</div>
+                    {!soldOut && xeraOffer(b.price) && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#c8ff3e", marginBottom: 6 }}>
+                        🪙 GH₵ {xeraOffer(b.price).final.toFixed(2)} with XERA
+                      </div>
+                    )}
                     {soldOut ? (
                       <div style={{ ...styles.bundleTap, color: "#ef4444", opacity: 0.9, fontWeight: 800 }}>Out of stock</div>
                     ) : (
@@ -370,6 +396,18 @@ export default function Shop() {
                 </span>
               </div>
             </div>
+
+            {!xeraQuote && xeraInfo && xeraOffer(bundlePrice) && (
+              <p style={{ fontSize: 12.5, margin: "0 0 14px", padding: "10px 12px", borderRadius: 10,
+                          border: "1px solid rgba(200,255,62,0.35)", background: "rgba(200,255,62,0.06)", lineHeight: 1.45 }}>
+                🪙 Pay <b>GH₵ {xeraOffer(bundlePrice).final.toFixed(2)}</b> instead of GH₵ {Number(bundlePrice).toFixed(2)} by using{" "}
+                <b>{xeraOffer(bundlePrice).xera} XERA</b>.{" "}
+                {!user_id
+                  ? <a href="/login" style={{ color: "#c8ff3e", fontWeight: 700 }}>Sign in</a>
+                  : (xeraQuoteFailed ? "Sign out and in again to use it." : "Checking your XERA balance…")}
+                {!user_id && " to use your XERA."}
+              </p>
+            )}
 
             {xeraQuote && (xeraQuote.eligible ? (
               <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer",
