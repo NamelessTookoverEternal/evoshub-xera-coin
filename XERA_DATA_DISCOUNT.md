@@ -1,15 +1,14 @@
 # XERA discount on EVOS Data (off by default)
 
 Default deal: 4% off, paid for with XERA at 100 XERA = GH₵ 1.00, never more than 10% off.
-GH₵ 5.00 bundle -> GH₵ 4.80 cash + 20 XERA. Signed-in users with enough spendable XERA. Users who have not done KYC get the same discount for 1.75x the XERA (35 instead of 20).
+GH₵ 5.00 bundle -> GH₵ 4.80 cash + 20 XERA. Only signed-in, KYC-verified users with enough spendable XERA.
 
 ## Turn on (Supabase SQL Editor)
-1. Run `supabase/migrations/20261107_xera_data_discount_v1.sql`, then `20261108_xera_discount_unverified_v1.sql` (safe to re-run; nothing changes for users yet).
+1. Run `supabase/migrations/20261107_xera_data_discount_v1.sql` (safe to re-run; nothing changes for users yet).
 2. Deploy the backend and the EVOS Data frontend.
 3. When ready: `UPDATE xera_discount_config SET enabled = true, updated_at = now() WHERE id = 1;`
    Off again: same with `false`. The checkout toggle disappears when it is off.
-4. Unverified price: `UPDATE xera_discount_config SET unverified_multiplier = 1.75 WHERE id = 1;` (1.5 = 30 XERA; 0 = KYC required again).
-5. Change the deal: `UPDATE xera_discount_config SET xera_per_ghs = 100, discount_pct = 4, max_pct = 10 WHERE id = 1;`
+4. Change the deal: `UPDATE xera_discount_config SET xera_per_ghs = 100, discount_pct = 4, max_pct = 10 WHERE id = 1;`
 
 ## How it works
 - Quote: `GET /xera-discount/quote` (needs the user's token). Create: `POST /orders/create` with `use_xera: true`.

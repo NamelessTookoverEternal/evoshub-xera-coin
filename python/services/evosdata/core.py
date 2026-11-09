@@ -43,6 +43,7 @@ import threading
 from utils.rate_limit import limiter          # the Hub's single shared limiter
 from services.evosdata.db import get_supabase
 from services.evosdata import datamart_stock
+from services.evosdata import xera_discount
 
 # =========================
 # LOGGING
@@ -372,6 +373,7 @@ class CreateOrderRequest(BaseModel):
     bundle: str = Field(min_length=2, max_length=20)
     phone: str = Field(min_length=9, max_length=25)
     email: Optional[EmailStr] = None
+    use_xera: bool = False   # ask for the XERA discount; the server decides and does all the maths
 
     @validator("network")
     def network_valid(cls, v):
@@ -1528,6 +1530,32 @@ def get_prices(request: Request):
     except Exception as e:
         logger.error("PRICES ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Failed to load prices")
+
+
+# =========================
+# XERA DISCOUNT QUOTE (read-only; the real decision is made again inside /orders/create)
+# Returns {"enabled": false, ...} while the feature is switched off, so the page can hide it.
+# =========================
+@router.get("/xera-discount/quote")
+@limiter.limit("30/minute")
+def xera_discount_quote(request: Request, network: str = Query(..., min_length=2, max_length=20),
+                        bundle: str = Query(..., min_length=2, max_length=20),
+                        user_id: int = Query(...)):
+    try:
+        cfg = xera_discount.load_config(supabase)
+        if not cfg["enabled"]:
+            return {"enabled": False}
+        require_user(request, user_id)
+        price_res = supabase.table("prices").select("price").eq("network", network.upper()).eq("bundle", bundle).limit(1).execute()
+        if not price_res.data:
+            raise HTTPException(400, "Invalid bundle")
+        q = xera_discount.quote(supabase, user_id, float(price_res.data[0]["price"]), cfg)
+        return xera_discount.public_quote(q)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("XERA DISCOUNT QUOTE ERROR: %s", str(e))
+        return {"enabled": False}
 
 
 
@@ -2905,6 +2933,7 @@ async def retry_stuck_order_payments():
                             age = utc_now() - parse_db_dt(order["created_at"])
                             if age > timedelta(minutes=30):
                                 supabase.table("orders").update({"status": "failed"}).eq("id", order_id).execute()
+                                xera_discount.release(supabase, reference)   # free any XERA held for this order
                                 logger.info(
                                     "ORDER PAYMENT RETRY: order %s marked failed — Paystack unpaid after 30min",
                                     order_id
@@ -2934,6 +2963,7 @@ async def retry_stuck_order_payments():
 
                     supabase.table("orders").update({"status": "paid"}).eq("id", order_id).execute()
                     logger.info("ORDER PAYMENT RETRY: order %s confirmed paid by Paystack ✅", order_id)
+                    xera_discount.consume(supabase, reference)   # no-op unless this order had a XERA discount
 
                     if fresh_order.get("user_id"):
                         increment_user_orders(fresh_order["user_id"])
@@ -3482,6 +3512,8 @@ def track_orders(request: Request, phone: str = Query(...)):
 @router.post("/orders/create")
 @limiter.limit("10/minute")
 def create_order(request: Request, data: CreateOrderRequest):
+    hold_ref = None        # set while XERA is held for this order
+    order_saved = False    # becomes True once the order row exists (the hold then belongs to it)
     try:
         data.user_id = resolve_order_identity(request, data.user_id)
         if not datamart_stock.bundle_in_stock(data.network, data.bundle):
@@ -3489,7 +3521,9 @@ def create_order(request: Request, data: CreateOrderRequest):
 
         buyer_key = data.user_id if data.user_id else data.email
 
-        if buyer_key:
+        # An XERA-discount request always starts a fresh order, so the price shown to the
+        # customer is the price charged (an older pending order may have a different price).
+        if buyer_key and not data.use_xera:
             query = supabase.table("orders").select("id, created_at, paystack_ref, network, bundle, price, phone_number")
             if data.user_id:
                 query = query.eq("user_id", data.user_id)
@@ -3563,11 +3597,32 @@ def create_order(request: Request, data: CreateOrderRequest):
 
         callback_url = f"{callback_base(request)}/success"
 
+        # ── Optional XERA discount (server decides; browser only asks) ──
+        paystack_body = {"email": customer_email, "amount": int(price * 100), "callback_url": callback_url}
+        charge_price = price
+        discount_info = None
+        if data.use_xera:
+            if not data.user_id:
+                raise HTTPException(400, "Sign in to use your XERA discount.")
+            q = xera_discount.quote(supabase, data.user_id, price)
+            if not q["eligible"]:
+                raise HTTPException(400, q["message"] or "The XERA discount is not available right now.")
+            hold_ref = f"EVD-{uuid.uuid4().hex[:16].upper()}"
+            try:
+                xera_discount.place_hold(supabase, data.user_id, hold_ref, q)
+            except xera_discount.DiscountError as de:
+                hold_ref = None
+                raise HTTPException(400, de.message)
+            charge_price = q["final_price"]
+            paystack_body["amount"] = q["final_pesewas"]     # exact pesewas, no float rounding
+            paystack_body["reference"] = hold_ref
+            discount_info = xera_discount.public_quote(q)
+
         try:
             paystack = requests.post(
                 "https://api.paystack.co/transaction/initialize",
                 headers={"Authorization": f"Bearer {PAYSTACK_SECRET}", "Content-Type": "application/json"},
-                json={"email": customer_email, "amount": int(price * 100), "callback_url": callback_url},
+                json=paystack_body,
                 timeout=REQUEST_TIMEOUT
             ).json()
         except requests.exceptions.RequestException:
@@ -3584,19 +3639,27 @@ def create_order(request: Request, data: CreateOrderRequest):
             "guest_email":  None if data.user_id else customer_email,
             "network":      data.network,
             "bundle":       data.bundle,
-            "price":        price,
+            "price":        charge_price,          # what the customer is actually charged
             "phone_number": data.phone,
             "paystack_ref": ref,
             "evosdata_ref": evos_ref,
             "status":       "pending_payment"
         }
         supabase.table("orders").insert(payload).execute()
+        order_saved = True
 
-        return {"status": True, "payment_url": paystack["data"]["authorization_url"], "reference": ref}
+        result = {"status": True, "payment_url": paystack["data"]["authorization_url"], "reference": ref}
+        if discount_info:
+            result["xera_discount"] = discount_info
+        return result
 
     except HTTPException:
+        if hold_ref and not order_saved:
+            xera_discount.release(supabase, hold_ref)
         raise
     except Exception as e:
+        if hold_ref and not order_saved:
+            xera_discount.release(supabase, hold_ref)
         logger.error("CREATE ORDER ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Server error")
 
@@ -3674,6 +3737,10 @@ async def paystack_webhook(request: Request):
 
             supabase.table("orders").update({"status": "paid"}).eq("paystack_ref", reference).execute()
             print(f"PAYSTACK WEBHOOK: order {order['id']} marked as paid")
+
+            # XERA discount (if this order had one): the customer has paid, so the held XERA is
+            # now debited. Never raises and never blocks fulfilment.
+            xera_discount.consume(supabase, reference)
 
             if order.get("user_id"):
                 increment_user_orders(order["user_id"])

@@ -383,11 +383,6 @@ export default function Shop() {
                   <span style={{ display: "block", opacity: 0.6, fontSize: 11.5 }}>
                     Promotional discount. Your XERA balance: {Number(xeraQuote.spendable)}.
                   </span>
-                  {xeraQuote.verified === false && Number(xeraQuote.xera_if_verified) < Number(xeraQuote.xera_amount) && (
-                    <span style={{ display: "block", opacity: 0.8, fontSize: 11.5, marginTop: 2 }}>
-                      Verify your identity in the XERA app to pay only {Number(xeraQuote.xera_if_verified)} XERA.
-                    </span>
-                  )}
                 </span>
               </label>
             ) : (xeraQuote.message && xeraQuote.reason !== "disabled" && xeraQuote.reason !== "no_discount") ? (
