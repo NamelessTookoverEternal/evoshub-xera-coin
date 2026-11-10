@@ -24,9 +24,10 @@ def test_starter_is_400_down_from_800_with_10pct_xera():
 
 
 def test_other_packages_keep_their_price_and_custom_is_quote_only():
-    assert wo.package_pricing("business")["price"] == 2200
-    assert wo.package_pricing("premium")["price"] == 5000
-    assert wo.package_pricing("business")["percent_off"] == 0
+    assert wo.package_pricing("business")["price"] == 1100
+    assert wo.package_pricing("premium")["price"] == 2500
+    assert wo.package_pricing("business")["percent_off"] == 50
+    assert wo.package_pricing("whatsapp_bot")["percent_off"] == 50
     assert wo.package_pricing("custom") is None
 
 

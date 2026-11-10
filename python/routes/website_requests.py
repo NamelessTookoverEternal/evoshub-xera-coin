@@ -34,7 +34,7 @@ from utils.text_sanitize import clean_text as _clean_text
 
 router = APIRouter()
 
-_ALLOWED_PACKAGES = {"starter", "business", "premium", "custom"}
+_ALLOWED_PACKAGES = {"starter", "business", "premium", "whatsapp_bot", "custom"}
 
 
 class WebsiteRequestIn(BaseModel):
