@@ -86,7 +86,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     # X-* headers are the Evosdata auth headers (agent/user token, admin secret).
-    allow_headers=["Authorization", "Content-Type", "X-Agent-Token", "X-User-Token", "X-Admin-Secret"],
+    allow_headers=["Authorization", "Content-Type", "X-Agent-Token", "X-User-Token", "X-Admin-Secret",
+                   "X-Xera-Authorization"],  # website payments: optional XERA sign-in for the 10% saving
 )
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
