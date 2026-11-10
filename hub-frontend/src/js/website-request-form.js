@@ -46,16 +46,26 @@ let payState = null      // last GET /payment response
 let displayFx = { currency: 'GHS', rate: 1, converted: false }
 let pollTimer = null
 let receiptData = null
+let lastPackages = null
 
 // --- Small helpers ---------------------------------------------------------------------
-const ghs = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 })
+const ghsExact = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 })
 
+// Visitors outside Ghana see their own currency as the main price; billing stays in GH₵ (Paystack) / USDT (crypto).
+const abroad = () => Boolean(displayFx.country) && displayFx.country !== 'GH'
+function ghs(n) {
+  if (displayFx.converted) {
+    try {
+      const v = Number(n) * displayFx.rate
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: displayFx.currency, maximumFractionDigits: v >= 100 ? 0 : 2 }).format(v)
+    } catch { /* unknown currency code: fall through to GH₵ */ }
+  }
+  return ghsExact(n)
+}
+
+// Small note under a price: what the amount is billed as when it is shown in a local currency.
 function approx(amountGhs) {
-  if (!displayFx.converted) return ''
-  try {
-    const v = Number(amountGhs) * displayFx.rate
-    return '≈ ' + new Intl.NumberFormat(undefined, { style: 'currency', currency: displayFx.currency, maximumFractionDigits: 2 }).format(v)
-  } catch { return '' }
+  return displayFx.converted ? 'Billed as ' + ghsExact(amountGhs) : ''
 }
 
 function show(panel) {
@@ -143,6 +153,7 @@ async function loadPricingAndCurrency() {
     ])
     if (fx && fx.currency) displayFx = fx
     if (pr && pr.packages) renderCards(pr.packages)
+    if (pr && pr.packages) lastPackages = pr.packages
   } catch (err) {
     console.warn('[website-request-form] pricing refresh failed, showing built-in prices', err)
   }
@@ -366,6 +377,9 @@ function renderChoose() {
   draw()
   $('wr-use-xera').onchange = draw
 
+  // Outside Ghana, crypto comes first; in Ghana, Paystack does.
+  const pb = $('wr-pay-paystack'), cb = $('wr-pay-crypto')
+  if (abroad()) pb.parentNode.insertBefore(cb, pb); else pb.parentNode.insertBefore(pb, cb)
   $('wr-pay-paystack').style.display = payState.methods.paystack ? '' : 'none'
   $('wr-pay-crypto').style.display = payState.methods.crypto ? '' : 'none'
   hideErr($('wr-pay-error'))
@@ -436,10 +450,10 @@ async function showPaid() {
     const add = (k, v) => { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = k; const b = document.createElement('td'); b.textContent = v; tr.append(a, b); rows.appendChild(tr) }
     add('Customer', r.customer.name + (r.customer.business ? ` (${r.customer.business})` : ''))
     add('Item', r.item)
-    if (r.package_discount > 0) add('Regular price', ghs(r.list_price))
-    add('Package price', ghs(r.price))
-    if (r.xera_discount > 0) add('XERA saving', '−' + ghs(r.xera_discount))
-    add('Total paid', ghs(r.amount_paid) + (r.crypto_usd ? `  (≈ $${r.crypto_usd.toFixed(2)} USDT)` : ''))
+    if (r.package_discount > 0) add('Regular price', ghsExact(r.list_price))
+    add('Package price', ghsExact(r.price))
+    if (r.xera_discount > 0) add('XERA saving', '−' + ghsExact(r.xera_discount))
+    add('Total paid', ghsExact(r.amount_paid) + (r.crypto_usd ? `  (≈ $${r.crypto_usd.toFixed(2)} USDT)` : ''))
     add('Payment method', r.method)
     add('Reference', r.reference)
   }
