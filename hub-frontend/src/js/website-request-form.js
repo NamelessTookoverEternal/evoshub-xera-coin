@@ -8,6 +8,7 @@
 // All prices and every payment decision come from the backend. This file only
 // displays what it is told and sends "this request, this method, use XERA yes/no".
 import { supabase, ensureVisitorSession } from './supabase-client.js'
+import { detectCountry } from './evoxera-geo.js'
 
 const LOCAL_STORAGE_KEY = 'evoshub_website_request_id'
 const FOLLOWUP_KEY = 'evoshub_website_followup_sent'
@@ -79,11 +80,22 @@ async function authHeaders(extra = {}) {
 
 async function api(path, { method = 'GET', body, formData } = {}) {
   const headers = await authHeaders(body ? { 'Content-Type': 'application/json' } : {})
-  const res = await fetch(`${API_BASE}/api/website-requests${path}`, {
-    method,
-    headers,
-    body: formData || (body ? JSON.stringify(body) : undefined),
-  })
+  let res
+  try {
+    res = await fetch(`${API_BASE}/api/website-requests${path}`, {
+      method,
+      headers,
+      body: formData || (body ? JSON.stringify(body) : undefined),
+    })
+  } catch (netErr) {
+    // "Failed to fetch": the server could not be reached at all (offline, server asleep or down,
+    // or this page's address is not allowed by the server's CORS list).
+    console.error('[website-request-form] cannot reach', API_BASE, netErr)
+    const err = new Error("We couldn't reach our server. Please check your internet connection and try again in a minute. If it keeps happening, message us on WhatsApp.")
+    err.status = 0
+    err.network = true
+    throw err
+  }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(typeof data.detail === 'string' ? data.detail : `request_failed_${res.status}`)
@@ -124,9 +136,10 @@ function renderCards(packages) {
 
 async function loadPricingAndCurrency() {
   try {
+    const country = await detectCountry()
     const [pr, fx] = await Promise.all([
       fetch(`${API_BASE}/api/website-requests/pricing`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${API_BASE}/api/xera/hashrate/currency`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${API_BASE}/api/evosgpt/currency${country ? '?country=' + country : ''}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
     if (fx && fx.currency) displayFx = fx
     if (pr && pr.packages) renderCards(pr.packages)
@@ -254,6 +267,8 @@ form.addEventListener('submit', async (e) => {
     const msg = String(err.message || '')
     if (msg.includes('rate limit') || err.status === 429) {
       showError("You've submitted a few requests already — please wait a bit before sending another.")
+    } else if (err.network) {
+      showError(msg)
     } else {
       showError('Something went wrong submitting your request. Please try again.')
     }

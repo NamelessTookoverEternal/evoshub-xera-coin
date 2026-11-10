@@ -5,8 +5,8 @@ Everything that decides money lives here and on the server. The browser only say
 "this request, this method, use XERA yes/no"; it is told the result.
 
 Pricing
-    Every package is 50% off its list price (Starter 400, Business 900, Premium 1,500, WhatsApp bot 500).
-    Paying with XERA takes a further 10% off the cash price (WEBSITE_XERA_DISCOUNT_PCT).
+    Every package is 50% off its list price (cash: Starter 500, Business 1,000, Premium 1,850, WhatsApp bot 500).
+    Paying with XERA takes a further 20% off the cash price (Starter 400 ... Premium 1,480) (WEBSITE_XERA_DISCOUNT_PCT).
     The XERA saving reuses the EVOS Data hold -> consume -> release lifecycle
     (services/evosdata/xera_discount.py), keyed by the payment reference. It is a
     promotional saving set by EVOS; it does not give XERA a cash value.
@@ -52,9 +52,9 @@ CENT = Decimal("0.01")
 
 # list = the "was" price shown struck through; price = what a cash customer pays.
 PACKAGES = {
-    "starter":  {"label": "Starter website",  "list": Decimal("800"),  "price": Decimal("400")},
-    "business": {"label": "Business website", "list": Decimal("1800"), "price": Decimal("900")},
-    "premium":  {"label": "Premium website",  "list": Decimal("3000"), "price": Decimal("1500")},
+    "starter":  {"label": "Starter website",  "list": Decimal("1000"), "price": Decimal("500")},
+    "business": {"label": "Business website", "list": Decimal("2000"), "price": Decimal("1000")},
+    "premium":  {"label": "Premium website",  "list": Decimal("3700"), "price": Decimal("1850")},
     # PLACEHOLDER list price: confirm the real WhatsApp bot price (only these two numbers need changing).
     "whatsapp_bot": {"label": "WhatsApp bot", "list": Decimal("1000"), "price": Decimal("500")},
 }  # "custom" is quote-only: never payable online.
@@ -77,9 +77,9 @@ def is_website_reference(reference) -> bool:
 
 def xera_pct() -> Decimal:
     try:
-        pct = Decimal(os.getenv("WEBSITE_XERA_DISCOUNT_PCT", "10"))
+        pct = Decimal(os.getenv("WEBSITE_XERA_DISCOUNT_PCT", "20"))
     except Exception:
-        pct = Decimal("10")
+        pct = Decimal("20")
     return min(max(pct, Decimal("0")), Decimal("100"))
 
 

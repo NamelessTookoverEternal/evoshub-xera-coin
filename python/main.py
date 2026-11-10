@@ -77,7 +77,7 @@ app.add_middleware(TransientRetryMiddleware)
 app.add_middleware(CatchAllErrorsMiddleware)
 _allowed_origins = [
     o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "https://evoshub.xyz,http://localhost:5173").split(",")
+    for o in os.getenv("ALLOWED_ORIGINS", "https://evoshub.xyz,https://www.evoshub.xyz,http://localhost:5173").split(",")
     if o.strip()
 ]
 app.add_middleware(
