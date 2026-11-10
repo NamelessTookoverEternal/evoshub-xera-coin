@@ -5,7 +5,7 @@ Everything that decides money lives here and on the server. The browser only say
 "this request, this method, use XERA yes/no"; it is told the result.
 
 Pricing
-    Every package is 50% off its list price (Starter 400, Business 1,100, Premium 2,500, WhatsApp bot 500).
+    Every package is 50% off its list price (Starter 400, Business 900, Premium 1,500, WhatsApp bot 500).
     Paying with XERA takes a further 10% off the cash price (WEBSITE_XERA_DISCOUNT_PCT).
     The XERA saving reuses the EVOS Data hold -> consume -> release lifecycle
     (services/evosdata/xera_discount.py), keyed by the payment reference. It is a
@@ -53,8 +53,8 @@ CENT = Decimal("0.01")
 # list = the "was" price shown struck through; price = what a cash customer pays.
 PACKAGES = {
     "starter":  {"label": "Starter website",  "list": Decimal("800"),  "price": Decimal("400")},
-    "business": {"label": "Business website", "list": Decimal("2200"), "price": Decimal("1100")},
-    "premium":  {"label": "Premium website",  "list": Decimal("5000"), "price": Decimal("2500")},
+    "business": {"label": "Business website", "list": Decimal("1800"), "price": Decimal("900")},
+    "premium":  {"label": "Premium website",  "list": Decimal("3000"), "price": Decimal("1500")},
     # PLACEHOLDER list price: confirm the real WhatsApp bot price (only these two numbers need changing).
     "whatsapp_bot": {"label": "WhatsApp bot", "list": Decimal("1000"), "price": Decimal("500")},
 }  # "custom" is quote-only: never payable online.

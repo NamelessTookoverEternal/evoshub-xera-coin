@@ -50,6 +50,26 @@
       #wr-receipt-panel { position:absolute; left:0; top:0; width:100%; max-width:none !important; box-shadow:none; border:none; }
       #wr-receipt-panel .no-print { display:none !important; }
     }
+    /* Live chat: fixed, high-contrast colours (no reliance on theme variables) so messages are always readable */
+    .wr-log { height:320px; overflow-y:auto; -webkit-overflow-scrolling:touch; border:1px solid #c5cfe3; border-radius:9px; padding:14px;
+      background:#eef2f8 !important; margin-bottom:14px; display:flex; flex-direction:column; gap:12px; color:#0b1220; }
+    .wr-log:empty::before { content:"No messages yet. Write your first message below."; color:#48526b; font-size:13px; margin:auto; text-align:center; }
+    .wr-msg { display:flex; flex-direction:column; max-width:100%; }
+    .wr-msg--me { align-items:flex-end; } .wr-msg--team { align-items:flex-start; }
+    .wr-who { font-size:11px; font-weight:600; margin:0 4px 3px; color:#48526b; }
+    .wr-bubble { max-width:82%; padding:9px 13px; border-radius:12px; font-size:14px; line-height:1.5; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .wr-msg--me .wr-bubble { background:#2158d6 !important; color:#ffffff !important; border-bottom-right-radius:4px; }
+    .wr-msg--team .wr-bubble { background:#ffffff !important; color:#0b1220 !important; border:1px solid #c5cfe3; border-bottom-left-radius:4px; }
+    .wr-time { font-size:10.5px; margin:3px 4px 0; color:#6b7691; }
+    #wr-chat-input { color:#0b1220 !important; background:#ffffff !important; -webkit-text-fill-color:#0b1220; border:1px solid #c5cfe3; }
+    #wr-chat-input::placeholder { color:#6b7691; opacity:1; }
+    [data-theme="dark"] .wr-log { background:#0a0e17 !important; border-color:#2a3550; color:#eaf1ff; }
+    [data-theme="dark"] .wr-log:empty::before, [data-theme="dark"] .wr-who { color:#93a2c2; }
+    [data-theme="dark"] .wr-time { color:#7f8db0; }
+    [data-theme="dark"] .wr-msg--team .wr-bubble { background:#1b2438 !important; color:#eaf1ff !important; border-color:#2a3550; }
+    [data-theme="dark"] .wr-msg--me .wr-bubble { background:#3e8bff !important; }
+    [data-theme="dark"] #wr-chat-input { color:#eaf1ff !important; background:#141b2b !important; -webkit-text-fill-color:#eaf1ff; border-color:#2a3550; }
+    [data-theme="dark"] #wr-chat-input::placeholder { color:#7f8db0; }
     /* Honeypot: off-screen, not display:none — trips up bots that skip hidden fields */
     .hp-field { position:absolute; left:-9999px; top:-9999px; }
   </style>
@@ -89,14 +109,14 @@
       </div>
       <div class="card pkg-card" data-package="business">
         <span class="badge badge--live"><span class="badge-pulse"></span>Popular</span>
-        <div class="pkg-price"><span class="pkg-was" data-was="business">GH₵2,200</span><span data-now="business">GH₵1,100</span> <span>one-time</span></div>
+        <div class="pkg-price"><span class="pkg-was" data-was="business">GH₵1,800</span><span data-now="business">GH₵900</span> <span>one-time</span></div>
         <div class="pkg-badges" data-badges="business"><span class="pkg-off">50% off</span><span class="pkg-xera">Extra 10% off when you pay with XERA</span></div>
         <div class="pkg-approx" data-approx="business"></div>
         <p style="font-size:13px;color:var(--text2);">Multi-page site with contact form, gallery, and basic SEO setup.</p>
       </div>
       <div class="card pkg-card" data-package="premium">
         <span class="badge badge--soon">Premium</span>
-        <div class="pkg-price"><span class="pkg-was" data-was="premium">GH₵5,000</span><span data-now="premium">GH₵2,500</span> <span>one-time</span></div>
+        <div class="pkg-price"><span class="pkg-was" data-was="premium">GH₵3,000</span><span data-now="premium">GH₵1,500</span> <span>one-time</span></div>
         <div class="pkg-badges" data-badges="premium"><span class="pkg-off">50% off</span><span class="pkg-xera">Extra 10% off when you pay with XERA</span></div>
         <div class="pkg-approx" data-approx="premium"></div>
         <p style="font-size:13px;color:var(--text2);">Full custom design, e-commerce ready, admin dashboard, priority support.</p>
@@ -125,8 +145,8 @@
           <select id="wr-package" name="package" class="form-select" required>
             <option value="" disabled selected>Choose a package…</option>
             <option value="starter">Starter — GH₵400 (was GH₵800)</option>
-            <option value="business">Business — GH₵1,100 (was GH₵2,200)</option>
-            <option value="premium">Premium — GH₵2,500 (was GH₵5,000)</option>
+            <option value="business">Business — GH₵900 (was GH₵1,800)</option>
+            <option value="premium">Premium — GH₵1,500 (was GH₵3,000)</option>
             <option value="whatsapp_bot">WhatsApp bot — GH₵500 (was GH₵1,000)</option>
             <option value="custom">Custom — let's talk</option>
           </select>
@@ -212,7 +232,7 @@
       <p style="font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:4px;">Live chat with our team</p>
       <p style="font-size:13px;color:var(--text2);margin-bottom:14px;" id="wr-chat-intro">We've received your request. We usually reply within 3 to 5 hours. Feel free to add more details below.</p>
       <div id="wr-chat-paybar" style="display:none;margin-bottom:14px;"><button type="button" class="btn btn--primary" id="wr-chat-paynow">Pay now</button></div>
-      <div id="wr-chat-log" style="height:320px;overflow-y:auto;border:1px solid var(--border2);border-radius:9px;padding:14px;background:var(--bg2);margin-bottom:14px;display:flex;flex-direction:column;gap:10px;"></div>
+      <div id="wr-chat-log" class="wr-log" role="log" aria-live="polite"></div>
       <form id="wr-chat-form" style="display:flex;gap:8px;" novalidate>
         <input id="wr-chat-input" type="text" class="form-input" placeholder="Type a message…" maxlength="2000" required autocomplete="off">
         <button type="submit" class="btn btn--primary" id="wr-chat-send">Send</button>

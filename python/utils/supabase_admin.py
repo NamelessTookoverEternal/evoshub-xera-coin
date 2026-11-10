@@ -511,6 +511,32 @@ async def insert_admin_chat_message(request_id: str, body: str, admin_user_id: i
     return data[0] if isinstance(data, list) else data
 
 
+async def insert_visitor_chat_message(request_id: str, body: str, visitor_id: str) -> dict:
+    """Inserts a customer-sent chat message. The caller must already have verified that the
+    request belongs to `visitor_id`; this uses the service role so it does not depend on
+    browser-side database permissions."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured.")
+
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            f"{SUPABASE_URL}/rest/v1/website_chat_messages",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+            json={"request_id": request_id, "sender_id": visitor_id, "sender_role": "visitor", "body": body},
+        )
+
+    if resp.status_code not in (200, 201):
+        raise RuntimeError(f"Supabase website_chat_messages visitor insert failed: {resp.status_code} {resp.text}")
+
+    data = resp.json()
+    return data[0] if isinstance(data, list) else data
+
+
 # ------------------------------------------------------------
 # REFERRALS (shared users.referral_code / users.referred_by)
 # ------------------------------------------------------------

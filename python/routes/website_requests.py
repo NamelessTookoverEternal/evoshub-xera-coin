@@ -23,7 +23,9 @@ from services import website_orders as orders
 from utils.supabase_admin import (
     VisitorTokenInvalid,
     get_website_request,
+    insert_visitor_chat_message,
     insert_website_request,
+    list_chat_messages,
     patch_website_request,
     verify_visitor_token,
 )
@@ -283,3 +285,37 @@ async def get_receipt(request: Request, request_id: str, authorization: str = He
         return {"receipt": orders.build_receipt(row)}
     except orders.WebsiteOrderError as e:
         _order_error(e)
+
+
+# ---------------------------------------------------------------------------------
+# Customer chat. Goes through the backend (service role) after verifying the request
+# belongs to the visitor, so it works even if browser-side database access does not.
+# ---------------------------------------------------------------------------------
+
+class ChatMessageIn(BaseModel):
+    body: str = Field(..., min_length=1, max_length=2000)
+
+
+def _public_message(m: dict) -> dict:
+    return {"id": m.get("id"), "sender_role": m.get("sender_role"), "body": m.get("body"), "created_at": m.get("created_at")}
+
+
+@router.get("/website-requests/{request_id}/messages")
+@limiter.limit("120/minute")
+async def visitor_list_messages(request: Request, request_id: str, authorization: str = Header(default="")):
+    await _own_request(request_id, authorization)
+    msgs = await list_chat_messages(request_id)
+    return {"status": "ok", "messages": [_public_message(m) for m in msgs]}
+
+
+@router.post("/website-requests/{request_id}/messages")
+@limiter.limit("20/minute")
+async def visitor_send_message(
+    request: Request, request_id: str, data: ChatMessageIn, authorization: str = Header(default=""),
+):
+    row = await _own_request(request_id, authorization)
+    body = data.body.strip()  # rendered with textContent on the page, so no HTML escaping here
+    if not body:
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+    msg = await insert_visitor_chat_message(request_id, body, row["visitor_id"])
+    return {"status": "ok", "message": _public_message(msg)}

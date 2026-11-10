@@ -41,7 +41,6 @@ const chatError   = $('wr-chat-error')
 
 const formLoadedAt = Date.now()
 let activeRequestId = null
-let realtimeChannel = null
 let payState = null      // last GET /payment response
 let displayFx = { currency: 'GHS', rate: 1, converted: false }
 let pollTimer = null
@@ -446,62 +445,76 @@ $('wr-followup').addEventListener('click', async () => {
 
 // --- Chat panel ----------------------------------------------------------------------
 function renderMessage(msg) {
+  const team = msg.sender_role === 'admin'
   const rowEl = document.createElement('div')
-  rowEl.style.cssText = 'display:flex; flex-direction:column; align-items:' +
-    (msg.sender_role === 'admin' ? 'flex-start' : 'flex-end') + ';'
+  rowEl.className = 'wr-msg ' + (team ? 'wr-msg--team' : 'wr-msg--me')
+
+  const who = document.createElement('div')
+  who.className = 'wr-who'
+  who.textContent = team ? 'Customer service' : 'You'
 
   const bubble = document.createElement('div')
-  bubble.style.cssText = 'max-width:80%; padding:9px 13px; border-radius:12px; font-size:13.5px; line-height:1.5;' +
-    (msg.sender_role === 'admin'
-      ? 'background:var(--surface2); color:var(--text);'
-      : 'background:var(--blue); color:#fff;')
-  // Always render via textContent — never innerHTML with raw user text.
+  bubble.className = 'wr-bubble'
+  // Always render via textContent, never innerHTML with raw user text.
   bubble.textContent = msg.body
-  rowEl.appendChild(bubble)
+
+  rowEl.append(who, bubble)
+  if (msg.created_at) {
+    const d = new Date(msg.created_at)
+    if (!Number.isNaN(d.getTime())) {
+      const t = document.createElement('div')
+      t.className = 'wr-time'
+      t.textContent = d.toLocaleString([], { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })
+      rowEl.appendChild(t)
+    }
+  }
   chatLog.appendChild(rowEl)
   chatLog.scrollTop = chatLog.scrollHeight
 }
 
-async function loadMessages(requestId) {
-  const { data, error } = await supabase
-    .from('website_chat_messages')
-    .select('id, sender_role, body, created_at')
-    .eq('request_id', requestId)
-    .order('created_at', { ascending: true })
-  if (error) { console.error('[website-chat] load failed', error); return }
-  chatLog.innerHTML = ''
-  data.forEach(renderMessage)
+let seenMsgIds = new Set()
+let chatPoll = null
+
+const chatFetch = (method = 'GET', body) => api(`/${activeRequestId}/messages`, { method, body })
+
+function addNewMessages(list) {
+  list.forEach((m) => { if (!seenMsgIds.has(m.id)) { seenMsgIds.add(m.id); renderMessage(m) } })
 }
 
-function subscribeToChat(requestId) {
-  if (realtimeChannel) supabase.removeChannel(realtimeChannel)
-  realtimeChannel = supabase
-    .channel(`website_chat_${requestId}`)
-    .on('postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'website_chat_messages', filter: `request_id=eq.${requestId}` },
-      (payload) => renderMessage(payload.new))
-    .subscribe()
+async function loadMessages(requestId, { silent = false } = {}) {
+  if (requestId !== activeRequestId) return
+  try {
+    const { messages } = await chatFetch()
+    chatError.style.display = 'none'
+    addNewMessages(messages || [])
+  } catch (err) {
+    console.error('[website-chat] load failed', err)
+    if (!silent) {
+      chatError.textContent = "We couldn't load your messages. Please refresh the page. Your messages are safe."
+      chatError.style.display = 'block'
+    }
+  }
 }
 
 async function startChat(requestId, { payable = false, paid = false } = {}) {
   activeRequestId = requestId
   clearInterval(pollTimer)
+  clearInterval(chatPoll)
+  seenMsgIds = new Set()
+  chatLog.innerHTML = ''
   show(chatPanel)
   $('wr-chat-intro').textContent = paid
     ? 'Thanks for your payment. Tell us anything else we should know, or ask us a question. We usually reply within 3 to 5 hours.'
     : "We've received your request. We usually reply within 3 to 5 hours. Feel free to add more details below."
   $('wr-chat-paybar').style.display = payable ? 'block' : 'none'
   await loadMessages(requestId)
-  subscribeToChat(requestId)
+  chatPoll = setInterval(() => loadMessages(requestId, { silent: true }), 4000)
 }
 $('wr-chat-paynow').addEventListener('click', () => showChoose(activeRequestId))
 
 async function sendChatMessage(body) {
-  const { data: { session } } = await supabase.auth.getSession()
-  const { error } = await supabase.from('website_chat_messages').insert({
-    request_id: activeRequestId, sender_id: session.user.id, sender_role: 'visitor', body,
-  })
-  if (error) throw error
+  const { message } = await chatFetch('POST', { body })
+  if (message) addNewMessages([message])
 }
 
 chatForm.addEventListener('submit', async (e) => {
