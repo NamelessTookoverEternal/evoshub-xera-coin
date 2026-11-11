@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { initUpgrade, redeemCoupon } from "../api";
+import { useState, useEffect } from "react";
+import { initUpgrade, redeemCoupon, getXeraQuote } from "../api";
 import { useCurrency } from "../lib/currency";
 
 const TIERS = [
@@ -22,16 +22,33 @@ export default function Upgrade({ setPage, user }) {
   const [couponMsg, setCMsg]  = useState("");
   const [couponOk, setCOk]    = useState(false);
   const [redeeming, setRedeeming] = useState(false);
+  const [quotes, setQuotes]   = useState({});   // { Pro: serverQuote, Core: serverQuote } (only when the discount is switched on)
+  const [useX, setUseX]       = useState({});   // { Pro: true }
+  const [err, setErr]         = useState("");
+
+  useEffect(() => {
+    if (!user) return undefined;
+    let cancelled = false;
+    TIERS.forEach(async (t) => {
+      try {
+        const { data } = await getXeraQuote(user.id, t.name);
+        if (!cancelled && data?.enabled) setQuotes((q) => ({ ...q, [t.name]: data }));
+      } catch { /* the quote is optional: the normal price still works */ }
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   if (!user) { setPage("login"); return null; }
 
   const upgrade = async (tier) => {
+    setErr("");
     try {
       setLoadingTier(tier);
-      const { data } = await initUpgrade({ user_id: user.id, tier, email: user.email });
+      const wantX = !!(useX[tier] && quotes[tier]?.eligible);
+      const { data } = await initUpgrade({ user_id: user.id, tier, email: user.email, ...(wantX ? { use_xera: true } : {}) });
       if (data.payment_url) window.location.href = data.payment_url;
     } catch (e) {
-      alert(e.response?.data?.detail || "Upgrade failed. Please try again.");
+      setErr(e.response?.data?.detail || "Upgrade failed. Please try again.");
     } finally { setLoadingTier(null); }
   };
 
@@ -52,89 +69,81 @@ export default function Upgrade({ setPage, user }) {
   };
 
   return (
-    <div style={S.page}>
-      <header style={S.header}>
-        <div onClick={() => setPage("chat")} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-          <span style={{ fontSize: 22 }}>⚡</span>
-          <span style={S.brand}>EVOSGPT</span>
-        </div>
-        <button style={S.ghostBtn} onClick={() => setPage("chat")}>← Back to Chat</button>
+    <div className="hm" style={{ maxWidth: 860 }}>
+      <header className="hm-top">
+        <div className="hm-brand"><span className="orb sm" /> <span className="grad-text">EVOSGPT</span></div>
+        <button className="btn btn-ghost" style={{ padding: "9px 16px" }} onClick={() => setPage("chat")}>← Chat</button>
       </header>
 
-      <main style={S.main}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <h1 style={S.title}>Upgrade Your EVOSGPT</h1>
-          <p style={S.sub}>Unlock unlimited chats and expert-level AI responses.</p>
-        </div>
+      <div style={{ textAlign: "center", margin: "10px 0 26px" }}>
+        <h1 className="display" style={{ fontSize: "clamp(26px,5vw,38px)", fontWeight: 700, margin: "0 0 8px", letterSpacing: "-0.03em" }}>
+          Upgrade your <span className="grad-text">EVOSGPT</span>
+        </h1>
+        <p style={{ color: "var(--muted)", fontSize: 14.5, margin: 0 }}>Unlimited chats, images, documents and deeper answers.</p>
+      </div>
 
-        <div style={S.grid}>
-          {TIERS.map(t => (
-            <div key={t.name} style={{ ...S.card, border: `1px solid ${t.color}33`, background: `${t.color}10` }}>
-              <div style={{ fontSize: 34, marginBottom: 8 }}>{t.icon}</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: t.color }}>{t.name}</div>
-              <div style={{ fontSize: 12, color: "#475569", marginBottom: 14 }}>{t.model}</div>
-              <div style={{ marginBottom: 22 }}>
-                <span style={{ fontSize: 28, fontWeight: 900, color: t.color }}>{format(t.ghs)}</span>
-                <span style={{ fontSize: 13, color: "#64748b" }}>{t.period}</span>
+      {err && <div className="glass" role="alert" style={{ padding: "12px 16px", borderRadius: 14, color: "#fca5a5", borderColor: "rgba(248,113,113,.35)", marginBottom: 14, fontSize: 13.5 }}>{err}</div>}
+
+      <div className="plans" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" }}>
+        {TIERS.map((t) => {
+          const q = quotes[t.name];
+          const on = !!(useX[t.name] && q?.eligible);
+          return (
+            <div key={t.name} className="plan glass" style={{ borderColor: `${t.color}55`, background: `linear-gradient(160deg, ${t.color}14, rgba(255,255,255,.03))` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 20, color: t.color }}>
+                <span style={{ fontSize: 24 }}>{t.icon}</span>{t.name}
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 9, marginBottom: 26 }}>
-                {t.perks.map(p => (
-                  <div key={p} style={{ fontSize: 13, color: "#94a3b8", display: "flex", gap: 8 }}>
-                    <span style={{ color: t.color, fontWeight: 700 }}>✓</span> {p}
-                  </div>
-                ))}
+              <div style={{ fontSize: 11.5, color: "var(--dim)", marginTop: 2 }}>{t.model}</div>
+              <div className="price" style={{ color: t.color }}>
+                {on && <s style={{ fontSize: 16, color: "var(--dim)", marginRight: 8, fontWeight: 500 }}>{format(t.ghs)}</s>}
+                {format(on ? q.final_price : t.ghs)}
+                <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{t.period}</span>
               </div>
-              <button
-                style={{ ...S.upgradeBtn, background: t.color, opacity: loadingTier === t.name ? 0.6 : 1 }}
-                onClick={() => upgrade(t.name)}
-                disabled={loadingTier !== null}
-              >
-                {loadingTier === t.name ? "Redirecting..." : `Upgrade to ${t.name} →`}
+              <ul>{t.perks.map((p) => <li key={p}>{p}</li>)}</ul>
+
+              {q && (q.eligible ? (
+                <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", padding: "10px 12px", marginBottom: 14, borderRadius: 14, border: "1px solid rgba(251,191,36,.35)", background: "rgba(251,191,36,.07)" }}>
+                  <input type="checkbox" checked={!!useX[t.name]} onChange={(e) => setUseX((u) => ({ ...u, [t.name]: e.target.checked }))} style={{ marginTop: 3 }} />
+                  <span style={{ fontSize: 13, lineHeight: 1.45 }}>
+                    Use <b>{Number(q.xera_amount)} XERA</b> for <b>{format(Number(q.discount_ghs))} off</b>
+                    <span style={{ display: "block", color: "var(--muted)", fontSize: 11.5 }}>
+                      Promotional discount. Your XERA balance: {Number(q.spendable)}. Complete payment within {Number(q.hold_minutes) || 60} minutes.
+                    </span>
+                    {q.verified === false && Number(q.xera_if_verified) < Number(q.xera_amount) && (
+                      <span style={{ display: "block", color: "var(--muted)", fontSize: 11.5, marginTop: 2 }}>
+                        Verify your identity in the XERA app to pay only {Number(q.xera_if_verified)} XERA.
+                      </span>
+                    )}
+                  </span>
+                </label>
+              ) : (q.message && q.reason !== "disabled" && q.reason !== "no_discount") ? (
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 14px" }}>🪙 {q.message}</p>
+              ) : null)}
+
+              <button className="btn btn-primary" style={{ width: "100%", background: t.color, boxShadow: "none" }}
+                      onClick={() => upgrade(t.name)} disabled={loadingTier !== null}>
+                {loadingTier === t.name ? "Redirecting…" : `Upgrade to ${t.name} →`}
               </button>
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        {/* COUPON */}
-        <div style={S.couponBox}>
-          <div style={{ fontWeight: 800, fontSize: 14, color: "#f1f5f9", marginBottom: 10 }}>🎟️ Have a coupon code?</div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <input
-              style={S.couponInput}
-              placeholder="Enter coupon code"
-              value={coupon}
-              onChange={e => setCoupon(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && submitCoupon()}
-            />
-            <button style={S.couponBtn} onClick={submitCoupon} disabled={redeeming}>
-              {redeeming ? "..." : "Redeem"}
-            </button>
-          </div>
-          {couponMsg && (
-            <div style={{ marginTop: 10, fontSize: 13, color: couponOk ? "#4ade80" : "#f87171" }}>{couponMsg}</div>
-          )}
+      <div className="glass" style={{ borderRadius: 20, padding: 18, marginTop: 18 }}>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>🎟️ Have a coupon code?</div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <input
+            style={{ flex: 1, minWidth: 0, padding: "12px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "rgba(0,0,0,.25)", color: "var(--text)", fontSize: 14, outline: "none" }}
+            placeholder="Enter coupon code" value={coupon}
+            onChange={(e) => setCoupon(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitCoupon()}
+          />
+          <button className="btn btn-ghost" onClick={submitCoupon} disabled={redeeming}>{redeeming ? "…" : "Redeem"}</button>
         </div>
+        {couponMsg && <div style={{ marginTop: 10, fontSize: 13, color: couponOk ? "#4ade80" : "#f87171" }}>{couponMsg}</div>}
+      </div>
 
-        {note && <p style={{ ...S.secureNote, color: "#64748b", marginBottom: 8 }}>{note}</p>}
-        <p style={S.secureNote}>🔒 Payments secured by Paystack</p>
-      </main>
+      {note && <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "16px 0 4px" }}>{note}</p>}
+      <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "8px 0" }}>🔒 Payments secured by Paystack</p>
     </div>
   );
 }
-
-const S = {
-  page:   { minHeight: "100vh", background: "#070d1a", color: "#e2e8f0" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)" },
-  brand:  { fontWeight: 900, fontSize: 17, color: "#38bdf8" },
-  ghostBtn: { padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#e2e8f0", fontWeight: 700, fontSize: 13, cursor: "pointer" },
-  main:   { maxWidth: 760, margin: "0 auto", padding: "48px 20px 60px" },
-  title:  { fontSize: "clamp(26px,4vw,38px)", fontWeight: 900, color: "#f1f5f9", marginBottom: 10 },
-  sub:    { color: "#94a3b8", fontSize: 15 },
-  grid:   { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 20, marginBottom: 36 },
-  card:   { borderRadius: 22, padding: "28px 24px" },
-  upgradeBtn: { width: "100%", padding: 13, borderRadius: 12, border: "none", color: "#000", fontWeight: 900, fontSize: 14, cursor: "pointer" },
-  couponBox: { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 18, padding: "20px", marginBottom: 24 },
-  couponInput: { flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)", color: "#f1f5f9", fontSize: 14, outline: "none" },
-  couponBtn: { padding: "11px 20px", borderRadius: 10, border: "none", background: "#a78bfa", color: "#000", fontWeight: 800, fontSize: 13, cursor: "pointer" },
-  secureNote: { textAlign: "center", color: "#334155", fontSize: 13 },
-};

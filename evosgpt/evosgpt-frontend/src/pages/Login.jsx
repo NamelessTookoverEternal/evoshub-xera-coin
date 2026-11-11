@@ -69,7 +69,7 @@ export default function Login({ setPage, setUser, notice, onBack }) {
 }
 
 const S = {
-  page:  { minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#070d1a", padding: 20 },
+  page:  { minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", padding: 20 },
   card:  { width: "100%", maxWidth: 420, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 24, padding: "40px 32px", display: "flex", flexDirection: "column", gap: 12, backdropFilter: "blur(20px)" },
   brand: { fontSize: 26, fontWeight: 900, background: "linear-gradient(135deg,#38bdf8,#a78bfa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginTop: 6 },
   sub:   { fontSize: 13, color: "#475569", marginTop: 4 },

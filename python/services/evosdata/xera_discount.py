@@ -258,11 +258,14 @@ def reconcile_paid_orders(sb, lookback_hours: int = 72) -> int:
             ref = h.get("order_ref")
             if not ref:
                 continue
-            rows = sb.table("orders").select("status,datamart_ref").eq("paystack_ref", ref).limit(1).execute().data or []
-            if not rows:
-                continue
-            o = rows[0]
-            if o.get("datamart_ref") or str(o.get("status") or "").lower() in _PAID_STATES:
+            if str(ref).startswith("EVOS-GPT-"):    # an EVOSGPT plan purchase
+                rows = sb.table("evosgpt_purchases").select("status").eq("reference", ref).limit(1).execute().data or []
+                is_paid = bool(rows) and str(rows[0].get("status") or "").lower() == "paid"
+            else:                                   # an EVOS Data order
+                rows = sb.table("orders").select("status,datamart_ref").eq("paystack_ref", ref).limit(1).execute().data or []
+                o = rows[0] if rows else {}
+                is_paid = bool(rows) and bool(o.get("datamart_ref") or str(o.get("status") or "").lower() in _PAID_STATES)
+            if is_paid:
                 if consume(sb, ref) is not None:
                     settled += 1
                     logger.warning("XERA DISCOUNT: reconciled paid order %s (hold was %s)", ref, h.get("status"))

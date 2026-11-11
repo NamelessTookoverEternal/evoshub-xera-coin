@@ -79,20 +79,25 @@ function BotBubble({ content }) {
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <div style={{ position: "relative", maxWidth: "82%" }}>
-      <div style={{ ...S.bubble, ...S.botBubble }}>
-        <Markdown text={content} />
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", maxWidth: "92%" }}>
+      <span className="orb sm" style={{ marginTop: 2 }} aria-hidden="true" />
+      <div style={{ position: "relative", minWidth: 0 }}>
+        <div style={{ ...S.bubble, ...S.botBubble }}>
+          <Markdown text={content} />
+        </div>
+        <button onClick={copy} style={S.copyFloating}>
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
       </div>
-      <button onClick={copy} style={S.copyFloating}>
-        {copied ? "✓ Copied" : "📋 Copy"}
-      </button>
     </div>
   );
 }
 
 export default function Chat({ setPage, user, setUser }) {
   const [messages, setMessages]       = useState([]);
-  const [input, setInput]             = useState("");
+  const [input, setInput]             = useState(() => {
+    try { const v = sessionStorage.getItem("evosgpt_prefill") || ""; if (v) sessionStorage.removeItem("evosgpt_prefill"); return v; } catch { return ""; }
+  });
   const [sending, setSending]         = useState(false);
   const [loadingHist, setLoadHist]    = useState(true);
   const [tier, setTier]               = useState(user?.evosgpt_tier || "Basic");
@@ -101,6 +106,7 @@ export default function Chat({ setPage, user, setUser }) {
   const [nudge, setNudge]             = useState(false);
   const [limitHit, setLimitHit]       = useState(false);
   const [menuOpen, setMenuOpen]       = useState(false);
+  const [plusOpen, setPlusOpen]       = useState(false); // "+" attach/create menu next to the message box
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   // Image generation + vision upload
@@ -117,8 +123,24 @@ export default function Chat({ setPage, user, setUser }) {
   const bodyRef   = useRef(null);
   const taRef     = useRef(null);
   const fileRef   = useRef(null);
+  const plusRef   = useRef(null);
 
   const canGenerateImages = tier !== "Basic";
+
+  // Close the "+" menu on outside click or Escape.
+  useEffect(() => {
+    if (!plusOpen) return;
+    const onDown = (e) => { if (plusRef.current && !plusRef.current.contains(e.target)) setPlusOpen(false); };
+    const onKey  = (e) => { if (e.key === "Escape") setPlusOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [plusOpen]);
 
   useEffect(() => {
     if (!user) { setPage("login"); return; }
@@ -361,24 +383,26 @@ export default function Chat({ setPage, user, setUser }) {
     <div style={S.wrap}>
       {/* HEADER */}
       <header style={S.header}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 22 }}>⚡</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <button style={S.iconBtn} onClick={() => setPage("home")} aria-label="Back to home">‹</button>
+          <span className="orb sm" aria-hidden="true" />
           <span style={S.brand}>EVOSGPT</span>
           <span style={{ ...S.tierBadge, color: badge.color, borderColor: badge.color + "55", background: badge.color + "18" }}>
             {badge.icon} {tier}
           </span>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          {dayLimit && <span style={S.counter}>{todayCount}/{dayLimit} today</span>}
-          <button style={S.iconBtn} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
+          {dayLimit && <span style={S.counter}>{todayCount}/{dayLimit}</span>}
+          <button style={S.iconBtn} onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">⋯</button>
         </div>
       </header>
 
       {/* MENU DROPDOWN */}
       {menuOpen && (
         <div style={S.menu} className="slide-up">
-          <div style={S.menuItem} onClick={() => { setPage("dashboard"); setMenuOpen(false); }}>🏠 Dashboard</div>
-          {tier === "Basic" && <div style={S.menuItem} onClick={() => { setPage("upgrade"); setMenuOpen(false); }}>⚡ Upgrade</div>}
+          <div style={S.menuItem} onClick={() => { setPage("home"); setMenuOpen(false); }}>🏠 Home</div>
+          <div style={S.menuItem} onClick={() => { setPage("dashboard"); setMenuOpen(false); }}>👤 My dashboard</div>
+          <div style={S.menuItem} onClick={() => { setPage("upgrade"); setMenuOpen(false); }}>⚡ {tier === "Basic" ? "Upgrade" : "Plans"}</div>
           <div style={S.menuItem} onClick={() => { handleClear(); setMenuOpen(false); }}>🗑️ Clear Memory</div>
           <div style={S.menuItem} onClick={() => openProduct(EVOSDATA_URL)}>📶 Buy Data (EvosData)</div>
         </div>
@@ -389,13 +413,27 @@ export default function Chat({ setPage, user, setUser }) {
         {loadingHist ? (
           <div style={S.emptyState}>⏳ Loading your conversation...</div>
         ) : messages.length === 0 ? (
-          <div style={S.emptyState}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>👋</div>
-            <div style={{ fontWeight: 800, fontSize: 16, color: "#f1f5f9", marginBottom: 6 }}>
-              Hey {user?.full_name?.split(" ")[0] || user?.username}!
+          <div style={S.emptyState} className="fade-in">
+            <div className="orb md" style={{ marginBottom: 18 }} aria-hidden="true" />
+            <div className="display" style={{ fontWeight: 700, fontSize: 24, marginBottom: 6, letterSpacing: "-0.02em" }}>
+              Hey <span className="grad-text">{user?.full_name?.split(" ")[0] || user?.username}</span>
             </div>
-            <div style={{ color: "#64748b", fontSize: 14 }}>
-              Ask me anything — code, letters, ideas, business plans. I'll remember as we chat.
+            <div style={{ color: "var(--muted)", fontSize: 14.5, marginBottom: 20 }}>
+              What would you like to do today? I remember as we chat.
+            </div>
+            <div style={S.suggestGrid}>
+              {[
+                ["✍️", "Write a letter", "Write a professional letter for me about "],
+                ["💻", "Help with code", "Help me with this code: "],
+                ["📊", "Business ideas", "Give me 5 practical small business ideas I can start in Ghana with little money."],
+                ["🎓", "Explain simply", "Explain this in simple terms: "],
+              ].map(([ic, label, text]) => (
+                <button key={label} className="glass" style={S.suggest}
+                        onClick={() => { setInput(text); taRef.current?.focus(); }}>
+                  <span style={{ fontSize: 20 }}>{ic}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13.5 }}>{label}</span>
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -416,7 +454,8 @@ export default function Chat({ setPage, user, setUser }) {
         )}
 
         {sending && (
-          <div style={{ ...S.msgRow, justifyContent: "flex-start" }}>
+          <div style={{ ...S.msgRow, justifyContent: "flex-start", gap: 10, alignItems: "center" }}>
+            <span className="orb sm" aria-hidden="true" />
             <div style={{ ...S.bubble, ...S.botBubble }}>
               <span className="dot"></span><span className="dot"></span><span className="dot"></span>
             </div>
@@ -530,7 +569,7 @@ export default function Chat({ setPage, user, setUser }) {
       )}
 
       {/* INPUT */}
-      <div style={S.inputBar}>
+      <div style={S.inputOuter}><div style={S.inputBar} className="glass">
         <input
           type="file"
           accept="image/*"
@@ -538,32 +577,58 @@ export default function Chat({ setPage, user, setUser }) {
           style={{ display: "none" }}
           onChange={handleFileSelect}
         />
-        <button
-          style={{ ...S.attachBtn, opacity: limitHit || imageMode ? 0.4 : 1 }}
-          title="Attach an image to ask about"
-          disabled={limitHit || imageMode}
-          onClick={() => fileRef.current?.click()}
-        >
-          📎
-        </button>
-        <button
-          style={{ ...S.attachBtn, opacity: limitHit ? 0.4 : 1, color: imageMode ? "#a78bfa" : "#94a3b8", borderColor: imageMode ? "rgba(167,139,250,0.5)" : "rgba(255,255,255,0.1)" }}
-          title={canGenerateImages ? "Generate an image" : "Upgrade to Pro to generate images"}
-          disabled={limitHit}
-          onClick={toggleImageMode}
-        >
-          🎨
-        </button>
-        <button
-          style={{ ...S.attachBtn, opacity: limitHit ? 0.4 : 1, color: docMode ? "#4ade80" : "#94a3b8", borderColor: docMode ? "rgba(74,222,128,0.5)" : "rgba(255,255,255,0.1)" }}
-          title={canGenerateImages ? "Generate a PDF/Word document" : "Upgrade to Pro to generate documents"}
-          disabled={limitHit}
-          onClick={toggleDocMode}
-        >
-          📄
-        </button>
+        {/* "+" menu (like Claude / ChatGPT): attach an image, create an image, create a document */}
+        <div ref={plusRef} style={{ position: "relative", flexShrink: 0 }}>
+          {plusOpen && (
+            <div style={S.plusMenu} role="menu">
+              <button
+                role="menuitem"
+                style={{ ...S.plusItem, opacity: imageMode ? 0.4 : 1 }}
+                disabled={imageMode}
+                onClick={() => { setPlusOpen(false); fileRef.current?.click(); }}
+              >
+                <span style={S.plusIcon}>📎</span>
+                <span style={{ flex: 1 }}>Add a photo</span>
+              </button>
+              <button
+                role="menuitem"
+                style={{ ...S.plusItem, color: imageMode ? "#a78bfa" : "#e2e8f0" }}
+                onClick={() => { setPlusOpen(false); toggleImageMode(); }}
+              >
+                <span style={S.plusIcon}>🎨</span>
+                <span style={{ flex: 1 }}>Create an image</span>
+                {!canGenerateImages ? <span style={S.plusBadge}>Pro</span> : imageMode ? <span style={{ color: "#a78bfa" }}>✓</span> : null}
+              </button>
+              <button
+                role="menuitem"
+                style={{ ...S.plusItem, color: docMode ? "#4ade80" : "#e2e8f0" }}
+                onClick={() => { setPlusOpen(false); toggleDocMode(); }}
+              >
+                <span style={S.plusIcon}>📄</span>
+                <span style={{ flex: 1 }}>Create a document</span>
+                {!canGenerateImages ? <span style={S.plusBadge}>Pro</span> : docMode ? <span style={{ color: "#4ade80" }}>✓</span> : null}
+              </button>
+            </div>
+          )}
+          <button
+            style={{
+              ...S.attachBtn, fontSize: 26, fontWeight: 300, lineHeight: 1, opacity: limitHit ? 0.4 : 1,
+              color: (imageMode || docMode || plusOpen) ? "#f1f5f9" : "#94a3b8",
+              background: plusOpen ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.06)",
+            }}
+            title="Add photo, create image or document"
+            aria-label="Add photo, create image or document"
+            aria-haspopup="menu"
+            aria-expanded={plusOpen}
+            disabled={limitHit}
+            onClick={() => setPlusOpen(o => !o)}
+          >
+            <span style={{ display: "inline-block", transform: plusOpen ? "rotate(45deg)" : "none", transition: "transform 0.15s ease" }}>+</span>
+          </button>
+        </div>
         <textarea
           ref={taRef}
+          rows={1}
           style={{ ...S.textarea, overflowY: "hidden" }}
           placeholder={docMode ? "Describe the document to generate..." : imageMode ? "Describe the image to generate..." : (pendingImage && editMode) ? "Describe the edit you want..." : "Message EVOSGPT..."}
           value={input}
@@ -578,49 +643,56 @@ export default function Chat({ setPage, user, setUser }) {
         >
           ➤
         </button>
-      </div>
+      </div></div>
     </div>
   );
 }
 
 const S = {
-  wrap:      { display: "flex", flexDirection: "column", height: "100vh", background: "#070d1a" },
-  header:    { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "relative", zIndex: 10 },
-  brand:     { fontWeight: 900, fontSize: 17, background: "linear-gradient(135deg,#38bdf8,#a78bfa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-  tierBadge: { fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 50, border: "1px solid" },
-  counter:   { fontSize: 12, color: "#64748b", fontWeight: 700 },
-  iconBtn:   { width: 36, height: 36, borderRadius: 10, border: "none", background: "rgba(255,255,255,0.06)", color: "#e2e8f0", fontSize: 16, cursor: "pointer" },
-  menu:      { position: "absolute", top: 58, right: 18, background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: 8, zIndex: 50, minWidth: 200, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" },
-  menuItem:  { padding: "10px 14px", borderRadius: 10, fontSize: 14, color: "#e2e8f0", cursor: "pointer", fontWeight: 600 },
-  body:      { flex: 1, overflowY: "auto", padding: "20px 16px 10px", display: "flex", flexDirection: "column", gap: 16, maxWidth: 760, margin: "0 auto", width: "100%", position: "relative" },
-  emptyState:{ textAlign: "center", margin: "auto", maxWidth: 320 },
+  wrap:      { display: "flex", flexDirection: "column", height: "100dvh", background: "transparent" },
+  header:    { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "calc(10px + var(--safe-t)) 14px 10px", borderBottom: "1px solid var(--line)", position: "relative", zIndex: 10, background: "rgba(6,9,18,0.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" },
+  brand:     { fontFamily: "var(--display)", fontWeight: 700, fontSize: 17, background: "var(--grad)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent" },
+  tierBadge: { fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 50, border: "1px solid", whiteSpace: "nowrap" },
+  counter:   { fontSize: 12, color: "var(--muted)", fontWeight: 700 },
+  iconBtn:   { width: 38, height: 38, borderRadius: 12, border: "1px solid var(--line)", background: "var(--panel)", color: "var(--text)", fontSize: 20, lineHeight: 1, cursor: "pointer" },
+  menu:      { position: "absolute", top: "calc(58px + var(--safe-t))", right: 14, background: "rgba(14,18,34,0.96)", border: "1px solid var(--line)", borderRadius: 16, padding: 8, zIndex: 50, minWidth: 210, boxShadow: "0 16px 40px rgba(0,0,0,0.55)", backdropFilter: "blur(20px)" },
+  menuItem:  { padding: "11px 14px", borderRadius: 11, fontSize: 14, color: "var(--text)", cursor: "pointer", fontWeight: 600 },
+  body:      { flex: 1, overflowY: "auto", padding: "20px 16px 10px", display: "flex", flexDirection: "column", gap: 18, maxWidth: 780, margin: "0 auto", width: "100%", position: "relative" },
+  emptyState:{ textAlign: "center", margin: "auto", maxWidth: 460, width: "100%" },
+  suggestGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
+  suggest:   { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, padding: "14px 14px", borderRadius: 18, color: "var(--text)", cursor: "pointer", textAlign: "left", fontFamily: "inherit" },
   msgRow:    { display: "flex" },
-  bubble:    { padding: "12px 16px", borderRadius: 16, fontSize: 14.5, lineHeight: 1.6, wordBreak: "break-word" },
-  userBubble:{ maxWidth: "82%", background: "linear-gradient(135deg,#38bdf8,#0ea5e9)", color: "#000", fontWeight: 600, borderBottomRightRadius: 4 },
-  botBubble: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", color: "#e2e8f0", borderBottomLeftRadius: 4 },
-  copyFloating: { marginTop: 6, display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#64748b", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, cursor: "pointer", transition: "color 0.2s" },
+  bubble:    { padding: "12px 16px", borderRadius: 20, fontSize: 15, lineHeight: 1.65, wordBreak: "break-word" },
+  userBubble:{ maxWidth: "84%", background: "linear-gradient(135deg,#38bdf8,#818cf8)", color: "#04101f", fontWeight: 600, borderBottomRightRadius: 6, boxShadow: "0 8px 26px rgba(99,102,241,0.28)" },
+  botBubble: { background: "var(--panel)", border: "1px solid var(--line)", color: "var(--text)", borderTopLeftRadius: 6 },
+  copyFloating: { marginTop: 6, display: "inline-flex", alignItems: "center", gap: 4, background: "transparent", border: "1px solid var(--line)", color: "var(--dim)", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, cursor: "pointer", transition: "color 0.2s" },
 
   // Scroll button group — sits between messages and nudge/input
-  scrollBtnGroup:  { display: "flex", gap: 6, justifyContent: "center", padding: "6px 0 2px", maxWidth: 760, margin: "0 auto", width: "100%" },
-  scrollBtnSmooth: { display: "flex", alignItems: "center", justifyContent: "center", gap: 0, background: "#0f172a", border: "1px solid rgba(255,255,255,0.15)", color: "#94a3b8", fontSize: 13, fontWeight: 800, padding: "5px 14px", borderRadius: 50, cursor: "pointer", letterSpacing: 1 },
-  scrollBtnInstant:{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, background: "#0f172a", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8", fontSize: 13, fontWeight: 800, padding: "5px 14px", borderRadius: 50, cursor: "pointer", letterSpacing: 1 },
+  scrollBtnGroup:  { display: "flex", gap: 6, justifyContent: "center", padding: "6px 0 2px", maxWidth: 780, margin: "0 auto", width: "100%" },
+  scrollBtnSmooth: { display: "flex", alignItems: "center", justifyContent: "center", gap: 0, background: "rgba(14,18,34,0.9)", border: "1px solid var(--line)", color: "var(--muted)", fontSize: 13, fontWeight: 800, padding: "5px 14px", borderRadius: 50, cursor: "pointer", letterSpacing: 1 },
+  scrollBtnInstant:{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, background: "rgba(14,18,34,0.9)", border: "1px solid rgba(56,189,248,0.35)", color: "#38bdf8", fontSize: 13, fontWeight: 800, padding: "5px 14px", borderRadius: 50, cursor: "pointer", letterSpacing: 1 },
   // The arrows are rotated 90deg to point downward
   scrollArrow: { display: "inline-block", transform: "rotate(90deg)", lineHeight: 1, fontSize: 16 },
 
-  nudgeBox:  { maxWidth: 760, margin: "0 auto 10px", width: "calc(100% - 32px)", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 16, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" },
-  limitBox:  { maxWidth: 760, margin: "0 auto 10px", width: "calc(100% - 32px)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 16, padding: "16px 18px" },
-  nudgeBtn:  { padding: "8px 16px", borderRadius: 10, border: "none", background: "#38bdf8", color: "#000", fontWeight: 800, fontSize: 13, cursor: "pointer" },
-  nudgeGhost:{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#94a3b8", fontWeight: 700, fontSize: 13, cursor: "pointer" },
-  inputBar:  { display: "flex", gap: 8, padding: "14px 16px 20px", borderTop: "1px solid rgba(255,255,255,0.06)", maxWidth: 760, margin: "0 auto", width: "100%", boxSizing: "border-box", alignItems: "flex-end" },
-  textarea:  { flex: 1, resize: "none", padding: "13px 16px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "#f1f5f9", fontSize: 14.5, outline: "none", minHeight: 50, maxHeight: 160, fontFamily: "inherit", lineHeight: 1.55, transition: "height 0.1s ease" },
-  sendBtn:   { width: 46, height: 46, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#38bdf8,#0ea5e9)", color: "#000", fontSize: 18, cursor: "pointer", flexShrink: 0 },
-  attachBtn: { width: 46, height: 46, borderRadius: 14, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", fontSize: 18, cursor: "pointer", flexShrink: 0 },
+  nudgeBox:  { maxWidth: 780, margin: "0 auto 10px", width: "calc(100% - 32px)", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.25)", borderRadius: 18, padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap" },
+  limitBox:  { maxWidth: 780, margin: "0 auto 10px", width: "calc(100% - 32px)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 18, padding: "16px 18px" },
+  nudgeBtn:  { padding: "8px 16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#38bdf8,#818cf8)", color: "#04101f", fontWeight: 800, fontSize: 13, cursor: "pointer" },
+  nudgeGhost:{ padding: "8px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", fontWeight: 700, fontSize: 13, cursor: "pointer" },
+  inputOuter:{ padding: "6px 12px calc(12px + var(--safe-b))", maxWidth: 780, margin: "0 auto", width: "100%", boxSizing: "border-box" },
+  inputBar:  { display: "flex", gap: 6, padding: 6, borderRadius: 28, alignItems: "flex-end", boxShadow: "0 10px 40px rgba(0,0,0,0.35)" },
+  textarea:  { flex: 1, minWidth: 0, resize: "none", padding: "11px 8px", borderRadius: 16, border: "none", background: "transparent", color: "var(--text)", fontSize: 15.5, outline: "none", minHeight: 44, maxHeight: 160, fontFamily: "inherit", lineHeight: 1.5, transition: "height 0.1s ease" },
+  sendBtn:   { width: 44, height: 44, borderRadius: "50%", border: "none", background: "linear-gradient(135deg,#38bdf8,#818cf8)", color: "#04101f", fontSize: 17, fontWeight: 900, cursor: "pointer", flexShrink: 0 },
+  plusMenu:  { position: "absolute", bottom: 54, left: 0, minWidth: 230, padding: 6, borderRadius: 18, background: "rgba(14,18,34,0.97)", border: "1px solid var(--line)", boxShadow: "0 16px 40px rgba(0,0,0,0.55)", display: "flex", flexDirection: "column", gap: 2, zIndex: 50 },
+  plusItem:  { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 12px", borderRadius: 12, border: "none", background: "transparent", color: "var(--text)", fontSize: 14, fontWeight: 600, cursor: "pointer", textAlign: "left", fontFamily: "inherit" },
+  plusIcon:  { width: 22, textAlign: "center", fontSize: 16 },
+  plusBadge: { fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "rgba(167,139,250,0.18)", color: "#a78bfa", letterSpacing: 0.4 },
+  attachBtn: { width: 44, height: 44, borderRadius: "50%", border: "none", background: "var(--panel)", fontSize: 18, cursor: "pointer", flexShrink: 0 },
 
-  pendingImageBar: { display: "flex", alignItems: "center", gap: 10, maxWidth: 760, margin: "0 auto", width: "calc(100% - 32px)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, padding: "8px 10px", marginBottom: 8 },
-  pendingImageThumb: { width: 40, height: 40, borderRadius: 8, objectFit: "cover" },
-  pendingImageRemove:{ background: "none", border: "none", color: "#94a3b8", fontSize: 14, fontWeight: 800, cursor: "pointer", padding: "2px 6px" },
-  modeToggleBtn:      { fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#94a3b8", cursor: "pointer", whiteSpace: "nowrap" },
+  pendingImageBar: { display: "flex", alignItems: "center", gap: 10, maxWidth: 780, margin: "0 auto", width: "calc(100% - 24px)", background: "var(--panel)", border: "1px solid var(--line)", borderRadius: 16, padding: "8px 10px", marginBottom: 8 },
+  pendingImageThumb: { width: 40, height: 40, borderRadius: 10, objectFit: "cover" },
+  pendingImageRemove:{ background: "none", border: "none", color: "var(--muted)", fontSize: 14, fontWeight: 800, cursor: "pointer", padding: "2px 6px" },
+  modeToggleBtn:      { fontSize: 11, fontWeight: 700, padding: "5px 10px", borderRadius: 9, border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", cursor: "pointer", whiteSpace: "nowrap" },
   modeToggleBtnActive:{ background: "rgba(167,139,250,0.18)", borderColor: "rgba(167,139,250,0.5)", color: "#a78bfa" },
-  imageModeBar: { display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 760, margin: "0 auto", width: "calc(100% - 32px)", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 14, padding: "8px 12px", marginBottom: 8 },
-  docSelect: { fontSize: 11, fontWeight: 700, padding: "5px 6px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "#0f172a", color: "#e2e8f0", cursor: "pointer" },
+  imageModeBar: { display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 780, margin: "0 auto", width: "calc(100% - 24px)", background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.25)", borderRadius: 16, padding: "8px 12px", marginBottom: 8 },
+  docSelect: { fontSize: 11, fontWeight: 700, padding: "5px 6px", borderRadius: 8, border: "1px solid var(--line)", background: "#0f172a", color: "var(--text)", cursor: "pointer" },
 };

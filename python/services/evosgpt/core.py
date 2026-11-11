@@ -39,6 +39,7 @@ from services.evosdata.db import get_supabase
 from services.evosgpt import currency as _currency
 from services.evosgpt import knowledge as _kb
 from services.evosgpt import native as _native
+from services.evosdata import xera_discount
 from utils.rate_limit import limiter
 from xera.user_auth import XeraTokenInvalid, make_user_token, verify_user_token
 
@@ -195,6 +196,7 @@ class UpgradeRequest(BaseModel):
     user_id: int
     tier: str
     email: str
+    use_xera: bool = False   # ask for the XERA discount; the server works out the price and does all the maths
 
 class CouponRequest(BaseModel):
     user_id: int
@@ -1249,11 +1251,32 @@ def _apply_paid(reference: str, user_id: int, tier: str) -> str:
     db_client.table("users").update({"evosgpt_tier": tier}).eq("id", user_id).execute()
     db_client.table("evosgpt_purchases").update({"status": "paid"}).eq("reference", reference).execute()
     logger.info("EVOSGPT: user %s upgraded to %s (ref %s)", user_id, tier, reference)
+    xera_discount.consume(db_client, reference)   # no-op unless this purchase had a XERA discount; honours late payments
     return "success"
+
+
+@router.get("/xera-discount/quote")
+def xera_discount_quote(request: Request, user_id: int, tier: str):
+    """Read-only: what the XERA discount would be on this plan. {"enabled": false} while the feature is off."""
+    try:
+        cfg = xera_discount.load_config(db_client)
+        if not cfg["enabled"]:
+            return {"enabled": False}
+        require_user(request, user_id)
+        if tier not in PURCHASABLE_TIERS:
+            raise HTTPException(400, "Invalid tier")
+        q = xera_discount.quote(db_client, user_id, TIERS[tier]["price_ghs"], cfg)
+        return xera_discount.public_quote(q)
+    except HTTPException: raise
+    except Exception as e:
+        logger.error("EVOSGPT XERA QUOTE ERROR: %s", e)
+        return {"enabled": False}
 
 
 @router.post("/upgrade/init")
 def init_upgrade(data: UpgradeRequest, request: Request):
+    hold_ref = None
+    order_saved = False
     try:
         require_user(request, data.user_id)
         if data.tier not in PURCHASABLE_TIERS:
@@ -1270,13 +1293,30 @@ def init_upgrade(data: UpgradeRequest, request: Request):
         reference  = f"EVOS-GPT-{data.user_id}-{uuid.uuid4().hex[:8].upper()}"
         amount_ghs = tier_cfg["price_ghs"]
 
+        # Optional XERA discount: the server decides, the browser only asks. The XERA is HELD under this
+        # same reference and only taken once Paystack confirms the payment (see _apply_paid).
+        amount_pesewas = int(amount_ghs * 100)
+        discount_info = None
+        if data.use_xera:
+            q = xera_discount.quote(db_client, data.user_id, amount_ghs)
+            if not q["eligible"]:
+                raise HTTPException(400, q["message"] or "The XERA discount is not available right now.")
+            try:
+                xera_discount.place_hold(db_client, data.user_id, reference, q)
+                hold_ref = reference
+            except xera_discount.DiscountError as de:
+                raise HTTPException(400, de.message)
+            amount_ghs = q["final_price"]
+            amount_pesewas = q["final_pesewas"]
+            discount_info = xera_discount.public_quote(q)
+
         # Billing is always in GHS (the Paystack account currency). The app only DISPLAYS
         # the visitor's local currency; see services/evosgpt/currency.py.
         paystack_res = requests.post(
             "https://api.paystack.co/transaction/initialize",
             headers={"Authorization": f"Bearer {PAYSTACK_SECRET}", "Content-Type": "application/json"},
             json={
-                "email": email, "amount": int(amount_ghs * 100), "currency": "GHS",
+                "email": email, "amount": amount_pesewas, "currency": "GHS",
                 "reference": reference, "callback_url": f"{EVOSGPT_APP_URL}?upgrade=success&reference={reference}",
                 "metadata": {"user_id": data.user_id, "tier": data.tier, "product": "evosgpt"},
             }, timeout=15
@@ -1290,11 +1330,20 @@ def init_upgrade(data: UpgradeRequest, request: Request):
             "user_id": data.user_id, "tier": data.tier, "reference": reference,
             "status": "pending", "created_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
+        order_saved = True
 
-        return {"status": "ok", "payment_url": paystack["data"]["authorization_url"], "reference": reference,
-                "billing_currency": "GHS", "billing_amount": amount_ghs}
-    except HTTPException: raise
+        out = {"status": "ok", "payment_url": paystack["data"]["authorization_url"], "reference": reference,
+               "billing_currency": "GHS", "billing_amount": float(amount_ghs)}
+        if discount_info:
+            out["xera_discount"] = discount_info
+        return out
+    except HTTPException:
+        if hold_ref and not order_saved:
+            xera_discount.release(db_client, hold_ref)
+        raise
     except Exception as e:
+        if hold_ref and not order_saved:
+            xera_discount.release(db_client, hold_ref)
         print("UPGRADE ERROR:", e)
         raise HTTPException(500, "Upgrade failed")
 
@@ -1325,6 +1374,13 @@ def verify_upgrade(reference: str, request: Request):
         ).json()
         d = res.get("data") or {}
         expected_pesewas = int(TIERS[purchase["tier"]]["price_ghs"] * 100)
+        # A purchase with a XERA discount is charged the discounted amount: read it from its hold, never from the browser.
+        try:
+            h = db_client.table("xera_discount_holds").select("discount_ghs").eq("order_ref", reference).limit(1).execute()
+            if h.data:
+                expected_pesewas = max(expected_pesewas - int(round(float(h.data[0]["discount_ghs"]) * 100)), 0)
+        except Exception as e:
+            logger.error("EVOSGPT: could not read XERA hold for %s: %s", reference, e)
         if (res.get("status") and d.get("status") == "success"
                 and d.get("currency") == "GHS" and int(d.get("amount", 0)) >= expected_pesewas):
             _apply_paid(reference, purchase["user_id"], purchase["tier"])

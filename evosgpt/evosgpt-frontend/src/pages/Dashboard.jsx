@@ -129,9 +129,9 @@ export default function Dashboard({ setPage, user, onLogout }) {
 }
 
 const S = {
-  page:   { minHeight: "100vh", background: "#070d1a", color: "#e2e8f0" },
-  loadingWrap: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", color: "#64748b", fontSize: 15 },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky", top: 0, background: "rgba(7,13,26,0.9)", backdropFilter: "blur(16px)" },
+  page:   { minHeight: "100vh", background: "transparent", color: "#e2e8f0" },
+  loadingWrap: { display: "flex", alignItems: "center", justifyContent: "center", height: "100dvh", color: "#64748b", fontSize: 15 },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", position: "sticky", top: 0, background: "rgba(6,9,18,0.55)", backdropFilter: "blur(18px)", zIndex: 5 },
   brand:  { fontWeight: 900, fontSize: 17, color: "#38bdf8" },
   ghostBtn: { padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "#e2e8f0", fontWeight: 700, fontSize: 13, cursor: "pointer" },
   dangerBtn: { padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", fontWeight: 700, fontSize: 13, cursor: "pointer" },

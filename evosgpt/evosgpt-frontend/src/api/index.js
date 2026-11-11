@@ -43,6 +43,7 @@ export const getMemory    = (id) => API.get(`/memory/${id}`);
 export const clearMemory  = (id) => API.delete(`/memory/${id}`);
 export const getUser      = (id) => API.get(`/user/${id}`);
 export const initUpgrade  = (d)  => API.post("/upgrade/init", d);
+export const getXeraQuote = (userId, tier) => API.get("/xera-discount/quote", { params: { user_id: userId, tier } });
 export const verifyUpgrade = (ref) => API.get(`/upgrade/verify/${encodeURIComponent(ref)}`);
 export const redeemCoupon = (d)  => API.post("/coupon/redeem", d);
 export const getReferral  = (id) => API.get(`/referral/${id}`);

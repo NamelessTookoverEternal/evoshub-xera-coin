@@ -5,6 +5,7 @@ import Register  from "./pages/Register";
 import Chat      from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Upgrade   from "./pages/Upgrade";
+import TabBar    from "./components/TabBar";
 import { TOKEN_KEY, LOGOUT_EVENT, getToken, hubSession, verifyUpgrade } from "./api";
 import { IS_HUB_MOUNT, HUB_TOKEN_KEY } from "./config";
 
@@ -129,5 +130,12 @@ export default function App() {
     upgrade:   <Upgrade   setPage={go} user={user} setUser={handleSetUser} />,
   };
 
-  return <div style={{ minHeight: "100vh", background: "#070d1a" }}>{pages[page] ?? pages.home}</div>;
+  const showTabs = page === "home" || page === "dashboard" || page === "upgrade";
+  return (
+    <>
+      <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
+      <div className={`app-root ${showTabs ? "has-tabs" : ""}`}>{pages[page] ?? pages.home}</div>
+      {showTabs && <TabBar page={page} setPage={go} user={user} />}
+    </>
+  );
 }
