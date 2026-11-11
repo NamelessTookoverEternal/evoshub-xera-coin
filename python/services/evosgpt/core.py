@@ -41,6 +41,7 @@ from services.evosgpt import knowledge as _kb
 from services.evosgpt import native as _native
 from services.evosdata import xera_discount
 from utils.rate_limit import limiter
+from xera.payments import nowpayments_provider as nowpayments
 from utils.product_switches import require_on as _require_on
 
 # New chats / generations are refused while admins have EVOSGPT switched off (with enforcement on).
@@ -202,6 +203,7 @@ class UpgradeRequest(BaseModel):
     tier: str
     email: str
     use_xera: bool = False   # ask for the XERA discount; the server works out the price and does all the maths
+    method: str = "paystack"   # "paystack" (card / mobile money, GHS) or "crypto" (USDT BEP-20 via NOWPayments)
 
 class CouponRequest(BaseModel):
     user_id: int
@@ -1278,6 +1280,88 @@ def xera_discount_quote(request: Request, user_id: int, tier: str):
         return {"enabled": False}
 
 
+# ------------------------------------------------------------------ USDT (BEP-20) via NOWPayments
+# Same rails as the website-creation page and XERA hashrate. Plan prices are set in GHS; the USD charge is worked out
+# once at purchase (rounded UP to the cent), stored on the purchase row, and compared with what NOWPayments reports.
+# Crypto is a separate path from the XERA discount: the discount only applies to card / mobile money.
+
+def crypto_enabled() -> bool:
+    if os.getenv("EVOSGPT_CRYPTO_ENABLED", "true").strip().lower() in ("0", "false", "no", "off"):
+        return False
+    return nowpayments.configured() and bool(os.getenv("XERA_NOWPAYMENTS_IPN_URL", "").strip())
+
+
+_REF_RE = re.compile(r"^EVOS-GPT-\d+-[A-F0-9]{8}$")
+
+
+def is_evosgpt_reference(ref) -> bool:
+    return isinstance(ref, str) and bool(_REF_RE.match(ref))
+
+
+def _init_crypto_upgrade(data, reference: str, email: str, amount_ghs):
+    if data.use_xera:
+        raise HTTPException(400, "The XERA discount applies to card and mobile money payments only.")
+    if not crypto_enabled():
+        raise HTTPException(503, "USDT payments are not available right now. Please use card or mobile money.")
+    try:
+        cents, _ = nowpayments.to_charge(amount_ghs, "GHS")
+        invoice = nowpayments.NowPaymentsProvider().initialize(
+            reference=reference, amount=cents / 100, currency="USD", user_id=data.user_id,
+            metadata={"product": "evosgpt_plan", "tier": data.tier}, email=email,
+        )
+    except nowpayments.PaymentProviderError as e:
+        logger.error("EVOSGPT crypto init failed: %s", e)
+        raise HTTPException(503, "USDT payments are not available right now. Please use card or mobile money.")
+    db_client.table("evosgpt_purchases").insert({
+        "user_id": data.user_id, "tier": data.tier, "reference": reference, "status": "pending",
+        "payment_method": "crypto", "crypto_usd_cents": cents,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }).execute()
+    return {"status": "ok", "payment_url": invoice["invoice_url"], "reference": reference, "method": "crypto",
+            "billing_currency": "USD", "billing_amount": cents / 100}
+
+
+def handle_nowpayments_ipn(payload: dict) -> dict:
+    """
+    NOWPayments IPN for an EVOSGPT plan (signature already checked by the route). A `finished` notice only
+    triggers a fresh read from NOWPayments; the plan is activated only if that read confirms the right order,
+    asset and a price that matches what we stored at purchase.
+    """
+    reference = payload.get("order_id") or ""
+    status = str(payload.get("payment_status", "")).lower()
+    rows = db_client.table("evosgpt_purchases").select("*").eq("reference", reference).limit(1).execute().data or []
+    if not rows or rows[0].get("payment_method") != "crypto":
+        logger.error("EVOSGPT crypto IPN for unknown / non-crypto purchase %s", reference)
+        return {"handled": False}
+    purchase = rows[0]
+    if status != nowpayments.PAID_STATUS:
+        return {"handled": False, "status": status}
+    if purchase.get("status") == "paid":
+        return {"handled": True, "result": "already_processed"}
+    check = nowpayments.NowPaymentsProvider().verify(reference=reference, payment_id=payload.get("payment_id"))
+    stored = purchase.get("crypto_usd_cents")
+    if not check.get("confirmed"):
+        return {"handled": False}
+    if check.get("currency") != "USD" or stored is None or check.get("amount_minor") is None or check["amount_minor"] < int(stored):
+        logger.critical("EVOSGPT crypto payment %s confirmed but price mismatch (stored=%s, got=%s %s); plan NOT activated, review manually",
+                        reference, stored, check.get("amount_minor"), check.get("currency"))
+        return {"handled": False}
+    return {"handled": True, "result": _apply_paid(reference, purchase["user_id"], purchase["tier"])}
+
+
+@router.get("/upgrade/methods")
+def upgrade_methods():
+    """Which ways to pay are open, and the USD price of each plan for USDT. Never errors: crypto is just off."""
+    out = {"status": "ok", "paystack": bool(PAYSTACK_SECRET), "crypto": {"enabled": False, "usd": {}}}
+    if crypto_enabled():
+        try:
+            usd = {k: nowpayments.to_charge(TIERS[k]["price_ghs"], "GHS")[0] / 100 for k in PURCHASABLE_TIERS}
+            out["crypto"] = {"enabled": True, "usd": usd, "asset": "USDT (BEP-20)"}
+        except Exception as e:
+            logger.warning("EVOSGPT crypto prices unavailable: %s", e)
+    return out
+
+
 @router.post("/upgrade/init")
 def init_upgrade(data: UpgradeRequest, request: Request):
     hold_ref = None
@@ -1286,7 +1370,9 @@ def init_upgrade(data: UpgradeRequest, request: Request):
         require_user(request, data.user_id)
         if data.tier not in PURCHASABLE_TIERS:
             raise HTTPException(400, "Invalid tier")
-        if not PAYSTACK_SECRET:
+        if data.method not in ("paystack", "crypto"):
+            raise HTTPException(400, "Choose card / mobile money or USDT.")
+        if data.method == "paystack" and not PAYSTACK_SECRET:
             raise HTTPException(503, "Payments are not configured")
 
         user = get_user_by_id(data.user_id)
@@ -1297,6 +1383,9 @@ def init_upgrade(data: UpgradeRequest, request: Request):
         tier_cfg   = TIERS[data.tier]
         reference  = f"EVOS-GPT-{data.user_id}-{uuid.uuid4().hex[:8].upper()}"
         amount_ghs = tier_cfg["price_ghs"]
+
+        if data.method == "crypto":
+            return _init_crypto_upgrade(data, reference, email, amount_ghs)
 
         # Optional XERA discount: the server decides, the browser only asks. The XERA is HELD under this
         # same reference and only taken once Paystack confirms the payment (see _apply_paid).
@@ -1370,6 +1459,9 @@ def verify_upgrade(reference: str, request: Request):
         require_user(request, purchase["user_id"])
         if purchase["status"] == "paid":
             return {"status": "ok", "paid": True, "tier": purchase["tier"]}
+        if purchase.get("payment_method") == "crypto":
+            # Confirmed only by NOWPayments' signed IPN (see handle_nowpayments_ipn); the app keeps asking.
+            return {"status": "ok", "paid": False, "pending": True}
         if not PAYSTACK_SECRET:
             raise HTTPException(503, "Payments are not configured")
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { initUpgrade, redeemCoupon, getXeraQuote } from "../api";
+import { initUpgrade, redeemCoupon, getXeraQuote, getUpgradeMethods } from "../api";
 import { useCurrency } from "../lib/currency";
 
 const TIERS = [
@@ -16,7 +16,9 @@ const TIERS = [
 ];
 
 export default function Upgrade({ setPage, user }) {
-  const { format, note } = useCurrency();
+  const { info, format, note } = useCurrency();
+  const [crypto, setCrypto]   = useState({ enabled: false, usd: {} });   // USDT option, from the server
+  const [method, setMethod]   = useState({});                           // { Pro: "paystack" | "crypto" } (user's own choice)
   const [loadingTier, setLoadingTier] = useState(null);
   const [coupon, setCoupon]   = useState("");
   const [couponMsg, setCMsg]  = useState("");
@@ -38,15 +40,33 @@ export default function Upgrade({ setPage, user }) {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getUpgradeMethods()
+      .then(({ data }) => { if (!cancelled && data?.crypto?.enabled) setCrypto(data.crypto); })
+      .catch(() => { /* no crypto option: card / mobile money still works */ });
+    return () => { cancelled = true; };
+  }, []);
+
   if (!user) { setPage("login"); return null; }
+
+  // Outside Ghana, USDT is offered first (a Ghana cedi card charge is the awkward option there).
+  const abroad = !!(info?.country && info.country !== "GH");
+  const methodFor = (tier) => (crypto.enabled ? (method[tier] || (abroad ? "crypto" : "paystack")) : "paystack");
+  const awaiting = (() => { try { return !!sessionStorage.getItem("evosgpt_pending_ref"); } catch { return false; } })();
 
   const upgrade = async (tier) => {
     setErr("");
     try {
       setLoadingTier(tier);
-      const wantX = !!(useX[tier] && quotes[tier]?.eligible);
-      const { data } = await initUpgrade({ user_id: user.id, tier, email: user.email, ...(wantX ? { use_xera: true } : {}) });
-      if (data.payment_url) window.location.href = data.payment_url;
+      const pay = methodFor(tier);
+      const wantX = pay === "paystack" && !!(useX[tier] && quotes[tier]?.eligible);
+      const { data } = await initUpgrade({ user_id: user.id, tier, email: user.email, method: pay, ...(wantX ? { use_xera: true } : {}) });
+      if (data.payment_url) {
+        // Remember the order: after the customer returns the app asks the server whether it is confirmed.
+        if (pay === "crypto" && data.reference) { try { sessionStorage.setItem("evosgpt_pending_ref", data.reference); } catch { /* ignore */ } }
+        window.location.href = data.payment_url;
+      }
     } catch (e) {
       setErr(e.response?.data?.detail || "Upgrade failed. Please try again.");
     } finally { setLoadingTier(null); }
@@ -82,12 +102,18 @@ export default function Upgrade({ setPage, user }) {
         <p style={{ color: "var(--muted)", fontSize: 14.5, margin: 0 }}>Unlimited chats, images, documents and deeper answers.</p>
       </div>
 
+      {awaiting && <div className="glass" role="status" style={{ padding: "12px 16px", borderRadius: 14, marginBottom: 14, fontSize: 13.5, color: "var(--muted)" }}>
+        Waiting for your payment to confirm. If you have paid in USDT, your plan switches on by itself within a few minutes. You can stay here or come back later.
+      </div>}
+
       {err && <div className="glass" role="alert" style={{ padding: "12px 16px", borderRadius: 14, color: "#fca5a5", borderColor: "rgba(248,113,113,.35)", marginBottom: 14, fontSize: 13.5 }}>{err}</div>}
 
       <div className="plans" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" }}>
         {TIERS.map((t) => {
           const q = quotes[t.name];
-          const on = !!(useX[t.name] && q?.eligible);
+          const pay = methodFor(t.name);
+          const usd = crypto.usd?.[t.name];
+          const on = pay === "paystack" && !!(useX[t.name] && q?.eligible);
           return (
             <div key={t.name} className="plan glass" style={{ borderColor: `${t.color}55`, background: `linear-gradient(160deg, ${t.color}14, rgba(255,255,255,.03))` }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 20, color: t.color }}>
@@ -101,7 +127,24 @@ export default function Upgrade({ setPage, user }) {
               </div>
               <ul>{t.perks.map((p) => <li key={p}>{p}</li>)}</ul>
 
-              {q && (q.eligible ? (
+              {crypto.enabled && (
+                <div role="group" aria-label="Payment method" style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                  {[["paystack", "Card / MoMo"], ["crypto", "USDT"]].map(([m, label]) => (
+                    <button key={m} type="button" className="btn btn-ghost" aria-pressed={pay === m}
+                            onClick={() => setMethod((s) => ({ ...s, [t.name]: m }))}
+                            style={{ flex: 1, padding: "9px 10px", fontSize: 13, ...(pay === m ? { borderColor: t.color, color: t.color } : {}) }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {pay === "crypto" && usd > 0 && (
+                <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "0 0 14px", lineHeight: 1.45 }}>
+                  Pay <b>{usd.toFixed(2)} USDT</b> (BEP-20). Same price for everyone, anywhere. Your plan switches on automatically once the network confirms, usually within a few minutes.
+                </p>
+              )}
+
+              {pay === "paystack" && q && (q.eligible ? (
                 <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", padding: "10px 12px", marginBottom: 14, borderRadius: 14, border: "1px solid rgba(251,191,36,.35)", background: "rgba(251,191,36,.07)" }}>
                   <input type="checkbox" checked={!!useX[t.name]} onChange={(e) => setUseX((u) => ({ ...u, [t.name]: e.target.checked }))} style={{ marginTop: 3 }} />
                   <span style={{ fontSize: 13, lineHeight: 1.45 }}>
@@ -122,7 +165,7 @@ export default function Upgrade({ setPage, user }) {
 
               <button className="btn btn-primary" style={{ width: "100%", background: t.color, boxShadow: "none" }}
                       onClick={() => upgrade(t.name)} disabled={loadingTier !== null}>
-                {loadingTier === t.name ? "Redirecting…" : `Upgrade to ${t.name} →`}
+                {loadingTier === t.name ? "Redirecting…" : pay === "crypto" ? `Pay with USDT →` : `Upgrade to ${t.name} →`}
               </button>
             </div>
           );
@@ -142,8 +185,8 @@ export default function Upgrade({ setPage, user }) {
         {couponMsg && <div style={{ marginTop: 10, fontSize: 13, color: couponOk ? "#4ade80" : "#f87171" }}>{couponMsg}</div>}
       </div>
 
-      {note && <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "16px 0 4px" }}>{note}</p>}
-      <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "8px 0" }}>🔒 Payments secured by Paystack</p>
+      {note && TIERS.some((t) => methodFor(t.name) === "paystack") && <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "16px 0 4px" }}>{note}</p>}
+      <p style={{ color: "var(--dim)", fontSize: 12, textAlign: "center", margin: "8px 0" }}>🔒 Card and mobile money secured by Paystack{crypto.enabled ? ". USDT payments processed by NOWPayments." : ""}</p>
     </div>
   );
 }

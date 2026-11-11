@@ -241,6 +241,14 @@ async def nowpayments_webhook(request: Request, x_nowpayments_sig: str = Header(
             logger.error("Website order NOWPayments verify failed: %s", e)
             raise HTTPException(status_code=502, detail="Could not verify the payment right now.")   # NOWPayments retries
         return {"ok": True, **result}
+    if re.match(r"^EVOS-GPT-\d+-[A-F0-9]{8}$", order_id):
+        try:
+            from services.evosgpt import core as gpt   # only loaded for EVOSGPT orders
+            result = await run_in_threadpool(gpt.handle_nowpayments_ipn, payload)
+        except PaymentProviderError as e:
+            logger.error("EVOSGPT NOWPayments verify failed: %s", e)
+            raise HTTPException(status_code=502, detail="Could not verify the payment right now.")   # NOWPayments retries
+        return {"ok": True, **result}
     try:
         if readiness.is_fee_reference(order_id):
             result = await run_in_threadpool(readiness.handle_fee_ipn, payload)

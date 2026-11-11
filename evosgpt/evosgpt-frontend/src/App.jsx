@@ -17,6 +17,12 @@ function capturePaystackReturn() {
   try {
     const p = new URLSearchParams(window.location.search);
     const ref = p.get("reference") || p.get("trxref");
+    if (p.get("upgrade") === "crypto") {
+      // NOWPayments sends no reference back; the order reference was saved in this browser when the invoice was created.
+      p.delete("upgrade");
+      const q = p.toString();
+      window.history.replaceState({}, "", window.location.pathname + (q ? `?${q}` : ""));
+    }
     if (p.get("upgrade") === "success" && ref) {
       sessionStorage.setItem(PENDING_REF_KEY, ref);
       p.delete("upgrade"); p.delete("reference"); p.delete("trxref");
@@ -74,17 +80,27 @@ export default function App() {
     let ref = "";
     try { ref = sessionStorage.getItem(PENDING_REF_KEY) || ""; } catch { /* ignore */ }
     if (!ref) return;
-    verifyUpgrade(ref)
-      .then(({ data }) => {
-        try { sessionStorage.removeItem(PENDING_REF_KEY); } catch { /* ignore */ }
-        if (data?.paid) {
-          const next = { ...user, evosgpt_tier: data.tier };
-          setUser(next);
-          localStorage.setItem("evosgpt_user", JSON.stringify(next));
-          setPage("chat");
-        }
-      })
-      .catch(() => { /* keep the reference; the next load tries again */ });
+    let stopped = false, tries = 0, timer = null;
+    const check = () => {
+      verifyUpgrade(ref)
+        .then(({ data }) => {
+          if (stopped) return;
+          if (data?.paid) {
+            try { sessionStorage.removeItem(PENDING_REF_KEY); } catch { /* ignore */ }
+            const next = { ...user, evosgpt_tier: data.tier };
+            setUser(next);
+            localStorage.setItem("evosgpt_user", JSON.stringify(next));
+            setPage("chat");
+          } else if (data?.pending && ++tries < 60) {
+            timer = setTimeout(check, 10000);   // USDT: the network confirmation can take a few minutes
+          } else {
+            try { sessionStorage.removeItem(PENDING_REF_KEY); } catch { /* ignore */ }
+          }
+        })
+        .catch(() => { /* keep the reference; the next load tries again */ });
+    };
+    check();
+    return () => { stopped = true; clearTimeout(timer); };
   }, [user?.id]);
 
   // The session token lives in its own key so refreshing the user object can never drop it.
