@@ -168,6 +168,14 @@ _NETWORK_ALIASES = {
     "AIRTELTIGO": "AIRTELTIGO", "ATISHARE": "AIRTELTIGO", "ATBIGTIME": "AIRTELTIGO",
 }
 
+# Networks gated by the DataMart wallet even when their first-choice provider is
+# not DataMart (so they show "out of stock" when the wallet can't cover a bundle).
+# Comma-separated env override; AirtelTigo follows the wallet by default.
+def _follow_wallet_networks() -> set:
+    raw = os.getenv("STOCK_FOLLOW_WALLET_NETWORKS", "AIRTELTIGO")
+    return {norm_network(x) for x in raw.split(",") if x.strip()}
+
+
 _route_cache: Dict = {"ts": 0.0, "map": None}
 
 
@@ -257,7 +265,7 @@ def _decide(network, bundle, wallet, prices, routes) -> tuple:
     if routes is None:
         return STATUS_UNKNOWN, "routes_unreadable"
     chain = routes.get(net) or []
-    if chain and chain[0] != "DATAMART":
+    if chain and chain[0] != "DATAMART" and net not in _follow_wallet_networks():
         return STATUS_AVAILABLE, "primary_provider_not_datamart"
     if not gating_active(wallet):
         return STATUS_UNKNOWN, "supplier_unverified"

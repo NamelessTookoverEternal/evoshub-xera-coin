@@ -193,3 +193,20 @@ def test_annotate_agrees_with_guard_and_admin(env):
         assert r["stock_status"] == status(r["network"], r["bundle"])
     out = {(o["network"], o["bundle"]) for o in ds.admin_status()["out_of_stock"]}
     assert out == {("MTN", "60GB"), ("TELECEL", "60GB"), ("AIRTELTIGO", "60GB")}
+
+
+def test_airteltigo_follows_wallet_even_with_other_primary_provider(env):
+    add(env, "AIRTELTIGO", "10GB", 200); wallet(env, 5)
+    env.t["provider_routes"] = [r for r in env.t["provider_routes"] if r["network"] != "AIRTELTIGO"]
+    env.t["provider_routes"].append({"network": "AIRTELTIGO", "provider": "BUNDLES_GHANA", "priority": 1, "active": True})
+    reset()
+    assert status("AIRTELTIGO", "10GB") == "out_of_stock"
+
+
+def test_follow_wallet_networks_env_can_switch_it_off(env, monkeypatch):
+    add(env, "AIRTELTIGO", "10GB", 200); wallet(env, 5)
+    env.t["provider_routes"] = [r for r in env.t["provider_routes"] if r["network"] != "AIRTELTIGO"]
+    env.t["provider_routes"].append({"network": "AIRTELTIGO", "provider": "BUNDLES_GHANA", "priority": 1, "active": True})
+    monkeypatch.setenv("STOCK_FOLLOW_WALLET_NETWORKS", "")
+    reset()
+    assert status("AIRTELTIGO", "10GB") == "available"
