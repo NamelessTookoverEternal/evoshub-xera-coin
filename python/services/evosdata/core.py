@@ -44,6 +44,11 @@ from utils.rate_limit import limiter          # the Hub's single shared limiter
 from services.evosdata.db import get_supabase
 from services.evosdata import datamart_stock
 from services.evosdata import xera_discount
+from utils.product_switches import require_on as _require_on
+
+# New purchases are refused while admins have EVOS Data switched off (with enforcement on).
+# Webhooks, order sync/status/tracking and wallet deposits are deliberately NOT guarded.
+_evosdata_on = _require_on("evosdata")
 
 # =========================
 # LOGGING
@@ -1573,7 +1578,7 @@ def list_checker_products(request: Request):
         return {"status": "error", "data": []}
 
 
-@router.post("/checkers/create")
+@router.post("/checkers/create", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 def create_checker_order(request: Request, data: CreateCheckerOrderRequest):
     try:
@@ -1720,7 +1725,7 @@ def track_checkers(request: Request, phone: str = Query(...)):
         raise HTTPException(status_code=500, detail="Failed to fetch checker orders")
 
 
-@router.post("/agent/buy-checker")
+@router.post("/agent/buy-checker", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 async def agent_buy_checker(request: Request, payload: AgentBuyCheckerRequest):
     try:
@@ -2059,7 +2064,7 @@ def afa_info(request: Request):
     return {"price": AFA_SELL_PRICE, "regions": GHANA_REGIONS, "network": "MTN"}
 
 
-@router.post("/afa/create")
+@router.post("/afa/create", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 def create_afa_registration(request: Request, data: CreateAfaRequest):
     try:
@@ -2187,7 +2192,7 @@ def agent_afa_history(request: Request, agent_id: int, _: int = Depends(require_
     return {"registrations": [_afa_public(r) for r in (res.data or [])]}
 
 
-@router.post("/agent/buy-afa")
+@router.post("/agent/buy-afa", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 async def agent_buy_afa(request: Request, payload: AgentBuyAfaRequest):
     try:
@@ -3514,7 +3519,7 @@ def track_orders(request: Request, phone: str = Query(...)):
         logger.error("TRACK ERROR: %s", str(e))
         raise HTTPException(500, "Failed to fetch orders")
 
-@router.post("/orders/create")
+@router.post("/orders/create", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 def create_order(request: Request, data: CreateOrderRequest):
     hold_ref = None        # set while XERA is held for this order
@@ -5192,7 +5197,7 @@ async def verify_deposit(request: Request, payload: dict):
 # =========================
 # AGENT BUY DATA
 # =========================
-@router.post("/agent/buy-data")
+@router.post("/agent/buy-data", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 async def agent_buy_data(request: Request, payload: AgentBuyDataRequest):
     try:
@@ -5601,7 +5606,7 @@ async def get_store_logo(request: Request, agent_id: int, _: int = Depends(requi
 # =========================
 # STORE ORDER
 # =========================
-@router.post("/store/order")
+@router.post("/store/order", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 async def create_store_order(request: Request, payload: StoreOrderRequest):
     try:
@@ -5684,7 +5689,7 @@ async def create_store_order(request: Request, payload: StoreOrderRequest):
         return {"status": "error", "message": "Failed to create order"}
 
 
-@router.post("/store/order/checker")
+@router.post("/store/order/checker", dependencies=[Depends(_evosdata_on)])
 @limiter.limit("10/minute")
 async def create_store_checker_order(request: Request, payload: CheckerStoreOrderRequest):
     try:

@@ -3,15 +3,16 @@
 // and are fetched only when signed in. Nothing here starts or claims mining — the card opens XERA.
 import './theme.js'
 import './hub-auth.js'
+import './evosdata-gate.js'
 import { initInstallButton } from './pwa.js'
 import { isLoggedIn, getUser } from './evos-session.js'
 import { apiFetch as api } from './hub-api.js'
 import { requireAuthFor } from './guest-access.js'
 import { fetchPublicJson } from './xera-public.js'
-import { resolveEcosystemLink } from './internal-links.js'
+import { resolveEcosystemLink, makeEcosystemDeduper } from './internal-links.js'
 import { fetchUpdates, getSeen, ago as updatesAgo } from './updates-core.js'
 
-initInstallButton(document.getElementById('install-btn'))
+initInstallButton(document.getElementById('install-btn'), { alwaysShow: true, hint: document.getElementById('install-hint') })
 
 const $ = (id) => document.getElementById(id)
 const signedIn = isLoggedIn()
@@ -29,8 +30,10 @@ function wireTiles(root) {
 const grid = $('appGrid')
 wireTiles(grid)
 fetchPublicJson('/api/xera/ecosystem').then((d) => {
-  (d.links || []).forEach((l) => {
+  const isDuplicate = makeEcosystemDeduper(grid, '.ah-app-name')
+  ;(d.links || []).forEach((l) => {
     const dest = resolveEcosystemLink(l.url)
+    if (isDuplicate(l, dest)) return   // already has a built-in tile (e.g. EVOS GPT)
     const a = document.createElement('a')
     a.className = 'ah-app'
     a.href = dest.href
@@ -144,3 +147,40 @@ async function loadUpdatesCard() {
   } catch (e) { row.innerHTML = '<p class="ah-updates-empty">Tap to see the latest updates.</p>' }
 }
 loadUpdatesCard()
+
+// ---- Admin shortcut: only for an active admin agent. This just shows a button; every admin page still needs the admin login. ----
+async function initAdminStrip() {
+  if (!signedIn) return
+  let res
+  try { res = await api('/api/updates/agent-status') } catch (e) { return }
+  if (!res || res.is_agent !== true) return
+  const strip = $('admStrip'), scrim = $('admScrim')
+  strip.hidden = false
+  const open = () => { scrim.hidden = false; document.addEventListener('keydown', onKey); $('admClose').focus() }
+  const close = () => { scrim.hidden = true; document.removeEventListener('keydown', onKey); strip.focus() }
+  const onKey = (e) => { if (e.key === 'Escape') close() }
+  strip.addEventListener('click', open)
+  $('admClose').addEventListener('click', close)
+  scrim.addEventListener('click', (e) => { if (e.target === scrim) close() })
+  scrim.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setTimeout(close, 0)))
+}
+initAdminStrip()
+
+
+// ---- invite button: share a join link (uses your XERA referral link when signed in) ----
+{
+  const btn = $('inviteBtn'), sub = $('inviteSub')
+  const idle = sub.textContent
+  const say = (t) => { sub.textContent = t; setTimeout(() => { sub.textContent = idle }, 2200) }
+  btn.addEventListener('click', async () => {
+    let link = `${location.origin}/`
+    if (signedIn) {
+      try { const r = await api('/api/xera/referral/me'); if (r && r.link) link = r.link } catch (e) { /* share the plain site link */ }
+    }
+    const text = `Join me on Evoxera Technology, a hub for tech fans: blockchain and more. ${link}`
+    try {
+      if (navigator.share) await navigator.share({ title: 'Join Evoxera Technology', text })
+      else { await navigator.clipboard.writeText(text); say('Invite link copied') }
+    } catch (e) { if (e && e.name !== 'AbortError') say('Could not share. Try again.') }
+  })
+}

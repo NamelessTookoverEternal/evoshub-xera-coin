@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="../css/updates.css">
 </head>
 <body class="ah-body">
-  <div class="ah">
+  <div class="ah ah--home">
 
     <header class="ah-top">
       <a class="ah-brand" href="/appevoxera" aria-label="Evoxera Technology">
@@ -28,10 +28,36 @@
         <span>EVOXERA</span>
       </a>
       <div class="ah-actions ehub__actions">
-        <button type="button" class="ah-install" id="install-btn">Install</button>
         <!-- hub-auth.js puts Log in / Sign up or the account menu here -->
       </div>
     </header>
+
+    <!-- Install the app: sits directly under the Log in / profile button. -->
+    <div class="ah-install-row">
+      <button type="button" class="ah-install" id="install-btn" aria-describedby="install-hint">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
+        <span>Install app</span>
+      </button>
+    </div>
+    <p class="ah-install-hint" id="install-hint" role="status" hidden></p>
+
+    <!-- Shown only to active admin agents (appevoxera.js checks /api/updates/agent-status). Opens website tools. -->
+    <button type="button" class="adm" id="admStrip" hidden aria-haspopup="dialog">
+      <span class="adm-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5l-8-3Zm-1.2 14-3.3-3.3 1.4-1.4 1.9 1.9 4.6-4.6 1.4 1.4-6 6Z"/></svg></span>
+      <span class="adm-tx"><b>Evoxera Admin</b><span class="s">Post updates &middot; DashXERA &middot; Admin login</span></span>
+      <span class="adm-chev" aria-hidden="true">&rsaquo;</span>
+    </button>
+    <div class="adm-scrim" id="admScrim" hidden>
+      <div class="adm-sheet" role="dialog" aria-modal="true" aria-labelledby="admTitle">
+        <div class="adm-grab"></div>
+        <h3 id="admTitle">Evoxera Admin</h3>
+        <p class="adm-d">Opens on the website in a new tab.</p>
+        <a class="adm-opt" href="/admin-updates.html" target="_blank" rel="noopener"><span class="adm-oic" style="background:linear-gradient(135deg,#8b6bff,#4c7eff)">&#9998;</span><span><b>Post an update</b><span class="s">Announcements for everyone</span></span><span class="adm-chev">&nearr;</span></a>
+        <a class="adm-opt" href="/evosdata/dashxera" target="_blank" rel="noopener"><span class="adm-oic" style="background:linear-gradient(135deg,#12b886,#1fb6ff)">D</span><span><b>DashXERA</b><span class="s">Agent dashboard</span></span><span class="adm-chev">&nearr;</span></a>
+        <a class="adm-opt" href="/admin-login.html" target="_blank" rel="noopener"><span class="adm-oic" style="background:linear-gradient(135deg,#f59f00,#e8590c)">H</span><span><b>EVOS Hub admin</b><span class="s">Admin login</span></span><span class="adm-chev">&nearr;</span></a>
+        <button type="button" class="adm-close" id="admClose">Close</button>
+      </div>
+    </div>
 
     <main class="ah-main">
 
@@ -64,12 +90,19 @@
       <h2 class="ah-title">Ecosystem</h2>
       <div class="ah-grid" id="appGrid">
         <a class="ah-app" href="/xera"><span class="ah-tile" style="--c:#5b6cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg><img src="/assets/images/xeracoin-round.png" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">XERA</span></a>
-        <a class="ah-app" href="/evosdata"><span class="ah-tile" style="--c:#12b886"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v-3M9.3 18v-6M14.7 18v-9M20 18V4"/></svg><img src="/assets/images/evos-data.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">EVOS Data</span></a>
+        <a class="ah-app" href="/evosdata"><span class="ah-tile" style="--c:#12b886"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v-3M9.3 18v-6M14.7 18v-9M20 18V4"/></svg><img src="/assets/images/evosdata.png" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">EVOS Data</span></a>
         <a class="ah-app" href="/evosgpt"><span class="ah-tile" style="--c:#f59f00"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><circle cx="12" cy="12" r="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg><img src="/assets/images/evosgpt.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">EVOSGPT</span></a>
-        <a class="ah-app" href="/games/evolution-1-lanes/"><span class="ah-tile" style="--c:#e8590c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="5" r="2"/><path d="M5 21l4-7 3 2 2-5 4 3M9 14l-1-4 5-2"/></svg></span><span class="ah-app-name">Evolution 1</span></a>
+        <a class="ah-app" href="/games/evolution-1-lanes/"><span class="ah-tile" style="--c:#e8590c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="5" r="2"/><path d="M5 21l4-7 3 2 2-5 4 3M9 14l-1-4 5-2"/></svg><img src="/assets/images/Evolution_ The Runner 1-Lanes.png" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Evolution 1</span></a>
         <a class="ah-app" href="/website-creation.html"><span class="ah-tile" style="--c:#1c7ed6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12.5h18"/></svg><img src="/assets/images/website-creation.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Website Creation</span></a>
         <a class="ah-app ah-app--soon" href="#" aria-disabled="true" tabindex="-1"><span class="ah-tile" style="--c:#9c36b5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.4 5.5 3.4 9s-1 6.5-3.4 9c-2.4-2.5-3.4-5.5-3.4-9s1-6.5 3.4-9z"/></svg><img src="/assets/images/marketplace.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Marketplace</span></a>
+        <a class="ah-app" href="/evoxera_master_roadmap_frontend.html"><span class="ah-tile" style="--c:#1c7ed6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12.5h18"/></svg><img src="/assets/images/Evoxera Technological Master Roadmap.png" alt="" width="64" height="64" decoding="async"></span><span class="ah-app-name">Roadmap</span></a>
       </div>
+
+      <button type="button" class="ah-invite" id="inviteBtn">
+        <span class="ah-invite-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M19 8v6M16 11h6"/></svg></span>
+        <span class="ah-invite-tx"><b>Invite friends</b><small id="inviteSub">Share Evoxera Technology with someone you know</small></span>
+        <span class="ah-invite-chev" aria-hidden="true">&rsaquo;</span>
+      </button>
 
       <h2 class="ah-title" id="activity">Recent activity</h2>
       <section class="ah-activity" aria-label="Recent activity">
@@ -80,6 +113,7 @@
         <a href="/integrated.html">Integrated</a>
         <a href="/about.html">Company</a>
         <a href="/home">Website</a>
+        <a href="/evoxera_master_roadmap_frontend.html">Roadmap</a>
         <a href="/privacy.html">Privacy</a>
         <a href="/terms.html">Terms</a>
         <a href="/policy.html">Policy</a>
@@ -89,7 +123,8 @@
 
     <nav class="ah-bar" aria-label="Evos Hub">
       <a class="ah-bar-link active" href="/appevoxera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span>Home</span></a>
-      <a class="ah-bar-link" href="/ecosystem.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V14M10 20V10M16 20V6M22 20H2" stroke-linecap="round"/></svg><span>Ecosystem</span></a>
+
+       <a class="ah-bar-link" href="/ecosystem.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V14M10 20V10M16 20V6M22 20H2" stroke-linecap="round"/></svg><span>Ecosystem</span></a>
       <a class="ah-bar-link ah-bar-mid" id="barMid" href="/xera" aria-label="XERA"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="currentColor"/></svg></a>
       <a class="ah-bar-link" href="#activity" id="barActivity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round"/></svg><span>Activity</span></a>
       <a class="ah-bar-link" href="/xera" id="barProfile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" stroke-linecap="round"/></svg><span>Profile</span></a>
@@ -98,5 +133,6 @@
 
   <script type="module" src="../js/appevoxera.js"></script>
 <script src="/hub-back.js" defer></script>
+<script src="/product-switches.js" data-api="%VITE_API_BASE_URL%" defer></script>
 </body>
 </html>

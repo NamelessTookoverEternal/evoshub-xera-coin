@@ -1,162 +1,226 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dx-root">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
-  <title>Agent Inbox — EVOS Business Hub</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../css/global.css">
-  <link rel="stylesheet" href="../css/layout.css">
-  <link rel="stylesheet" href="../css/components.css">
-  <link rel="stylesheet" href="../css/animations.css">
-  <style>
-    .form-input, .form-select { width:100%; background:var(--bg2); border:1px solid var(--border2); border-radius:9px; padding:9px 12px; font-family:var(--font-body); font-size:13.5px; color:var(--text); outline:none; }
-    .inbox-shell { display:grid; grid-template-columns:320px 1fr; gap:20px; height:calc(100vh - 180px); min-height:480px; }
-    .thread-list { overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); }
-    .thread-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; }
-    .thread-item:hover { background:var(--bg2); }
-    .thread-item.active { background:var(--blue-dim); border-left:3px solid var(--blue); }
-    .thread-item h4 { font-size:14px; margin-bottom:3px; }
-    .thread-item p { font-size:12px; color:var(--text2); }
-    .chat-shell { display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--surface); overflow:hidden; }
-    .chat-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:12px; }
-    .chat-log { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px; background:var(--bg2); }
-    .chat-input-row { display:flex; gap:8px; padding:14px; border-top:1px solid var(--border); }
-    .empty-state { display:flex; align-items:center; justify-content:center; height:100%; color:var(--text3); font-size:14px; }
-
-    @media (max-width: 900px) {
-      .inbox-shell { grid-template-columns: 1fr; height:auto; }
-      .thread-list { max-height:260px; }
-      .chat-shell { height:70vh; min-height:420px; }
-    }
-    @media (max-width: 480px) {
-      .chat-input-row { flex-wrap:wrap; }
-      .chat-input-row #status-select { max-width:none !important; flex:1 1 100%; order:1; }
-      .chat-input-row #admin-chat-input { flex:1 1 auto; order:2; }
-      .chat-input-row #admin-chat-send { order:3; }
-    }
-
-    /* ---- Admin tabs ---- */
-    .admin-tabs { display:flex; gap:8px; margin-bottom:20px; border-bottom:1px solid var(--border); }
-    .admin-tab { background:none; border:0; padding:10px 4px; margin-right:16px; font-size:14px; font-weight:600; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; }
-    .admin-tab.active { color:var(--text); border-bottom-color:var(--blue); }
-
-    /* ---- Token dashboard ---- */
-    .td-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:28px; }
-    .td-stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius,12px); padding:14px 16px; }
-    .td-stat span { display:block; font-size:12px; color:var(--text3); margin-bottom:4px; }
-    .td-stat b { font-size:19px; font-family:var(--font-mono); }
-    .td-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg,20px); padding:20px; margin-bottom:24px; }
-    .td-section h3 { font-size:16px; margin:0 0 14px; }
-    .td-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
-    .td-toggle-row:last-child { border-bottom:0; }
-    .td-toggle-row label { font-size:13.5px; color:var(--text2); }
-    .ecosystem-form { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end; margin-bottom:18px; }
-    .ecosystem-form .field { display:flex; flex-direction:column; gap:4px; }
-    .ecosystem-form .field label { font-size:11.5px; color:var(--text3); }
-    .ecosystem-table { width:100%; border-collapse:collapse; font-size:13px; }
-    .ecosystem-table th { text-align:left; font-size:11.5px; color:var(--text3); padding:6px 8px; border-bottom:1px solid var(--border); }
-    .ecosystem-table td { padding:8px; border-bottom:1px solid var(--border); vertical-align:middle; }
-    .ecosystem-table img { width:32px; height:32px; border-radius:8px; object-fit:cover; background:var(--bg2); }
-    .ecosystem-table .actions { display:flex; gap:6px; }
-    .ecosystem-table .actions button { font-size:12px; padding:5px 10px; }
-    .td-msg { font-size:13px; margin-top:8px; min-height:16px; }
-    .td-msg.error { color:#ff6b6b; }
-    .td-msg.ok { color:#2ce6a6; }
-    @media (max-width: 760px) {
-      .ecosystem-form { grid-template-columns:1fr; }
-    }
-  </style>
+  <meta name="theme-color" content="#0a0814">
+  <meta name="color-scheme" content="dark">
+  <title>Admin console — EVOXERA</title>
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/icons/favicon-48.png">
+  <link rel="stylesheet" href="../css/admin-console.css">
 </head>
 <body>
-  <nav>
-    <a class="nav-logo" href="/"><img class="nav-logo__img nav-logo__img--mark" src="/assets/images/evoxera-mark.png" alt="Evoxera Technology" width="34" height="34" decoding="async"><span class="nav-logo__text">EVOXERA</span></a>
-    <span id="admin-whoami" style="font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
-    <button class="btn btn--ghost" id="admin-signout" style="padding:8px 14px;font-size:13px;flex-shrink:0;">Sign out</button>
-  </nav>
+<div class="dx">
 
-  <main class="section" style="padding-top:120px; max-width:1200px;">
-    <span class="section-label">Agent Console</span>
-    <h1 class="section-title" style="font-size:28px;margin-bottom:14px;">EvosHub admin</h1>
+  <!-- ===================== sign-in (same account as /admin-login) ===================== -->
+  <div class="dx-gate" id="dx-gate" hidden>
+    <form class="dx-gate-card" id="dx-login" novalidate>
+      <div class="dx-mark">EX</div>
+      <h1>Admin console</h1>
+      <p>Everything for EVOXERA in one place. Sign in with your admin account, the same username and password used across the Evoxera ecosystem.</p>
+      <input class="dx-input" id="dx-id" autocomplete="username" placeholder="Username or email">
+      <input class="dx-input" id="dx-pw" type="password" autocomplete="current-password" placeholder="Password">
+      <button class="dx-btn" id="dx-login-btn" type="submit">Sign in</button>
+      <div class="dx-error" id="dx-login-err" role="alert"></div>
+      <p class="foot">Access is limited to active admin agents. Ask an existing admin to add you if your account isn't recognised.</p>
+    </form>
+  </div>
 
-    <div class="admin-tabs">
-      <button class="admin-tab active" id="tab-requests" type="button">Website requests</button>
-      <button class="admin-tab" id="tab-token" type="button">Token dashboard</button>
-      <a class="admin-tab" id="tab-xera-wallet" href="/admin-xera-wallet.html" style="text-decoration:none">XERA wallet (pilot)</a>
-      <a class="admin-tab" id="tab-xera-kyc" href="/admin-xera-kyc.html" style="text-decoration:none">XERA KYC review</a>
-      <a class="admin-tab" id="tab-updates" href="/admin-updates.html" style="text-decoration:none">App updates</a>
-    </div>
+  <!-- ===================== the console ===================== -->
+  <div class="dx-shell" id="dx-app" hidden>
+    <div class="dx-scrim" id="dx-scrim" hidden></div>
+    <aside class="dx-side" id="dx-side">
+      <div class="dx-side-top">
+        <span class="dx-mark sm">EX</span>
+        <div><div class="dx-brand">Admin console</div><div class="dx-brand-sub">EVOXERA TECHNOLOGY</div></div>
+      </div>
+      <nav class="dx-nav" id="dx-nav" aria-label="Admin sections"></nav>
+      <div class="dx-who" id="dx-who"></div>
+      <button class="dx-btn ghost dx-signout" id="dx-signout" type="button">Sign out</button>
+    </aside>
 
-    <div id="panel-requests">
-      <div class="inbox-shell">
-        <div class="thread-list" id="thread-list">
-          <div class="empty-state">Loading…</div>
-        </div>
-
-        <div class="chat-shell">
-          <div class="chat-header" id="chat-header">
-            <span style="color:var(--text3);font-size:13px;">Select a request to open the chat</span>
-          </div>
-          <div class="chat-log" id="admin-chat-log"></div>
-          <div class="chat-input-row">
-            <select id="status-select" class="form-select" style="max-width:150px;" disabled>
-              <option value="new">New</option>
-              <option value="in_review">In review</option>
-              <option value="in_chat">In chat</option>
-              <option value="quoted">Quoted</option>
-              <option value="closed">Closed</option>
-            </select>
-            <input id="admin-chat-input" type="text" class="form-input" placeholder="Type a reply…" maxlength="2000" disabled>
-            <button class="btn btn--primary" id="admin-chat-send" disabled>Send</button>
+    <main class="dx-main">
+      <header class="dx-head">
+        <div class="dx-head-left">
+          <button class="dx-toggle" id="dx-toggle" type="button" aria-label="Open menu">☰</button>
+          <div>
+            <h1 class="dx-title" id="dx-title">Overview</h1>
+            <p class="dx-sub" id="dx-sub"></p>
           </div>
         </div>
-      </div>
-    </div>
+        <button class="dx-btn ghost sm" id="dx-refresh" type="button">Refresh</button>
+      </header>
+      <div class="dx-bar-err" id="dx-err" hidden></div>
 
-    <div id="panel-token" hidden>
-      <div class="td-stats-grid" id="td-stats">
-        <div class="td-stat"><span>Total wallets</span><b id="td-total-users">—</b></div>
-        <div class="td-stat"><span>Active miners</span><b id="td-active-miners">—</b></div>
-        <div class="td-stat"><span>Mining distributed</span><b id="td-mining-distributed">—</b></div>
-        <div class="td-stat"><span>Mining remaining</span><b id="td-mining-remaining">—</b></div>
-      </div>
+      <!-- Overview -->
+      <section id="sec-overview" hidden>
+        <div class="dx-attn" id="ov-attn" style="margin-bottom:14px"></div>
+        <div class="dx-kpis" id="ov-kpis"></div>
+      </section>
 
-      <div class="td-section">
-        <h3>Daily claim</h3>
-        <div class="td-toggle-row">
-          <label for="dc-enabled">Daily claim enabled</label>
-          <input type="checkbox" id="dc-enabled">
+      <!-- Website requests -->
+      <section id="sec-requests" hidden>
+        <div class="dx-inbox">
+          <div class="dx-card dx-threads" id="thread-list"><div class="dx-empty">Loading…</div></div>
+          <div class="dx-card dx-chat">
+            <div class="dx-chat-head" id="chat-head"><span class="dx-dim">Select a request to open the chat</span></div>
+            <div class="dx-chat-log" id="chat-log"></div>
+            <div class="dx-chat-send">
+              <select id="status-select" class="dx-select" disabled>
+                <option value="new">New</option><option value="in_review">In review</option><option value="in_chat">In chat</option>
+                <option value="quoted">Quoted</option><option value="closed">Closed</option>
+              </select>
+              <input id="chat-input" class="dx-input" type="text" placeholder="Type a reply…" maxlength="2000" disabled>
+              <button class="dx-btn" id="chat-send" type="button" disabled>Send</button>
+            </div>
+          </div>
         </div>
-        <div class="td-toggle-row">
-          <label for="dc-amount">Reward amount (XERA)</label>
-          <input type="number" id="dc-amount" class="form-input" style="max-width:140px;" min="0.0001" step="0.0001">
-        </div>
-        <button class="btn btn--primary" id="dc-save" style="margin-top:14px;">Save daily claim settings</button>
-        <p class="td-msg" id="dc-msg"></p>
-      </div>
+      </section>
 
-      <div class="td-section">
-        <h3>Ecosystem links</h3>
-        <p style="font-size:13px;color:var(--text2);margin:-6px 0 16px;">
-          Shown to users under the Ecosystem tab in the XERA app. Add the site name, its URL, and a logo image URL.
-        </p>
-        <div class="ecosystem-form">
-          <div class="field"><label for="eco-name">Name</label><input id="eco-name" class="form-input" placeholder="EVOSGPT" maxlength="120"></div>
-          <div class="field"><label for="eco-url">Website URL</label><input id="eco-url" class="form-input" placeholder="https://evosgpt.xyz"></div>
-          <div class="field"><label for="eco-image">Logo image URL</label><input id="eco-image" class="form-input" placeholder="https://…/logo.png"></div>
-          <button class="btn btn--primary" id="eco-add">Add link</button>
+      <!-- Token dashboard -->
+      <section id="sec-token" hidden>
+        <div class="dx-stack">
+          <div class="dx-kpis">
+            <div class="dx-card dx-kpi"><div class="l">Total wallets</div><div class="v" id="td-total-users">—</div></div>
+            <div class="dx-card dx-kpi"><div class="l">Active miners</div><div class="v" id="td-active-miners">—</div></div>
+            <div class="dx-card dx-kpi"><div class="l">Mining distributed</div><div class="v" id="td-mining-distributed" style="font-size:22px">—</div></div>
+            <div class="dx-card dx-kpi"><div class="l">Mining remaining</div><div class="v" id="td-mining-remaining" style="font-size:22px">—</div></div>
+          </div>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Daily claim</h2></div>
+            <div class="dx-row"><label for="dc-enabled">Daily claim enabled</label><input type="checkbox" id="dc-enabled"></div>
+            <div class="dx-row"><label for="dc-amount">Reward amount (XERA)</label><input type="number" id="dc-amount" class="dx-input" style="max-width:140px" min="0.0001" step="0.0001"></div>
+            <button class="dx-btn sm" id="dc-save" type="button" style="margin-top:14px">Save daily claim settings</button>
+            <p class="dx-msg" id="dc-msg"></p>
+          </div>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Ecosystem links</h2>
+              <span class="dx-note">Shown to users under the Ecosystem tab in the XERA app.</span></div>
+            <div class="dx-eco-form">
+              <div class="f"><label for="eco-name">Name</label><input id="eco-name" class="dx-input" placeholder="EVOSGPT" maxlength="120"></div>
+              <div class="f"><label for="eco-url">Website URL</label><input id="eco-url" class="dx-input" placeholder="https://evosgpt.xyz"></div>
+              <div class="f"><label for="eco-image">Logo image URL</label><input id="eco-image" class="dx-input" placeholder="https://…/logo.png"></div>
+              <button class="dx-btn sm" id="eco-add" type="button">Add link</button>
+            </div>
+            <p class="dx-msg" id="eco-msg" style="margin-top:0"></p>
+            <div class="dx-table-wrap"><table class="dx-table">
+              <thead><tr><th></th><th>Name</th><th>URL</th><th>Active</th><th></th></tr></thead>
+              <tbody id="eco-rows"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+            </table></div>
+          </div>
         </div>
-        <p class="td-msg" id="eco-msg"></p>
-        <table class="ecosystem-table">
-          <thead><tr><th></th><th>Name</th><th>URL</th><th>Active</th><th></th></tr></thead>
-          <tbody id="eco-rows"><tr><td colspan="5" style="color:var(--text3);">Loading…</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </main>
+      </section>
 
-  <script type="module" src="../js/admin-website-chat.js"></script>
-<script src="/hub-back.js" defer></script>
+      <!-- XERA wallet (pilot): the shared wallet module drives these ids -->
+      <section id="sec-wallet" class="dxs" hidden>
+        <div class="dx-stack" style="max-width:640px">
+          <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
+            Admin test of wallet linking and on-chain claiming. It mirrors the user page and uses your own account: link your own BNB / TON wallet,
+            then move a small amount on-chain. A real claim <b>debits your in-app XERA balance</b>. Users are not affected and stay locked out
+            until on-chain claiming is opened for them.
+          </p>
+          <div class="dx-card dx-panel" id="pilotStatus" hidden style="font-size:13px;line-height:1.5">
+            <div style="margin-bottom:6px"><span class="pilot-badge pilot-off" id="pilotBadge">PILOT</span></div>
+            <div id="pilotFlag"></div>
+            <div class="pilot-chains" id="pilotChains" style="margin-top:8px"></div>
+          </div>
+          <p class="banner-error" id="pilotError"></p>
+          <button type="button" data-goto="chain" id="openChain" hidden></button>
+
+          <section class="tab-panel active" data-panel="chain">
+            <div class="section-title">Wallets</div>
+            <div id="chainNetworkBanner" class="chain-network" hidden></div>
+            <div id="chainWalletCardBNB" class="chain-wallet-card" data-chain="BNB"></div>
+            <div id="chainWalletCardTON" class="chain-wallet-card" data-chain="TON"></div>
+            <p class="chain-safety-note">Only ever enter your <b>public wallet address</b>. Never share a seed phrase, recovery phrase, private key or wallet password.</p>
+            <p class="banner-info" id="chainWalletNotice" hidden></p>
+            <p class="banner-error" id="chainWalletError"></p>
+
+            <div class="section-title" style="margin-top:18px">Move XERA to your wallet</div>
+            <div class="chain-claim-selector">
+              <label for="chainSelect">Send to</label>
+              <select id="chainSelect"><option value="BNB">BNB Smart Chain</option><option value="TON">TON</option></select>
+            </div>
+            <div class="chain-claim-card">
+              <div class="chain-claim-available"><span>Available to move</span><b id="chainClaimableAmount">—</b></div>
+              <label class="chain-manual-label" for="chainClaimAmount">How much do you want to move?</label>
+              <div class="chain-claim-amount-row">
+                <input id="chainClaimAmount" class="chain-claim-input" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off"
+                       autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="0.00" aria-describedby="chainClaimMsg chainClaimSplit">
+                <button type="button" class="btn btn-sm btn-ghost chain-claim-max" id="chainClaimMax">Max</button>
+              </div>
+              <p class="chain-claim-msg" id="chainClaimMsg" role="status" aria-live="polite"></p>
+              <div class="chain-claim-split" id="chainClaimSplit" aria-live="polite"></div>
+              <button type="button" class="btn chain-claim-submit" id="chainClaimSubmit" disabled>Move to wallet</button>
+              <p class="chain-manual-hint"><b>25%</b> arrives in the wallet right away; the other <b>75%</b> is locked in vesting. The amount is taken off your in-app balance and sent by the server (no wallet app needed). You need some XERA first: mine or claim daily on /xera with this account.</p>
+            </div>
+
+            <div class="section-title" style="margin-top:18px">Your on-chain claims</div>
+            <div id="chainClaimableList" class="chain-claimable-list"></div>
+            <p class="banner-error" id="chainClaimError"></p>
+
+            <div class="section-title" style="margin-top:18px">Vesting status</div>
+            <div class="wp-stat-grid">
+              <div class="wp-stat"><span>Transferable so far</span><b id="chainReleasable">—</b></div>
+              <div class="wp-stat"><span>Still locked</span><b id="chainLocked">—</b></div>
+            </div>
+
+            <div class="section-title" style="margin-top:18px">Recent on-chain settlements</div>
+            <div id="chainClaimHistory"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- XERA KYC review -->
+      <section id="sec-kyc" hidden>
+        <div class="dx-stack" style="max-width:760px">
+          <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
+            Review identity details users submitted before their first on-chain transfer. Only you (an active admin agent) can mark someone <b>Verified</b>;
+            users cannot set it themselves. Never ask users to post ID photos in the app. If you need more, choose <b>More info</b> and write what the user
+            should send through your support channel. Every decision is logged with your admin id.
+          </p>
+          <div class="dx-filters" id="kycTabs" role="group" aria-label="Filter by status"></div>
+          <p class="banner-error" id="kycError" role="alert"></p>
+          <div id="kycList" class="dx-stack"></div>
+        </div>
+      </section>
+
+      <!-- Product switches -->
+      <section id="sec-products" hidden>
+        <div class="dx-stack" style="max-width:760px">
+          <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
+            Switch a product off to grey its tile everywhere in the app. With <b>Block new activity</b> on, the server also refuses new EVOS Data orders
+            and new EVOSGPT chats; payments already in progress, Paystack and provider webhooks, and order tracking keep working. Visitors see changes within about a minute.
+            Every change is logged with your admin id.
+          </p>
+          <p class="banner-error" id="ps-error" role="alert"></p>
+          <div id="ps-list" class="dx-stack"><p class="dx-dim">Loading…</p></div>
+        </div>
+      </section>
+
+      <!-- App updates -->
+      <section id="sec-updates" class="dxs" hidden>
+        <div style="max-width:620px">
+          <h2 class="dx-panel-title" style="margin-bottom:10px">Published</h2>
+          <div id="au-list" aria-live="polite"><p class="up-state">Loading…</p></div>
+          <button type="button" class="up-btn up-more" id="au-more" hidden>Load older updates</button>
+          <form class="ad-bar" id="au-form" novalidate>
+            <div class="ad-prevs" id="au-previews"></div>
+            <div class="ad-row">
+              <input type="file" id="au-files" accept="image/jpeg,image/png,image/webp" multiple hidden>
+              <button type="button" class="ad-attach" id="au-add" aria-label="Add images"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/></svg></button>
+              <textarea class="ad-in" id="au-body" rows="1" maxlength="4000" placeholder="Write an update for everyone…" aria-label="Update text"></textarea>
+              <button type="submit" class="ad-send" id="au-send">Post</button>
+            </div>
+            <div class="ad-meta"><span id="au-count">0 of 4 images</span><span id="au-chars">0 / 4000</span></div>
+            <p class="ad-msg" id="au-msg" role="status"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<script type="module" src="../js/admin-console.js"></script>
 </body>
 </html>

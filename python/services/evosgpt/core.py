@@ -9,7 +9,7 @@ Migrated from the standalone evosgpt-rebirth backend. Same endpoints, same table
   * the Hub's shared Supabase service client (no second SUPABASE_KEY),
   * visitor currency (default GHS, follows the visitor's country) in services/evosgpt/currency.py.
 """
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Header
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -41,6 +41,11 @@ from services.evosgpt import knowledge as _kb
 from services.evosgpt import native as _native
 from services.evosdata import xera_discount
 from utils.rate_limit import limiter
+from utils.product_switches import require_on as _require_on
+
+# New chats / generations are refused while admins have EVOSGPT switched off (with enforcement on).
+# Login, usage, Paystack upgrades and webhooks are deliberately NOT guarded.
+_evosgpt_on = _require_on("evosgpt")
 from xera.user_auth import XeraTokenInvalid, make_user_token, verify_user_token
 
 logger = logging.getLogger(__name__)
@@ -839,7 +844,7 @@ def learn_after_chat(user_id: int, message: str, reply: str, route: str, mem_lim
         logger.warning("EVOSGPT: post-chat learning failed: %s", e)
 
 
-@router.post("/chat")
+@router.post("/chat", dependencies=[Depends(_evosgpt_on)])
 def chat(data: ChatRequest, request: Request, background_tasks: BackgroundTasks):
     """
     Routing: 1 auth -> 2 history+memory from Supabase -> 3/4/5 native engine, own-history recall, reviewed
@@ -946,7 +951,7 @@ def chat(data: ChatRequest, request: Request, background_tasks: BackgroundTasks)
         raise HTTPException(500, "Chat failed")
 
 
-@router.post("/image/generate")
+@router.post("/image/generate", dependencies=[Depends(_evosgpt_on)])
 def image_generate(data: ImageGenRequest, request: Request):
     try:
         require_user(request, data.user_id)
@@ -1002,7 +1007,7 @@ def image_generate(data: ImageGenRequest, request: Request):
         raise HTTPException(500, "Image generation failed")
 
 
-@router.post("/image/edit")
+@router.post("/image/edit", dependencies=[Depends(_evosgpt_on)])
 def image_edit(data: ImageEditRequest, request: Request):
     try:
         require_user(request, data.user_id)
@@ -1078,7 +1083,7 @@ def image_edit(data: ImageEditRequest, request: Request):
         raise HTTPException(500, "Image edit failed")
 
 
-@router.post("/document/generate")
+@router.post("/document/generate", dependencies=[Depends(_evosgpt_on)])
 def document_generate(data: DocumentGenRequest, request: Request):
     try:
         require_user(request, data.user_id)

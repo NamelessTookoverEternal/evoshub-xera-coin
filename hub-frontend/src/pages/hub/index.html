@@ -19,132 +19,50 @@
   <div style="flex:1;min-width:0;display:flex;flex-direction:column">
     <header class="hub-topbar" id="hubTopbar"></header>
 
-    <main class="hub-main">
+    <main class="hub-main hub-home">
 
-      <!-- ══ HERO — "you've entered the ecosystem", not an admin dashboard ══ -->
-      <section class="hub-hero">
-        <svg class="hub-hero-orbit" viewBox="0 0 320 320" aria-hidden="true">
-          <g class="spin"><circle class="ring" cx="160" cy="160" r="120"/></g>
-          <g class="spin rev"><circle class="ring" cx="160" cy="160" r="82"/></g>
-          <circle class="node pulse" cx="280" cy="160" r="3"/>
-          <circle class="node pulse d2" cx="160" cy="78" r="3"/>
-          <circle class="node pulse d3" cx="98" cy="230" r="3"/>
-        </svg>
-        <div class="hub-hero-content">
-          <p class="hub-hero-eyebrow"><span class="dot"></span>Welcome back, <span id="welcomeName">there</span></p>
-          <h1 class="hub-hero-title">EVOS <span class="grad">HUB</span></h1>
-          <p class="hub-hero-sub">Your gateway to the EVOXERA ecosystem — everything you're building, mining and using in one place.</p>
+      <!-- Greeting -->
+      <section class="hh-greet" aria-label="Greeting">
+        <p class="hh-greet-eyebrow">Welcome back</p>
+        <h1 class="hh-greet-name">Hi, <span id="welcomeName">there</span> <span class="hh-wave" aria-hidden="true">&#128075;</span></h1>
+      </section>
+
+      <!-- One XERA status card. Balance and mining state are fetched, never invented. Tapping opens XERA. -->
+      <a class="hh-xera" id="xeraStatusCard" href="/xera" data-state="loading" aria-label="Open XERA">
+        <img class="hh-xera-coin" src="/assets/images/xeracoin-round.png" alt="" width="64" height="64" onerror="this.style.visibility='hidden'"/>
+        <div class="hh-xera-body">
+          <p class="hh-xera-label">XERA balance</p>
+          <p class="hh-xera-balance"><b id="xeraCardBalance">&mdash;</b> <small>XERA</small></p>
+          <span class="hh-xera-pill" id="xeraCardPill">Checking&hellip;</span>
+        </div>
+        <span class="hh-xera-chev" aria-hidden="true">&rsaquo;</span>
+      </a>
+
+      <!-- Phone-style icon grid: same icons as the Ecosystem page -->
+      <h2 class="hub-section-title">Ecosystem</h2>
+      <div class="hh-grid" id="hubAppGrid">
+        <a class="hh-app" href="/xera"><span class="hh-tile" style="--c:#5b6cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg><img src="/assets/images/xeracoin-round.png" alt="" width="64" height="64" decoding="async"></span><span class="hh-app-name">XERA</span></a>
+        <a class="hh-app" href="/evosdata"><span class="hh-tile" style="--c:#12b886"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18v-3M9.3 18v-6M14.7 18v-9M20 18V4"/></svg><img src="/assets/images/evos-data.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="hh-app-name">EVOS Data</span></a>
+        <a class="hh-app" href="/evosgpt"><span class="hh-tile" style="--c:#f59f00"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="2"/><circle cx="12" cy="12" r="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg><img src="/assets/images/evosgpt.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="hh-app-name">EVOSGPT</span></a>
+        <a class="hh-app" href="/games/evolution-1-lanes/"><span class="hh-tile" style="--c:#e8590c"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="5" r="2"/><path d="M5 21l4-7 3 2 2-5 4 3M9 14l-1-4 5-2"/></svg></span><span class="hh-app-name">Evolution 1</span></a>
+        <a class="hh-app" href="/website-creation.html"><span class="hh-tile" style="--c:#1c7ed6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12.5h18"/></svg><img src="/assets/images/website-creation.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="hh-app-name">Website Creation</span></a>
+        <a class="hh-app hh-app--soon" href="#" aria-disabled="true" tabindex="-1"><span class="hh-tile" style="--c:#9c36b5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.5 3.4 5.5 3.4 9s-1 6.5-3.4 9c-2.4-2.5-3.4-5.5-3.4-9s1-6.5 3.4-9z"/></svg><img src="/assets/images/marketplace.jpeg" alt="" width="64" height="64" decoding="async"></span><span class="hh-app-name">Marketplace</span></a>
+        <!-- admin-curated extras are appended here by hub-dashboard.js -->
+      </div>
+
+      <!-- Last 3 items only -->
+      <h2 class="hub-section-title" id="activityTitle">Recent activity</h2>
+      <section class="hub-panel hh-activity" id="activity" aria-label="Recent activity">
+        <div id="activityList">
+          <div class="hub-activity-row" style="border-bottom:0"><div class="hub-skel" style="width:100%;height:44px"></div></div>
         </div>
       </section>
 
-      <h2 class="hub-section-title">Quick access</h2>
-      <div class="hub-quick-grid">
-        <a class="hub-quick-tile" href="/xera/tokenomics.html">
-          <span class="hub-quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8.5 12h7M12 8.5v7" stroke-linecap="round"/></svg></span>
-          <div><p class="hub-quick-title">XERA Tokenomics</p><p class="hub-quick-desc">Learn about XERA</p></div>
-        </a>
-        <a class="hub-quick-tile" href="/xera">
-          <span class="hub-quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke-linejoin="round"/></svg></span>
-          <div><p class="hub-quick-title">Start mining</p><p class="hub-quick-desc">Join the ecosystem</p></div>
-        </a>
-        <a class="hub-quick-tile" href="/contact.html">
-          <span class="hub-quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 8.6 8.6 0 0 1-3.4-.7L3 21l1.8-5.7A8.4 8.4 0 1 1 21 11.5Z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          <div><p class="hub-quick-title">Help &amp; support</p><p class="hub-quick-desc">Get assistance</p></div>
-        </a>
-        <a class="hub-quick-tile" href="https://wa.me/233537314125" target="_blank" rel="noopener">
-          <span class="hub-quick-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V14M10 20V10M16 20V6M22 20H2" stroke-linecap="round"/></svg></span>
-          <div><p class="hub-quick-title">WhatsApp us</p><p class="hub-quick-desc">Talk to the team</p></div>
-        </a>
-      </div>
-
-      <h2 class="hub-section-title">Ecosystem</h2>
-      <div class="hub-eco-grid" id="data">
-
-        <!-- XERA — live, native product; balance is fetched, never fabricated -->
-        <a class="hub-product-card hub-product-card--live" href="/xera">
-          <p class="hub-product-kicker">Digital ecosystem token</p>
-          <span class="hub-product-icon">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-          </span>
-          <div>
-            <p class="hub-product-name">XERA</p>
-            <p class="hub-product-desc">Mine, earn and grow your XERA.</p>
-          </div>
-          <div class="hub-product-foot">
-            <span class="hub-status-pill is-live"><span class="dot"></span><span class="hub-skel" id="xeraCardBalance" style="width:64px;height:11px;display:inline-block"></span></span>
-            <span class="hub-product-open">Open →</span>
-          </div>
-        </a>
-
-        <!-- EVOSGPT — live, runs inside the Hub at /evosgpt -->
-        <a class="hub-product-card hub-product-card--live" href="/evosgpt">
-          <p class="hub-product-kicker">Ecosystem product</p>
-          <span class="hub-product-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a5 5 0 0 0-5 5v3l-2 4h14l-2-4V8a5 5 0 0 0-5-5Z"/><path d="M9 19a3 3 0 0 0 6 0"/></svg>
-          </span>
-          <div>
-            <p class="hub-product-name">EVOSGPT</p>
-            <p class="hub-product-desc">Your evolving AI experience.</p>
-          </div>
-          <div class="hub-product-foot">
-            <span class="hub-status-pill is-live"><span class="dot"></span>Live</span>
-            <span class="hub-product-open">Open →</span>
-          </div>
-        </a>
-
-        <!-- Everything else in the ecosystem — admin-curated, real, not
-             hardcoded here. Populated by hub-dashboard.js. -->
-        <div id="ecoLinksSlot" style="display:contents"></div>
-      </div>
-
-      <!-- ══ ECOSYSTEM MAP — the brand hierarchy, made visible ══ -->
-      <h2 class="hub-section-title">The EVOS ecosystem</h2>
-      <div class="hub-eco-map">
-        <div class="eco-chain">
-          <div class="eco-chain-link"><span class="name">EVOXERA TECHNOLOGY</span><span class="role">Creating evolution for the future</span></div>
-          <div class="eco-chain-link"><span class="name">EVOS</span><span class="role">Mother platform</span></div>
-          <div class="eco-chain-link"><span class="name">EVOS Business Hub</span><span class="role">Central business platform</span></div>
-          <div class="eco-chain-link is-here"><span class="name">EVOS Hub</span><span class="role">You are here</span></div>
-        </div>
-        <div class="eco-tiers">
-          <div class="eco-tier">
-            <p class="eco-tier-label">Ecosystem</p>
-            <p class="eco-tier-title">Owned by EVOXERA TECHNOLOGY</p>
-            <div class="eco-tier-chips">
-              <span class="eco-chip"><span class="dot"></span>XERA</span>
-              <span class="eco-chip"><span class="dot"></span>EVOS Data</span>
-              <span class="eco-chip"><span class="dot"></span>EVOSGPT</span>
-            </div>
-            <p class="eco-tier-note"><a href="/ecosystem.html">See the full ecosystem →</a></p>
-          </div>
-          <div class="eco-tier">
-            <p class="eco-tier-label">Integrated</p>
-            <p class="eco-tier-title">Connected third-party products</p>
-            <p class="eco-tier-note">Partner products and external services keep their own ownership and responsibilities. <a href="/integrated.html">Learn how integration works →</a></p>
-          </div>
-        </div>
-      </div>
-
-      <h2 class="hub-section-title">Activity</h2>
-      <div class="hub-columns">
-        <section class="hub-panel" id="activity" aria-label="Recent activity">
-          <div id="activityList">
-            <div class="hub-activity-row" style="border-bottom:0"><div class="hub-skel" style="width:100%;height:44px"></div></div>
-            <div class="hub-activity-row" style="border-bottom:0"><div class="hub-skel" style="width:100%;height:44px"></div></div>
-          </div>
-        </section>
-
-        <aside class="hub-panel" aria-label="Ecosystem announcements">
-          <div class="hub-announce-item">
-            <p class="hub-announce-title">EVOS HUB has a new look</p>
-            <p class="hub-announce-body">A unified dashboard for everything EVOXERA TECHNOLOGY is building — starting with XERA, more products soon.</p>
-          </div>
-          <div class="hub-announce-item">
-            <p class="hub-announce-title">EVOSGPT — live now</p>
-            <p class="hub-announce-body">Your AI assistant is now inside the Hub. Sign in once and it just works.</p>
-          </div>
-        </aside>
-      </div>
+      <!-- One support shortcut -->
+      <a class="hh-support" href="https://wa.me/233537314125" target="_blank" rel="noopener">
+        <span class="hh-support-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4 8.6 8.6 0 0 1-3.4-.7L3 21l1.8-5.7A8.4 8.4 0 1 1 21 11.5Z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span>Need help? Chat with us on WhatsApp</span>
+      </a>
     </main>
   </div>
 
@@ -153,5 +71,6 @@
 
 <script type="module" src="../../js/hub-dashboard.js"></script>
 <script src="/hub-back.js" defer></script>
+<script src="/product-switches.js" data-api="%VITE_API_BASE_URL%" defer></script>
 </body>
 </html>
