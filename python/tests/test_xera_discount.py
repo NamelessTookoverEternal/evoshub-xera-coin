@@ -211,6 +211,50 @@ def test_release_never_raises():
     xd.release(Boom(), "EVD-1")
 
 
+# ---------------------------------------------------------------- reconcile sweep
+class SweepQ:
+    def __init__(self, rows): self.rows, self.f = rows, []
+    def select(self, *_a, **_k): return self
+    def in_(self, k, vals): self.f.append(lambda r: r.get(k) in vals); return self
+    def gte(self, *_a): return self
+    def eq(self, k, v): self.f.append(lambda r: r.get(k) == v); return self
+    def limit(self, _n): return self
+    def execute(self): return Res([r for r in self.rows if all(f(r) for f in self.f)])
+
+
+class SweepDB:
+    def __init__(self, holds, orders):
+        self.holds, self.orders, self.consumed = holds, orders, []
+    def table(self, name): return SweepQ(self.holds if name == "xera_discount_holds" else self.orders)
+    def rpc(self, name, params):
+        if name == "xera_discount_consume":
+            self.consumed.append(params["p_order_ref"])
+            return Res([{"id": 1, "status": "CONSUMED", "late": True, "shortfall": 0}])
+        return Res(None)
+
+
+def test_reconcile_settles_a_paid_order_whose_hold_was_released():
+    db = SweepDB(
+        holds=[{"order_ref": "EVD-A", "status": "RELEASED"}, {"order_ref": "EVD-B", "status": "HELD"},
+               {"order_ref": "EVD-C", "status": "RELEASED"}, {"order_ref": "EVD-D", "status": "EXPIRED"}],
+        orders=[{"paystack_ref": "EVD-A", "status": "successful", "datamart_ref": "x"},   # paid + delivered
+                {"paystack_ref": "EVD-B", "status": "pending_payment", "datamart_ref": None},   # not paid yet
+                {"paystack_ref": "EVD-C", "status": "failed", "datamart_ref": None},            # never paid
+                {"paystack_ref": "EVD-D", "status": "paid", "datamart_ref": None}])             # paid, not dispatched
+    assert xd.reconcile_paid_orders(db) == 2
+    assert sorted(db.consumed) == ["EVD-A", "EVD-D"]
+
+
+def test_reconcile_never_raises():
+    class Boom:
+        def table(self, *_a): raise RuntimeError("db down")
+    assert xd.reconcile_paid_orders(Boom()) == 0
+
+
+def test_default_hold_is_sixty_minutes():
+    assert xd.DEFAULT_CONFIG["hold_minutes"] == 60
+
+
 # ---------------------------------------------------------------- create_order wiring
 def req(user_id=None):
     headers = [(b"x-user-token", core.make_user_token(user_id).encode())] if user_id else []

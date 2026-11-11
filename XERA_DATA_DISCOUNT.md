@@ -14,8 +14,8 @@ GH₵ 5.00 bundle -> GH₵ 4.80 cash + 20 XERA. Signed-in users with enough spen
 ## How it works
 - Quote: `GET /xera-discount/quote` (needs the user's token). Create: `POST /orders/create` with `use_xera: true`.
 - The server recomputes everything; the browser can never set a price or an XERA amount.
-- Payment starts -> XERA is HELD for that order (30 min). Paystack confirms -> held XERA becomes a DISCOUNT_SPEND debit in the XERA ledger.
-  Never paid -> the hold is released (the 30-minute failed-order sweep also does this).
+- Payment starts -> XERA is HELD for that order (60 min). Paystack confirms -> held XERA becomes a DISCOUNT_SPEND debit in the XERA ledger.
+  Never paid -> the hold is released (the retry job, every 3 minutes, frees it once the hold time is over. A paid order always gets its XERA taken, even after a late payment).
 - Late payment, or the balance dropped meanwhile: the discount is still honoured; what XERA is left is debited and the gap is recorded in `xera_discount_holds.shortfall`.
 - Spent XERA leaves the user's balance and is not returned to the mining pool. XERA spent can never be claimed on-chain (claimable is capped at the wallet balance).
 - Refund an order's XERA by hand: `SELECT xera_discount_refund('<paystack reference>');` (not automatic).

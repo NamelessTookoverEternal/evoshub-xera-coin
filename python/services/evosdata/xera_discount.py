@@ -22,6 +22,7 @@ XERA and does not give XERA a monetary value.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP, ROUND_DOWN
 from typing import Any, Optional
 
@@ -35,7 +36,7 @@ DEFAULT_CONFIG = {
     "xera_per_ghs": Decimal("100"),
     "discount_pct": Decimal("4"),
     "max_pct": Decimal("10"),
-    "hold_minutes": 30,
+    "hold_minutes": 60,
     "require_kyc": True,          # legacy column, no longer used: see unverified_multiplier
     "unverified_multiplier": Decimal("1.75"),   # unverified users pay 1.75x the XERA (20 -> 35). 0 = KYC required
 }
@@ -236,3 +237,35 @@ def release(sb, order_ref: Optional[str]) -> None:
         sb.rpc("xera_discount_release", {"p_order_ref": order_ref}).execute()
     except Exception as exc:
         logger.error("XERA DISCOUNT: release failed for ref %s: %s", order_ref, exc)
+
+
+# An order in one of these states has been paid (the customer was charged), whatever its hold says.
+_PAID_STATES = ("paid", "processing", "successful")
+
+
+def reconcile_paid_orders(sb, lookback_hours: int = 72) -> int:
+    """
+    Safety sweep: a discount order that has been PAID must always have its XERA taken.
+    Finds holds that are still HELD / RELEASED / EXPIRED whose order is already paid or delivered, and
+    consumes them (consume is idempotent and honours late payments). Never raises. Returns how many it settled.
+    """
+    settled = 0
+    try:
+        since = (datetime.now(timezone.utc) - timedelta(hours=lookback_hours)).isoformat()
+        holds = (sb.table("xera_discount_holds").select("order_ref,status")
+                 .in_("status", ["HELD", "RELEASED", "EXPIRED"]).gte("created_at", since).execute().data or [])
+        for h in holds:
+            ref = h.get("order_ref")
+            if not ref:
+                continue
+            rows = sb.table("orders").select("status,datamart_ref").eq("paystack_ref", ref).limit(1).execute().data or []
+            if not rows:
+                continue
+            o = rows[0]
+            if o.get("datamart_ref") or str(o.get("status") or "").lower() in _PAID_STATES:
+                if consume(sb, ref) is not None:
+                    settled += 1
+                    logger.warning("XERA DISCOUNT: reconciled paid order %s (hold was %s)", ref, h.get("status"))
+    except Exception as exc:
+        logger.error("XERA DISCOUNT: reconcile failed: %s", exc)
+    return settled
