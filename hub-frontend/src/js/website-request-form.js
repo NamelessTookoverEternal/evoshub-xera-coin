@@ -8,7 +8,6 @@
 // All prices and every payment decision come from the backend. This file only
 // displays what it is told and sends "this request, this method, use XERA yes/no".
 import { supabase, ensureVisitorSession } from './supabase-client.js'
-import { detectCountry } from './evoxera-geo.js'
 
 const LOCAL_STORAGE_KEY = 'evoshub_website_request_id'
 const FOLLOWUP_KEY = 'evoshub_website_followup_sent'
@@ -46,26 +45,16 @@ let payState = null      // last GET /payment response
 let displayFx = { currency: 'GHS', rate: 1, converted: false }
 let pollTimer = null
 let receiptData = null
-let lastPackages = null
 
 // --- Small helpers ---------------------------------------------------------------------
-const ghsExact = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 })
+const ghs = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: Number.isInteger(Number(n)) ? 0 : 2, maximumFractionDigits: 2 })
 
-// Visitors outside Ghana see their own currency as the main price; billing stays in GH₵ (Paystack) / USDT (crypto).
-const abroad = () => Boolean(displayFx.country) && displayFx.country !== 'GH'
-function ghs(n) {
-  if (displayFx.converted) {
-    try {
-      const v = Number(n) * displayFx.rate
-      return new Intl.NumberFormat(undefined, { style: 'currency', currency: displayFx.currency, maximumFractionDigits: v >= 100 ? 0 : 2 }).format(v)
-    } catch { /* unknown currency code: fall through to GH₵ */ }
-  }
-  return ghsExact(n)
-}
-
-// Small note under a price: what the amount is billed as when it is shown in a local currency.
 function approx(amountGhs) {
-  return displayFx.converted ? 'Billed as ' + ghsExact(amountGhs) : ''
+  if (!displayFx.converted) return ''
+  try {
+    const v = Number(amountGhs) * displayFx.rate
+    return '≈ ' + new Intl.NumberFormat(undefined, { style: 'currency', currency: displayFx.currency, maximumFractionDigits: 2 }).format(v)
+  } catch { return '' }
 }
 
 function show(panel) {
@@ -90,22 +79,11 @@ async function authHeaders(extra = {}) {
 
 async function api(path, { method = 'GET', body, formData } = {}) {
   const headers = await authHeaders(body ? { 'Content-Type': 'application/json' } : {})
-  let res
-  try {
-    res = await fetch(`${API_BASE}/api/website-requests${path}`, {
-      method,
-      headers,
-      body: formData || (body ? JSON.stringify(body) : undefined),
-    })
-  } catch (netErr) {
-    // "Failed to fetch": the server could not be reached at all (offline, server asleep or down,
-    // or this page's address is not allowed by the server's CORS list).
-    console.error('[website-request-form] cannot reach', API_BASE, netErr)
-    const err = new Error("We couldn't reach our server. Please check your internet connection and try again in a minute. If it keeps happening, message us on WhatsApp.")
-    err.status = 0
-    err.network = true
-    throw err
-  }
+  const res = await fetch(`${API_BASE}/api/website-requests${path}`, {
+    method,
+    headers,
+    body: formData || (body ? JSON.stringify(body) : undefined),
+  })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     const err = new Error(typeof data.detail === 'string' ? data.detail : `request_failed_${res.status}`)
@@ -146,14 +124,12 @@ function renderCards(packages) {
 
 async function loadPricingAndCurrency() {
   try {
-    const country = await detectCountry()
     const [pr, fx] = await Promise.all([
       fetch(`${API_BASE}/api/website-requests/pricing`).then((r) => (r.ok ? r.json() : null)),
-      fetch(`${API_BASE}/api/evosgpt/currency${country ? '?country=' + country : ''}`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch(`${API_BASE}/api/xera/hashrate/currency`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
     if (fx && fx.currency) displayFx = fx
     if (pr && pr.packages) renderCards(pr.packages)
-    if (pr && pr.packages) lastPackages = pr.packages
   } catch (err) {
     console.warn('[website-request-form] pricing refresh failed, showing built-in prices', err)
   }
@@ -278,8 +254,6 @@ form.addEventListener('submit', async (e) => {
     const msg = String(err.message || '')
     if (msg.includes('rate limit') || err.status === 429) {
       showError("You've submitted a few requests already — please wait a bit before sending another.")
-    } else if (err.network) {
-      showError(msg)
     } else {
       showError('Something went wrong submitting your request. Please try again.')
     }
@@ -377,9 +351,6 @@ function renderChoose() {
   draw()
   $('wr-use-xera').onchange = draw
 
-  // Outside Ghana, crypto comes first; in Ghana, Paystack does.
-  const pb = $('wr-pay-paystack'), cb = $('wr-pay-crypto')
-  if (abroad()) pb.parentNode.insertBefore(cb, pb); else pb.parentNode.insertBefore(pb, cb)
   $('wr-pay-paystack').style.display = payState.methods.paystack ? '' : 'none'
   $('wr-pay-crypto').style.display = payState.methods.crypto ? '' : 'none'
   hideErr($('wr-pay-error'))
@@ -450,10 +421,10 @@ async function showPaid() {
     const add = (k, v) => { const tr = document.createElement('tr'); const a = document.createElement('td'); a.textContent = k; const b = document.createElement('td'); b.textContent = v; tr.append(a, b); rows.appendChild(tr) }
     add('Customer', r.customer.name + (r.customer.business ? ` (${r.customer.business})` : ''))
     add('Item', r.item)
-    if (r.package_discount > 0) add('Regular price', ghsExact(r.list_price))
-    add('Package price', ghsExact(r.price))
-    if (r.xera_discount > 0) add('XERA saving', '−' + ghsExact(r.xera_discount))
-    add('Total paid', ghsExact(r.amount_paid) + (r.crypto_usd ? `  (≈ $${r.crypto_usd.toFixed(2)} USDT)` : ''))
+    if (r.package_discount > 0) add('Regular price', ghs(r.list_price))
+    add('Package price', ghs(r.price))
+    if (r.xera_discount > 0) add('XERA saving', '−' + ghs(r.xera_discount))
+    add('Total paid', ghs(r.amount_paid) + (r.crypto_usd ? `  (≈ $${r.crypto_usd.toFixed(2)} USDT)` : ''))
     add('Payment method', r.method)
     add('Reference', r.reference)
   }
