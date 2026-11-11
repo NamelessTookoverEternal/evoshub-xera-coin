@@ -112,6 +112,24 @@
         </div>
       </section>
 
+      <!-- Discount vault (look-only) -->
+      <section id="sec-vault" hidden>
+        <div class="dx-stack">
+          <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
+            XERA that customers spent on discounts. It is a <b>look-only</b> total worked out from the XERA ledger: nothing can be spent or withdrawn from here,
+            and refunded orders are taken out automatically.
+          </p>
+          <div class="dx-kpis" id="vt-kpis"></div>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Recent deposits</h2><span class="dx-note">Latest 50</span></div>
+            <div class="dx-table-wrap"><table class="dx-table">
+              <thead><tr><th>Date</th><th>Order</th><th>User</th><th>XERA</th><th>Status</th></tr></thead>
+              <tbody id="vt-rows"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+            </table></div>
+          </div>
+        </div>
+      </section>
+
       <!-- XERA wallet (pilot): the shared wallet module drives these ids -->
       <section id="sec-wallet" class="dxs" hidden>
         <div class="dx-stack" style="max-width:640px">

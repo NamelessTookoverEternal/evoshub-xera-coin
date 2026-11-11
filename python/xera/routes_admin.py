@@ -146,6 +146,24 @@ def admin_stats(request: Request, authorization: str = Header(default="")):
     }
 
 
+@router.get("/vault", include_in_schema=False)
+@limiter.limit("60/minute")
+def admin_discount_vault(request: Request, authorization: str = Header(default="")):
+    """Look-only view of the XERA customers spent on discounts. Computed from the ledger; moves nothing."""
+    _require_admin(request, authorization)
+    summary = supabase.rpc("xera_discount_vault_summary", {}).execute().data or {}
+    rows = (
+        supabase.table("xera_discount_vault_deposits")
+        .select("order_ref,user_id,amount,created_at,refunded")
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+        .data
+        or []
+    )
+    return {"status": "ok", "summary": summary, "deposits": rows}
+
+
 @router.get("/config", include_in_schema=False)
 @limiter.limit("60/minute")
 def admin_get_config(request: Request, authorization: str = Header(default="")):

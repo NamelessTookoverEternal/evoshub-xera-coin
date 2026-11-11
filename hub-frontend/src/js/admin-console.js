@@ -12,6 +12,7 @@ const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: '▤' },
   { id: 'requests', label: 'Website requests', icon: '☰' },
   { id: 'token', label: 'Token dashboard', icon: '◈' },
+  { id: 'vault', label: 'Discount vault', icon: '▣' },
   { id: 'wallet', label: 'XERA wallet (pilot)', icon: '◐' },
   { id: 'kyc', label: 'XERA KYC review', icon: '✓' },
   { id: 'updates', label: 'App updates', icon: '◇' },
@@ -111,6 +112,7 @@ async function loadSection(id, force) {
     else if (id === 'wallet') await openWallet(force)
     else if (id === 'kyc') { const m = await import('./admin-console-kyc.js'); await m.initKyc() }
     else if (id === 'updates') { const m = await import('./admin-console-updates.js'); m.initUpdates() }
+    else if (id === 'vault') await loadVault()
     else if (id === 'products') { const m = await import('./admin-console-products.js'); await m.initProducts() }
     $('dx-sub').textContent = `Synced ${new Date().toLocaleTimeString('en-GH')}`
   } catch (e) { fail(e) }
@@ -283,6 +285,28 @@ $('eco-add').addEventListener('click', async () => {
     note('eco-msg', 'Added.', 'ok'); await loadEcosystem()
   } catch (e) { if (e.message !== 'SIGNED_OUT') note('eco-msg', e.message || 'Could not add this link.', 'error') }
 })
+
+/* ------------------------------------------------------------ discount vault (look-only) */
+async function loadVault() {
+  const d = await api(`${XERA_ADMIN}/vault`)
+  const sm = d.summary || {}
+  const k = $('vt-kpis'); k.textContent = ''
+  k.append(kpi('Vault balance', fmt(sm.balance), 'XERA collected, after refunds', '#c8ff3e'),
+    kpi('Orders', sm.orders ?? 0, 'Discounted orders counted'),
+    kpi('Last 30 days', fmt(sm.last_30_days), 'XERA collected'),
+    kpi('Refunded', fmt(sm.total_refunded), 'Taken out of the vault'))
+  const tb = $('vt-rows'); tb.textContent = ''
+  const rows = d.deposits || []
+  if (!rows.length) { const tr = el('tr'); const td = el('td', 'dx-dim', 'No discount deposits yet.'); td.colSpan = 5; tr.append(td); tb.append(tr); return }
+  rows.forEach((r) => {
+    const tr = el('tr')
+    const when = r.created_at ? new Date(r.created_at).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
+    const pill = el('span', 'dx-pill ' + (r.refunded ? 'mute' : 'ok'), r.refunded ? 'Refunded' : 'Collected')
+    const st = el('td'); st.append(pill)
+    tr.append(el('td', '', when), el('td', '', r.order_ref || '—'), el('td', '', `#${r.user_id}`), el('td', '', fmt(r.amount)), st)
+    tb.append(tr)
+  })
+}
 
 /* ------------------------------------------------------------ XERA wallet */
 // The wallet panel itself is the shared xera-chain.js module. It must be told it is in admin pilot mode
