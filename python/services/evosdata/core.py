@@ -3523,13 +3523,15 @@ def get_user_orders(request: Request, user_id: int = Query(...)):
 def track_orders(request: Request, phone: str = Query(...)):
     try:
         cleaned = normalise_phone(phone)
-        orders = supabase.table("orders") \
-            .select("network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref") \
-            .eq("phone_number", cleaned) \
-            .order("created_at", desc=True) \
-            .limit(10) \
-            .execute()
-        return {"orders": orders.data or []}
+        cols = "network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref"
+        try:
+            orders = supabase.table("orders").select(cols + ", delivered_at") \
+                .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
+        except Exception:      # delivered_at column not added yet (migration 20261115): still track normally
+            orders = supabase.table("orders").select(cols) \
+                .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
+        from services.evosdata import delivery_eta
+        return {"orders": delivery_eta.enrich(supabase, orders.data or [])}
     except HTTPException:
         raise
     except Exception as e:
