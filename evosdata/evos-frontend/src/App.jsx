@@ -15,6 +15,7 @@ import OrderTracking      from "./pages/OrderTracking";
 import ETATrack           from "./pages/ETATrack";
 import AgentBuyData       from "./pages/AgentBuyData";
 import AgentDeposit       from "./pages/AgentDeposit";
+import WalletTopUp         from "./pages/WalletTopUp";
 import ForgotPassword     from "./pages/ForgotPassword";
 import Checkers           from "./pages/Checkers";
 import AgentBuyChecker    from "./pages/AgentBuyChecker";
@@ -143,6 +144,7 @@ export default function App() {
             "/agent-buy-afa":      "agent-buy-afa",
             "/agent-checker-pricing": "agent-checker-pricing",
             "/agent-deposit":      "agent-deposit",
+            "/wallet-topup":       "wallet-topup",
             "/spin":               "spin",
             "/become-agent":       "become-agent",
             "/track":              "track-order",
@@ -215,6 +217,7 @@ export default function App() {
             "agent-buy-afa":          "/agent-buy-afa",
             "agent-checker-pricing":  "/agent-checker-pricing",
             "agent-deposit":    "/agent-deposit",
+            "wallet-topup":     "/wallet-topup",
             spin:               "/spin",
             "become-agent":     "/become-agent",
             store:              "/store",
@@ -245,7 +248,7 @@ export default function App() {
             case "home":
                 return <Home setPage={navigate} theme={theme} />;
             case "shop":
-                return <Shop user={user} theme={theme} />;
+                return <Shop user={user} theme={theme} setPage={navigate} />;
             case "checkers":
                 return <Checkers user={user} theme={theme} />;
             case "afa":
@@ -274,6 +277,8 @@ export default function App() {
                 return <AgentBuyAfa user={user} setPage={navigate} />;
             case "agent-checker-pricing":
                 return <AgentCheckerPricing user={user} setPage={navigate} />;
+            case "wallet-topup":
+                return <WalletTopUp user={user} setPage={navigate} />;
             case "agent-deposit":
                 return <AgentDeposit user={user} setPage={navigate} />;
             case "spin":

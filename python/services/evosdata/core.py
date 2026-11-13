@@ -379,6 +379,13 @@ class CreateOrderRequest(BaseModel):
     phone: str = Field(min_length=9, max_length=25)
     email: Optional[EmailStr] = None
     use_xera: bool = False   # ask for the XERA discount; the server decides and does all the maths
+    pay_with: str = "paystack"   # "paystack" (default) or "wallet" (needs a signed-in user)
+
+    @validator("pay_with")
+    def pay_with_valid(cls, v):
+        if v not in ("paystack", "wallet"):
+            raise ValueError("Invalid payment method")
+        return v
 
     @validator("network")
     def network_valid(cls, v):
@@ -455,6 +462,11 @@ class CheckerStoreOrderRequest(BaseModel):
     @validator("phone_number")
     def phone_clean(cls, v):
         return ghana_phone(v)
+
+
+def deposit_fee(amount: float) -> float:
+    """Paystack Ghana fee passed on to whoever tops up: 1.95% + GH₵0.25, capped at GH₵2000 (same as the app)."""
+    return min(round(float(amount) * 0.0195 + 0.25, 2), 2000.0)
 
 
 class DepositInitiateRequest(BaseModel):
@@ -2472,7 +2484,7 @@ async def retry_stuck_orders():
                                 "datamart_order_id": dm_data.get("orderId")
                             }).eq("id", order["id"]).execute()
 
-                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith("EVOS-AGT-"):
+                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith(("EVOS-AGT-", "EVOS-WLT-")):
                                 process_agent_profit(order["id"], order["paystack_ref"])
 
                             logger.info("RETRY JOB: order %s sent to DATAMART ✅", order['id'])
@@ -2531,7 +2543,7 @@ async def retry_stuck_orders():
                                 "datamart_order_id": str(bg_order["order"]["id"])
                             }).eq("id", order["id"]).execute()
 
-                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith("EVOS-AGT-"):
+                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith(("EVOS-AGT-", "EVOS-WLT-")):
                                 process_agent_profit(order["id"], order["paystack_ref"])
 
                             logger.info("RETRY JOB: order %s sent to BUNDLES_GHANA ✅", order['id'])
@@ -2570,7 +2582,7 @@ async def retry_stuck_orders():
                                 "datamart_order_id": sdl.get("orderId"),
                             }).eq("id", order["id"]).execute()
 
-                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith("EVOS-AGT-"):
+                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith(("EVOS-AGT-", "EVOS-WLT-")):
                                 process_agent_profit(order["id"], order["paystack_ref"])
 
                             logger.info("RETRY JOB: order %s sent to SWIFT_DATA_LINK ✅", order['id'])
@@ -2601,7 +2613,7 @@ async def retry_stuck_orders():
                                 "datamart_order_id": agd_data.get("orderId"),
                             }).eq("id", order["id"]).execute()
 
-                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith("EVOS-AGT-"):
+                            if order.get("paystack_ref") and not str(order["paystack_ref"]).startswith(("EVOS-AGT-", "EVOS-WLT-")):
                                 process_agent_profit(order["id"], order["paystack_ref"])
 
                             logger.info("RETRY JOB: order %s sent to AGYEKUMDATA ✅", order['id'])
@@ -2789,6 +2801,11 @@ async def retry_stuck_deposits():
                             logger.info("DEPOSIT RETRY: deposit %s still pending on Paystack — will retry", dep_id)
                         continue
 
+                    paid_pesewas = int(data.get("data", {}).get("amount") or 0)
+                    if paid_pesewas < int(round(float(deposit.get("total_charge") or credit_amount) * 100)) - 1:
+                        logger.error("DEPOSIT RETRY: deposit %s underpaid (paid %s pesewas, expected %s) - not credited", dep_id, paid_pesewas, deposit.get("total_charge"))
+                        continue
+
                     # ── ATOMIC CLAIM ──────────────────────────────────
                     # A plain "read status, then later write" check here left
                     # a gap that /agent/deposit/verify (fired from the
@@ -2916,8 +2933,8 @@ async def retry_stuck_order_payments():
 
                 # Agent buy-data orders are wallet-debited instantly and never
                 # go through Paystack at all — nothing to verify here.
-                if str(reference).startswith("EVOS-AGT-"):
-                    continue
+                if str(reference).startswith(("EVOS-AGT-", "EVOS-WLT-")):
+                    continue   # also wallet-paid customer orders: there is no Paystack payment to verify
 
                 try:
                     async with httpx.AsyncClient() as client:
@@ -3529,6 +3546,11 @@ def create_order(request: Request, data: CreateOrderRequest):
         if not datamart_stock.bundle_in_stock(data.network, data.bundle):
             raise HTTPException(400, datamart_stock.OUT_OF_STOCK_MESSAGE)
 
+        if data.pay_with == "wallet":
+            # Paid from the customer's wallet: no Paystack step (see customer_wallet.py).
+            from services.evosdata import customer_wallet
+            return customer_wallet.pay_order(request, data)
+
         buyer_key = data.user_id if data.user_id else data.email
 
         # An XERA-discount request always starts a fresh order, so the price shown to the
@@ -3674,6 +3696,116 @@ def create_order(request: Request, data: CreateOrderRequest):
         raise HTTPException(status_code=500, detail="Server error")
 
 
+def dispatch_paid_order(order: dict, reference: str) -> dict:
+    """Send an order that is already PAID (by Paystack or from the customer wallet) to its data provider.
+    Returns {"status": "success"} or {"status": "purchase failed"} (the order is then marked failed)."""
+    provider = get_provider(order["network"])
+    print(f"PAYSTACK WEBHOOK: resolved provider={provider} for network={order['network']}")
+
+    try:
+        if provider == "DATAMART":
+            dm_response = datamart_stock.purchase_post(
+                f"{DATAMART_BASE}/purchase",
+                headers={"X-API-Key": DATAMART_API_KEY},
+                json={
+                    "phoneNumber": order["phone_number"],
+                    "network": NETWORK_MAP.get(order["network"]),
+                    "capacity": extract_capacity(order["bundle"]),
+                    "gateway": "wallet"
+                },
+                timeout=REQUEST_TIMEOUT
+            )
+            dm = dm_response.json()
+            dm_data = dm.get("data", {})
+            supabase.table("orders").update({
+                "status": "processing",
+                "datamart_ref": dm_data.get("orderReference"),
+                "datamart_order_id": dm_data.get("orderId")
+            }).eq("paystack_ref", reference).execute()
+            process_agent_profit(order["id"], reference)
+            print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to DATAMART orderId={dm_data.get('orderId')}")
+
+        elif provider == "BUNDLES_GHANA":
+            BG_NETWORK_MAP = {"MTN": "MTN", "TELECEL": "Telecel", "AIRTELTIGO": "AirtelTigo", "AT": "AirtelTigo"}
+            network_name = BG_NETWORK_MAP.get(order["network"].upper(), order["network"])
+            bg_bundles = call_bundles_ghana(f"/bundles?network={network_name}")
+            if not bg_bundles.get("success"):
+                raise Exception(f"Bundles Ghana fetch failed: {bg_bundles.get('error')}")
+
+            bundle_volume = order["bundle"].upper().replace(" ", "")
+            matched = next(
+                (b for b in bg_bundles.get("bundles", [])
+                 if b.get("volume", "").upper().replace(" ", "") == bundle_volume
+                 and b.get("status") == "active"),
+                None
+            )
+            if not matched:
+                raise Exception(f"No active BG bundle for {network_name} {bundle_volume}")
+
+            bg_order = call_bundles_ghana("/order", method="POST", body={
+                "bundle_id": matched["id"],
+                "phone": order["phone_number"],
+                "webhook_url": "https://api.evosdata.xyz/webhook/bundlesghana"
+            })
+            if not bg_order.get("success"):
+                raise Exception(f"BG order failed: {bg_order.get('error', bg_order.get('message'))}")
+
+            supabase.table("orders").update({
+                "status": "processing",
+                "datamart_ref": bg_order["order"]["reference"],
+                "datamart_order_id": str(bg_order["order"]["id"])
+            }).eq("paystack_ref", reference).execute()
+            process_agent_profit(order["id"], reference)
+            print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to BUNDLES_GHANA orderId={bg_order['order']['id']}")
+
+        elif provider == "SWIFT_DATA_LINK":
+            volume = float(extract_capacity(order["bundle"]) or 0)
+            sdl = call_swift_data_link(network=order["network"], volume=volume, phone=order["phone_number"])
+            if not sdl.get("success"):
+                raise Exception(f"SDL order failed: {sdl.get('error', sdl)}")
+            supabase.table("orders").update({
+                "status": "processing",
+                "datamart_ref": sdl.get("reference"),
+                "datamart_order_id": sdl.get("orderId"),
+            }).eq("paystack_ref", reference).execute()
+            process_agent_profit(order["id"], reference)
+            print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to SWIFT_DATA_LINK orderId={sdl.get('orderId')}")
+
+        elif provider == "AGYEKUMDATA":
+            package_id = get_agyekumdata_package_id(order["network"], order["bundle"])
+            safe_ref   = sanitise_agyekumdata_ref(reference)
+            agd        = call_agyekumdata_purchase(
+                package_id=package_id,
+                phone=order["phone_number"],
+                client_reference=reference,
+            )
+            if not agd.get("success"):
+                raise Exception(f"AGYEKUMDATA order failed: {agd.get('error', agd)}")
+            agd_data = agd.get("data", {})
+            supabase.table("orders").update({
+                "status":            "processing",
+                "datamart_ref":      agd_data.get("clientReference") or safe_ref,
+                "datamart_order_id": agd_data.get("orderId"),
+            }).eq("paystack_ref", reference).execute()
+            process_agent_profit(order["id"], reference)
+            logger.info(
+                "PAYSTACK WEBHOOK: order %s dispatched to AGYEKUMDATA orderId=%s ✅",
+                order['id'], agd_data.get("orderId")
+            )
+            print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to AGYEKUMDATA orderId={agd_data.get('orderId')}")
+
+        else:
+            raise Exception("No provider assigned")
+
+        return {"status": "success"}
+
+    except Exception as e:
+        logger.error("PURCHASE ERROR: %s", str(e))
+        print(f"PURCHASE ERROR: {str(e)}")
+        supabase.table("orders").update({"status": "failed"}).eq("paystack_ref", reference).execute()
+        return {"status": "purchase failed"}
+
+
 # =========================
 # PAYSTACK WEBHOOK
 # =========================
@@ -3755,111 +3887,7 @@ async def paystack_webhook(request: Request):
             if order.get("user_id"):
                 increment_user_orders(order["user_id"])
 
-            provider = get_provider(order["network"])
-            print(f"PAYSTACK WEBHOOK: resolved provider={provider} for network={order['network']}")
-
-            try:
-                if provider == "DATAMART":
-                    dm_response = datamart_stock.purchase_post(
-                        f"{DATAMART_BASE}/purchase",
-                        headers={"X-API-Key": DATAMART_API_KEY},
-                        json={
-                            "phoneNumber": order["phone_number"],
-                            "network": NETWORK_MAP.get(order["network"]),
-                            "capacity": extract_capacity(order["bundle"]),
-                            "gateway": "wallet"
-                        },
-                        timeout=REQUEST_TIMEOUT
-                    )
-                    dm = dm_response.json()
-                    dm_data = dm.get("data", {})
-                    supabase.table("orders").update({
-                        "status": "processing",
-                        "datamart_ref": dm_data.get("orderReference"),
-                        "datamart_order_id": dm_data.get("orderId")
-                    }).eq("paystack_ref", reference).execute()
-                    process_agent_profit(order["id"], reference)
-                    print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to DATAMART orderId={dm_data.get('orderId')}")
-
-                elif provider == "BUNDLES_GHANA":
-                    BG_NETWORK_MAP = {"MTN": "MTN", "TELECEL": "Telecel", "AIRTELTIGO": "AirtelTigo", "AT": "AirtelTigo"}
-                    network_name = BG_NETWORK_MAP.get(order["network"].upper(), order["network"])
-                    bg_bundles = call_bundles_ghana(f"/bundles?network={network_name}")
-                    if not bg_bundles.get("success"):
-                        raise Exception(f"Bundles Ghana fetch failed: {bg_bundles.get('error')}")
-
-                    bundle_volume = order["bundle"].upper().replace(" ", "")
-                    matched = next(
-                        (b for b in bg_bundles.get("bundles", [])
-                         if b.get("volume", "").upper().replace(" ", "") == bundle_volume
-                         and b.get("status") == "active"),
-                        None
-                    )
-                    if not matched:
-                        raise Exception(f"No active BG bundle for {network_name} {bundle_volume}")
-
-                    bg_order = call_bundles_ghana("/order", method="POST", body={
-                        "bundle_id": matched["id"],
-                        "phone": order["phone_number"],
-                        "webhook_url": "https://api.evosdata.xyz/webhook/bundlesghana"
-                    })
-                    if not bg_order.get("success"):
-                        raise Exception(f"BG order failed: {bg_order.get('error', bg_order.get('message'))}")
-
-                    supabase.table("orders").update({
-                        "status": "processing",
-                        "datamart_ref": bg_order["order"]["reference"],
-                        "datamart_order_id": str(bg_order["order"]["id"])
-                    }).eq("paystack_ref", reference).execute()
-                    process_agent_profit(order["id"], reference)
-                    print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to BUNDLES_GHANA orderId={bg_order['order']['id']}")
-
-                elif provider == "SWIFT_DATA_LINK":
-                    volume = float(extract_capacity(order["bundle"]) or 0)
-                    sdl = call_swift_data_link(network=order["network"], volume=volume, phone=order["phone_number"])
-                    if not sdl.get("success"):
-                        raise Exception(f"SDL order failed: {sdl.get('error', sdl)}")
-                    supabase.table("orders").update({
-                        "status": "processing",
-                        "datamart_ref": sdl.get("reference"),
-                        "datamart_order_id": sdl.get("orderId"),
-                    }).eq("paystack_ref", reference).execute()
-                    process_agent_profit(order["id"], reference)
-                    print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to SWIFT_DATA_LINK orderId={sdl.get('orderId')}")
-
-                elif provider == "AGYEKUMDATA":
-                    package_id = get_agyekumdata_package_id(order["network"], order["bundle"])
-                    safe_ref   = sanitise_agyekumdata_ref(reference)
-                    agd        = call_agyekumdata_purchase(
-                        package_id=package_id,
-                        phone=order["phone_number"],
-                        client_reference=reference,
-                    )
-                    if not agd.get("success"):
-                        raise Exception(f"AGYEKUMDATA order failed: {agd.get('error', agd)}")
-                    agd_data = agd.get("data", {})
-                    supabase.table("orders").update({
-                        "status":            "processing",
-                        "datamart_ref":      agd_data.get("clientReference") or safe_ref,
-                        "datamart_order_id": agd_data.get("orderId"),
-                    }).eq("paystack_ref", reference).execute()
-                    process_agent_profit(order["id"], reference)
-                    logger.info(
-                        "PAYSTACK WEBHOOK: order %s dispatched to AGYEKUMDATA orderId=%s ✅",
-                        order['id'], agd_data.get("orderId")
-                    )
-                    print(f"PAYSTACK WEBHOOK: order {order['id']} dispatched to AGYEKUMDATA orderId={agd_data.get('orderId')}")
-
-                else:
-                    raise Exception("No provider assigned")
-
-                return {"status": "success"}
-
-            except Exception as e:
-                logger.error("PURCHASE ERROR: %s", str(e))
-                print(f"PURCHASE ERROR: {str(e)}")
-                supabase.table("orders").update({"status": "failed"}).eq("paystack_ref", reference).execute()
-                return {"status": "purchase failed"}
+            return dispatch_paid_order(order, reference)
 
         # =========================
         # EVENT: transfer.success / transfer.failed / transfer.reversed
@@ -5055,6 +5083,11 @@ async def initiate_deposit(request: Request, payload: DepositInitiateRequest):
         amount       = payload.amount
         total_charge = payload.total_charge
 
+        # The browser only ASKS. What is charged must cover the credit plus the Paystack fee, worked out here,
+        # otherwise a tampered request could pay GH₵1 and be credited GH₵1000.
+        if round(float(total_charge), 2) + 0.011 < round(amount + deposit_fee(amount), 2):
+            raise HTTPException(status_code=400, detail="Deposit amount does not match the charge. Please refresh and try again.")
+
         user_res = supabase.table("users").select("email, username").eq("id", agent_id).limit(1).execute()
         if not user_res.data:
             return {"error": "Agent not found"}
@@ -5142,6 +5175,12 @@ async def verify_deposit(request: Request, payload: dict):
 
         agent_id      = deposit["agent_id"]
         credit_amount = float(deposit["amount"])
+
+        # What Paystack really took must cover what we are about to credit (plus the fee we added).
+        paid_pesewas = int(data["data"].get("amount") or 0)
+        if paid_pesewas < int(round(float(deposit.get("total_charge") or credit_amount) * 100)) - 1:
+            logger.error("DEPOSIT VERIFY: underpaid deposit %s (paid %s pesewas, expected %s)", deposit.get("id"), paid_pesewas, deposit.get("total_charge"))
+            return {"error": "Payment amount does not match this deposit"}
 
         # ── ATOMIC CLAIM ──────────────────────────────────────────────
         # Flip status pending -> credited FIRST, gated on it not already

@@ -83,7 +83,7 @@ def mount_evosdata(app: FastAPI, prefix: str = PREFIX) -> bool:
 
     # Optional modules: a failure in one must never take the API down (as before).
     mount = _Mount(app, router)
-    for name in ("dashxera", "evoxera_bot", "spin", "agent_fee"):
+    for name in ("dashxera", "evoxera_bot", "spin", "agent_fee", "customer_wallet"):
         try:
             __import__(f"services.evosdata.{name}", fromlist=["install"]).install(mount)
         except Exception as exc:

@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { userApi } from "../lib/userApi";
 import { Icon, WhatsAppIcon } from "../components/Icons";
+import WalletCard from "../components/WalletCard";
 import { openCommunity, SUPPORT_URL } from "../lib/community";
 
 const STATUS = {
   successful: { c: "#3ddc97", icon: "✓", label: "Delivered" },
   delivered:  { c: "#3ddc97", icon: "✓", label: "Delivered" },
-  processing: { c: "#a78bfa", icon: "…", label: "Processing" },
-  paid:       { c: "#c8ff3e", icon: "●", label: "Paid" },
+  processing: { c: "#5eead4", icon: "…", label: "Processing" },
+  paid:       { c: "#ffb020", icon: "●", label: "Paid" },
   failed:     { c: "#ff4d6a", icon: "✕", label: "Failed" },
 };
 const statusOf = (s) => STATUS[s] || { c: "#ffb020", icon: "◔", label: s || "Pending" };
@@ -54,8 +55,8 @@ export default function Dashboard({ setPage, user }) {
   const R = 34, C = 2 * Math.PI * R;
 
   const actions = [
-    { icon: "bolt",   label: "Buy Data",     desc: "MTN · Telecel · AirtelTigo", go: () => setPage("shop"),      c: "#c8ff3e" },
-    { icon: "box",    label: "My Orders",    desc: "Your full history",          go: () => setPage("orders"),    c: "#a78bfa" },
+    { icon: "bolt",   label: "Buy Data",     desc: "MTN · Telecel · AirtelTigo", go: () => setPage("shop"),      c: "#ffb020" },
+    { icon: "box",    label: "My Orders",    desc: "Your full history",          go: () => setPage("orders"),    c: "#5eead4" },
     { icon: "pin",    label: "Track Order",  desc: "Where's my data?",           go: () => setPage("eta-track"), c: "#ffb020" },
     { icon: isAgentActive ? "rocket" : "user", label: isAgentActive ? "Agent Hub" : "Become Agent", desc: isAgentActive ? "Store & earnings" : "Earn on every sale", go: handleAgentAccess, c: "#3ddc97" },
   ];
@@ -78,6 +79,8 @@ export default function Dashboard({ setPage, user }) {
         </div>
       </section>
 
+      <WalletCard user={user} setPage={setPage} />
+
       {/* BENTO STATS */}
       <div className="db-h"><h2>Your overview</h2></div>
       {loading ? (
@@ -89,15 +92,15 @@ export default function Dashboard({ setPage, user }) {
               <circle cx="42" cy="42" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9" />
               <circle cx="42" cy="42" r={R} fill="none" stroke="url(#dbg)" strokeWidth="9" strokeLinecap="round"
                 strokeDasharray={C} strokeDashoffset={C - (C * rate) / 100} transform="rotate(-90 42 42)" />
-              <defs><linearGradient id="dbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#c8ff3e" /><stop offset="1" stopColor="#ff4d8d" /></linearGradient></defs>
+              <defs><linearGradient id="dbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffb020" /><stop offset="1" stopColor="#ff7a59" /></linearGradient></defs>
             </svg>
             <div>
               <div className="db-big">{rate}%</div>
               <div className="db-lbl">Success rate</div>
             </div>
           </div>
-          <div className="db-tile"><div className="db-lbl">Global orders</div><div className="db-num" style={{ color: "#c8ff3e" }}>{stats.total_orders}</div></div>
-          <div className="db-tile"><div className="db-lbl">My orders</div><div className="db-num" style={{ color: "#a78bfa" }}>{stats.my_orders}</div></div>
+          <div className="db-tile"><div className="db-lbl">Global orders</div><div className="db-num" style={{ color: "#ffb020" }}>{stats.total_orders}</div></div>
+          <div className="db-tile"><div className="db-lbl">My orders</div><div className="db-num" style={{ color: "#5eead4" }}>{stats.my_orders}</div></div>
           <div className="db-tile"><div className="db-lbl">Successful</div><div className="db-num" style={{ color: "#3ddc97" }}>{stats.my_successful_orders}</div></div>
           <div className="db-tile"><div className="db-lbl">Transactions</div><div className="db-num" style={{ color: "#ffb020" }}>{stats.transactions.length}</div></div>
         </div>
@@ -168,9 +171,9 @@ export default function Dashboard({ setPage, user }) {
 const css = `
 .db { padding: 14px 14px 8px; color: var(--text); }
 .db-hero { position: relative; overflow: hidden; border-radius: 28px; padding: 26px 20px; border: 1px solid var(--line-strong);
-  background: linear-gradient(135deg, rgba(200,255,62,0.16), rgba(139,92,246,0.22) 55%, rgba(255,77,141,0.18)); }
+  background: linear-gradient(135deg, rgba(255,176,32,0.16), rgba(45,212,191,0.22) 55%, rgba(255,122,89,0.18)); }
 .db-orb { position: absolute; right: -50px; top: -50px; width: 220px; height: 220px; border-radius: 50%;
-  background: conic-gradient(from 90deg, #c8ff3e, #8b5cf6, #ff4d8d, #c8ff3e); filter: blur(36px); opacity: .5; animation: dbSpin 14s linear infinite; }
+  background: conic-gradient(from 90deg, #ffb020, #2dd4bf, #ff7a59, #ffb020); filter: blur(36px); opacity: .5; animation: dbSpin 14s linear infinite; }
 @keyframes dbSpin { to { transform: rotate(360deg); } }
 .db-hero-in { position: relative; }
 .db-live { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; color: #3ddc97; background: rgba(61,220,151,0.12); border: 1px solid rgba(61,220,151,0.35); font-family: var(--font-mono); }
@@ -178,17 +181,17 @@ const css = `
 @keyframes dbPulse { 50% { opacity: .3; } }
 .db-hi { margin-top: 14px; font-size: 15px; color: var(--muted); }
 .db-name { font-size: clamp(30px, 8vw, 46px); line-height: 1.05; font-weight: 800; margin: 2px 0 18px; overflow-wrap: anywhere;
-  background: linear-gradient(90deg, #fff, #c8ff3e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  background: linear-gradient(90deg, #fff, #ffb020); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .db-hero-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .db-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px; border-radius: 16px; border: 0; font-weight: 800; font-size: 14.5px; text-decoration: none; font-family: var(--font-display); }
-.db-btn-lime { background: linear-gradient(135deg, #c8ff3e, #8fe600); color: #0a0814; box-shadow: 0 10px 28px rgba(200,255,62,0.3); }
+.db-btn-lime { background: linear-gradient(135deg, #ffb020, #f59300); color: #0b1017; box-shadow: 0 10px 28px rgba(255,176,32,0.3); }
 .db-btn-ghost { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--line); }
 .db-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 26px 2px 12px; }
 .db-h h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .14em; color: var(--faint); font-weight: 800; }
 .db-link { background: none; border: 0; color: var(--lime); font-size: 13px; font-weight: 700; }
 .db-bento { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .db-tile { padding: 16px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line); min-width: 0; }
-.db-tile-ring { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; background: linear-gradient(135deg, rgba(139,92,246,0.14), rgba(255,255,255,0.03)); }
+.db-tile-ring { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; background: linear-gradient(135deg, rgba(45,212,191,0.14), rgba(255,255,255,0.03)); }
 .db-big { font-family: var(--font-display); font-size: 34px; font-weight: 800; line-height: 1; }
 .db-lbl { font-size: 11.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
 .db-num { font-family: var(--font-display); font-size: 34px; font-weight: 800; margin-top: 8px; line-height: 1; }
@@ -198,7 +201,7 @@ const css = `
 .db-actions { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .db-act { position: relative; text-align: left; padding: 16px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); color: var(--text); display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow: hidden; }
 .db-act::before { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--c) 22%, transparent), transparent 60%); pointer-events: none; }
-.db-act-ico { position: relative; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; color: #0a0814; background: var(--c); margin-bottom: 8px; }
+.db-act-ico { position: relative; width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; color: #0b1017; background: var(--c); margin-bottom: 8px; }
 .db-act-t { position: relative; font-family: var(--font-display); font-weight: 800; font-size: 15.5px; }
 .db-act-d { position: relative; font-size: 12px; color: var(--muted); line-height: 1.35; }
 .db-act-arrow { position: absolute; right: 14px; top: 14px; color: var(--c); font-weight: 900; }
@@ -214,8 +217,8 @@ const css = `
 .db-help-b svg { color: #3ddc97; }
 .db-foot { text-align: center; font-size: 11.5px; color: var(--faint); margin: 28px 0 6px; }
 .db-modal { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center; padding: 18px; }
-.db-modal-s { position: absolute; inset: 0; background: rgba(5,3,12,0.72); backdrop-filter: blur(5px); }
-.db-modal-c { position: relative; width: 100%; max-width: 380px; display: grid; gap: 12px; padding: 24px 20px; border-radius: 26px; background: linear-gradient(180deg,#1b1533,#110d1f); border: 1px solid var(--line-strong); }
+.db-modal-s { position: absolute; inset: 0; background: rgba(5,8,12,0.72); backdrop-filter: blur(5px); }
+.db-modal-c { position: relative; width: 100%; max-width: 380px; display: grid; gap: 12px; padding: 24px 20px; border-radius: 26px; background: linear-gradient(180deg,#1a2330,#111821); border: 1px solid var(--line-strong); }
 .db-modal-c p { font-size: 14px; line-height: 1.5; }
 @media (min-width: 640px) {
   .db { padding: 20px 22px 8px; }

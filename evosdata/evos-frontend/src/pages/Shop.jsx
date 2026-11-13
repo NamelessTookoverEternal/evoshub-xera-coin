@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import API, { verifyNumber } from "../api";
 import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
-export default function Shop() {
+export default function Shop({ setPage } = {}) {
   const [step, setStep] = useState(1);
   const [network, setNetwork] = useState("");
   const [bundle, setBundle] = useState("");
@@ -47,6 +47,38 @@ export default function Shop() {
 
   const xeraOn = !!(useXera && xeraQuote?.eligible);
   const payAmount = xeraOn ? Number(xeraQuote.final_price) : Number(bundlePrice);
+
+  // ── Wallet: the "scan". Asks the server if the wallet can pay (with or without the XERA discount). ──
+  const [wallet, setWallet] = useState(null);          // server answer for this bundle
+  const [payMethod, setPayMethod] = useState("paystack");
+  const [shortPopup, setShortPopup] = useState(null);  // { balance, needed } when the wallet can't cover the order
+  const [done, setDone] = useState(null);              // wallet order confirmation
+
+  useEffect(() => {
+    setWallet(null);
+    if (!user_id || !network || !bundle || !(Number(bundlePrice) > 0)) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/wallet/quote", {
+          params: { user_id, network, bundle },
+          headers: { "X-User-Token": localStorage.getItem("userToken") || "" },
+        });
+        if (!cancelled && res.data?.status === "ok") setWallet(res.data);
+      } catch { /* no wallet info: Paystack still works */ }
+    })();
+    return () => { cancelled = true; };
+  }, [user_id, network, bundle, bundlePrice]);
+
+  const walletAmount = wallet ? Number(xeraOn ? (wallet.wallet_price_with_xera ?? wallet.wallet_price) : wallet.wallet_price) : 0;
+  const walletEnough = !!wallet && (xeraOn && wallet.enough_with_xera !== null ? wallet.enough_with_xera : wallet.enough);
+  const walletBalance = wallet ? Number(wallet.balance) : 0;
+  const useWallet = payMethod === "wallet" && walletEnough;
+
+  // Pick the wallet automatically when it can pay; fall back to Paystack when it can't.
+  useEffect(() => {
+    setPayMethod(wallet && walletEnough ? "wallet" : "paystack");
+  }, [wallet, walletEnough, xeraOn]);
 
   useEffect(() => {
     const saved = localStorage.getItem("selectedNetwork");
@@ -146,9 +178,16 @@ export default function Shop() {
         user_id, network, bundle, phone: toGhanaPhone(phone),
         email: email || "guest@evoshub.com",
         ...(xeraOn ? { use_xera: true } : {}),   // the server works out the price; this only asks for it
+        ...(useWallet ? { pay_with: "wallet" } : {}),
       });
 
       const data = res.data;
+
+      if (data?.paid_with === "wallet") {          // paid from the wallet: no redirect
+        setLoading(false);
+        setDone({ message: data.message, balance: data.new_wallet_balance, charged: data.charged, reference: data.reference });
+        return;
+      }
 
       const paymentUrl =
         data?.payment_url ||
@@ -176,6 +215,16 @@ export default function Shop() {
 
     } catch (err) {
       setLoading(false);
+      const d = err.response?.data?.detail;
+      if (d && typeof d === "object") {
+        if (d.code === "insufficient_wallet") {      // balance moved since the scan: show the same popup
+          setShortPopup({ balance: Number(d.balance), needed: Number(d.needed) });
+          setPayMethod("paystack");
+          return;
+        }
+        setError(d.message || "Order failed");
+        return;
+      }
       setError(
         err.response?.data?.detail ||
         err.response?.data?.message ||
@@ -196,9 +245,9 @@ export default function Shop() {
       border: "rgba(239,68,68,0.4)", desc: "Formerly Vodafone Ghana",
     },
     {
-      name: "AIRTELTIGO", label: "AirtelTigo", emoji: "🔵", color: "#8b5cf6",
-      bg: "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(139,92,246,0.06))",
-      border: "rgba(139,92,246,0.4)", desc: "Nationwide coverage",
+      name: "AIRTELTIGO", label: "AirtelTigo", emoji: "🔵", color: "#2dd4bf",
+      bg: "linear-gradient(135deg, rgba(45,212,191,0.18), rgba(45,212,191,0.06))",
+      border: "rgba(45,212,191,0.4)", desc: "Nationwide coverage",
     },
   ];
 
@@ -206,37 +255,40 @@ export default function Shop() {
 
   return (
     <div style={styles.container}>
-      <style>{`@keyframes evos-spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes evos-spin { to { transform: rotate(360deg); } }
+.sh-head { margin: 0 0 16px; }
+.sh-head h2 { margin: 0; font-size: 26px; }
+.sh-head p { margin: 6px 0 0; display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--faint); }
+.sh-head i { font-style: normal; }
+.sh-head .on { color: var(--lime); font-weight: 700; }
+.sh-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 5px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.sh-tab { min-height: 48px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font: 700 14px var(--font-display); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.sh-tab small { font-size: 10px; font-weight: 600; color: var(--danger); }
+.sh-tab.on { background: var(--lime); color: #0b1017; }
+.sh-tab:disabled { opacity: .4; cursor: not-allowed; }
+.sh-hint { margin: 22px 0; text-align: center; font-size: 14px; color: var(--faint); }
+.sh-list { display: flex; flex-direction: column; margin-top: 14px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
+.sh-row { display: flex; justify-content: space-between; align-items: center; min-height: 56px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--text); font-family: inherit; cursor: pointer; text-align: left; }
+.sh-row:last-child { border-bottom: 0; }
+.sh-row:hover:not(:disabled) { background: var(--surface-2); }
+.sh-row:disabled { opacity: .5; cursor: not-allowed; }
+.sh-size { font: 800 17px var(--font-display); }
+.sh-price { font-weight: 800; font-size: 15px; color: var(--lime); }
+.sh-out { font-size: 12px; font-weight: 700; color: var(--danger); }
+.sh-note { margin-top: 12px; text-align: center; font-size: 12.5px; color: var(--faint); }
+.sh-tab:focus-visible, .sh-row:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
+`}</style>
 
       {/* HEADER */}
-      <div style={styles.header}>
-        <div style={styles.headerBadge}>🛒 Buy Data</div>
-        <h2 style={styles.title}>Choose Your Bundle</h2>
-        <p style={styles.subtitle}>Fast automated delivery across Ghana</p>
-      </div>
-
-      {/* PROGRESS BAR */}
-      <div style={styles.progressWrap}>
-        {["Network", "Bundle", "Checkout"].map((label, i) => {
-          const active = step === i + 1;
-          const done = step > i + 1;
-          return (
-            <div key={i} style={styles.progressItem}>
-              <div style={{
-                ...styles.progressDot,
-                background: done ? "#22c55e" : active ? "#c8ff3e" : "rgba(255,255,255,0.1)",
-                border: active ? "2px solid #c8ff3e" : done ? "2px solid #22c55e" : "2px solid rgba(255,255,255,0.1)",
-              }}>
-                {done ? "✓" : i + 1}
-              </div>
-              <span style={{
-                ...styles.progressLabel,
-                color: active ? "#c8ff3e" : done ? "#22c55e" : "#7a6fa3",
-              }}>{label}</span>
-            </div>
-          );
-        })}
-        <div style={styles.progressLine} />
+      <div className="sh-head">
+        <h2>Buy data</h2>
+        <p>
+          <span className={step < 3 ? "on" : ""}>{selectedNetwork?.label || "Network"}</span>
+          <i>›</i>
+          <span className={step === 3 ? "on" : ""}>{step === 3 ? bundle : "Bundle"}</span>
+          <i>›</i>
+          <span>Pay</span>
+        </p>
       </div>
 
       {/* PENDING ORDER NOTICE */}
@@ -255,97 +307,82 @@ export default function Shop() {
 
       <div style={styles.wrapper}>
 
-        {/* ============ STEP 1 — NETWORK ============ */}
-        {step === 1 && (
-          <div style={styles.box}>
-            <p style={styles.stepLabel}>Step 1 of 3 · Select Network</p>
-            <div style={styles.networkGrid}>
+        {/* ============ NETWORK + BUNDLE (one screen) ============ */}
+        {step < 3 && (
+          <div className="sh-pick">
+            <div className="sh-tabs" role="tablist" aria-label="Network">
               {networks.map((n) => {
                 const disabled = isOutOfStock(n.name);
                 return (
-                  <div
+                  <button
                     key={n.name}
-                    style={{
-                      ...styles.networkCard,
-                      background: n.bg,
-                      border: `1px solid ${n.border}`,
-                      opacity: disabled ? 0.4 : 1,
-                      cursor: disabled ? "not-allowed" : "pointer",
-                    }}
-                    onClick={() => {
-                      if (disabled) return;
-                      setNetwork(n.name);
-                      setStep(2);
-                    }}
+                    role="tab"
+                    aria-selected={network === n.name}
+                    disabled={disabled}
+                    className={`sh-tab ${network === n.name ? "on" : ""}`}
+                    style={{ "--c": n.color }}
+                    onClick={() => { setNetwork(n.name); setStep(2); }}
                   >
-                    <div style={{ ...styles.networkEmoji, color: n.color }}>{n.emoji}</div>
-                    <div style={{ ...styles.networkName, color: n.color }}>{n.label}</div>
-                    <div style={styles.networkDesc}>{n.desc}</div>
-                    {disabled && <div style={styles.stockBadge}>Out of Stock</div>}
-                    <div style={{ ...styles.networkArrow, color: n.color }}>→</div>
-                  </div>
+                    {n.label}
+                    {disabled && <small>Out of stock</small>}
+                  </button>
                 );
               })}
             </div>
-            <div style={styles.infoRow}>
-              <span style={styles.infoText}>🔒 Secured by Paystack</span>
-              <span style={styles.infoText}>⚡ Instant delivery</span>
-            </div>
-          </div>
-        )}
 
-        {/* ============ STEP 2 — BUNDLE ============ */}
-        {step === 2 && (
-          <div style={styles.box}>
-            <button style={styles.backBtn} onClick={() => setStep(1)}>← Back</button>
-            <p style={styles.stepLabel}>Step 2 of 3 · Select Bundle</p>
-            <div style={{
-              ...styles.networkPill,
-              background: selectedNetwork?.bg,
-              border: `1px solid ${selectedNetwork?.border}`,
-              color: selectedNetwork?.color,
-            }}>
-              {selectedNetwork?.emoji} {selectedNetwork?.label}
-            </div>
-            {bundles.length === 0 && (
-              <p style={styles.emptyText}>No bundles available for this network.</p>
+            {!network && <p className="sh-hint">Choose a network to see its bundles.</p>}
+
+            {network && bundles.length === 0 && (
+              <p className="sh-hint">No bundles available for this network.</p>
             )}
-            <div style={styles.bundleGrid}>
+
+            <div className="sh-list">
               {bundles.map((b, i) => {
                 const soldOut = b.in_stock === false;
                 return (
-                  <div
+                  <button
                     key={i}
-                    style={{
-                      ...styles.bundleCard,
-                      ...(soldOut ? { opacity: 0.5, cursor: "not-allowed" } : {}),
-                    }}
+                    className="sh-row"
+                    disabled={soldOut}
                     onClick={() => {
-                      if (soldOut) return;
                       setBundle(b.bundle);
                       setBundlePrice(b.price);
                       setStep(3);
                     }}
                   >
-                    <div style={styles.bundleSize}>{b.bundle}</div>
-                    <div style={styles.bundlePrice}>GH₵ {Number(b.price).toFixed(2)}</div>
-                    {soldOut ? (
-                      <div style={{ ...styles.bundleTap, color: "#ef4444", opacity: 0.9, fontWeight: 800 }}>Out of stock</div>
-                    ) : (
-                      <div style={styles.bundleTap}>Tap to select →</div>
-                    )}
-                  </div>
+                    <span className="sh-size">{b.bundle}</span>
+                    {soldOut ? <span className="sh-out">Out of stock</span> : <span className="sh-price">GH₵ {Number(b.price).toFixed(2)}</span>}
+                  </button>
                 );
               })}
             </div>
+
+            <p className="sh-note">🔒 Paid through Paystack. Delivered automatically.</p>
           </div>
         )}
 
         {/* ============ STEP 3 — CHECKOUT ============ */}
-        {step === 3 && (
+        {step === 3 && done && (
+          <div style={{ ...styles.box, textAlign: "center" }}>
+            <p style={{ fontSize: 44, margin: "0 0 6px" }}>✅</p>
+            <p style={{ ...styles.stepLabel, marginBottom: 6 }}>Order placed</p>
+            <p style={{ fontSize: 14, opacity: 0.85, margin: "0 0 4px" }}>{done.message}</p>
+            <p style={{ fontSize: 13, opacity: 0.65, margin: "0 0 18px" }}>
+              Paid GH₵ {Number(done.charged).toFixed(2)} · wallet balance GH₵ {Number(done.balance).toFixed(2)}
+            </p>
+            <button style={styles.buyBtn} onClick={() => { setDone(null); setStep(1); setBundle(""); setPhone(""); setAgree(false); }}>
+              Buy another
+            </button>
+            {setPage && (
+              <button style={styles.verifyPopupCancelBtn} onClick={() => setPage("orders")}>View my orders</button>
+            )}
+          </div>
+        )}
+
+        {step === 3 && !done && (
           <div style={styles.box}>
             <button style={styles.backBtn} onClick={() => setStep(2)}>← Back</button>
-            <p style={styles.stepLabel}>Step 3 of 3 · Complete Order</p>
+            <p style={styles.stepLabel}>Complete your order</p>
 
             <div style={styles.summaryCard}>
               <div style={styles.summaryRow}>
@@ -360,13 +397,13 @@ export default function Shop() {
               </div>
               <div style={{ ...styles.summaryRow, borderBottom: "none" }}>
                 <span style={styles.summaryLabel}>Amount</span>
-                <span style={{ ...styles.summaryVal, color: "#c8ff3e", fontSize: 20, fontWeight: 900 }}>
+                <span style={{ ...styles.summaryVal, color: "#ffb020", fontSize: 20, fontWeight: 900 }}>
                   {xeraOn && (
                     <span style={{ textDecoration: "line-through", opacity: 0.5, fontSize: 14, marginRight: 8 }}>
                       GH₵ {Number(bundlePrice).toFixed(2)}
                     </span>
                   )}
-                  GH₵ {payAmount.toFixed(2)}
+                  GH₵ {(useWallet ? walletAmount : payAmount).toFixed(2)}
                 </span>
               </div>
             </div>
@@ -374,7 +411,7 @@ export default function Shop() {
             {xeraQuote && (xeraQuote.eligible ? (
               <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer",
                               padding: "10px 12px", marginBottom: 14, borderRadius: 10,
-                              border: "1px solid rgba(200,255,62,0.35)", background: "rgba(200,255,62,0.06)" }}>
+                              border: "1px solid rgba(255,176,32,0.35)", background: "rgba(255,176,32,0.06)" }}>
                 <input type="checkbox" checked={useXera} onChange={(e) => setUseXera(e.target.checked)}
                        style={{ marginTop: 3 }} />
                 <span style={{ fontSize: 13, lineHeight: 1.45 }}>
@@ -394,6 +431,35 @@ export default function Shop() {
             ) : (xeraQuote.message && xeraQuote.reason !== "disabled" && xeraQuote.reason !== "no_discount") ? (
               <p style={{ fontSize: 12, opacity: 0.65, margin: "0 0 14px" }}>🪙 {xeraQuote.message}</p>
             ) : null)}
+
+            {wallet && (
+              <div style={{ marginBottom: 14 }}>
+                <p style={{ ...styles.inputLabel, marginBottom: 8 }}>How do you want to pay?</p>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <button type="button"
+                    onClick={() => walletEnough ? setPayMethod("wallet")
+                      : setShortPopup({ balance: walletBalance, needed: walletAmount })}
+                    style={{ textAlign: "left", padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+                             border: useWallet ? "2px solid #22c55e" : "1px solid rgba(255,255,255,0.12)",
+                             background: useWallet ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)",
+                             color: "inherit", opacity: walletEnough ? 1 : 0.45, filter: walletEnough ? "none" : "grayscale(1)" }}>
+                    <b>👛 Wallet · GH₵ {walletAmount.toFixed(2)}</b>
+                    <span style={{ display: "block", fontSize: 12, opacity: 0.75 }}>
+                      {walletEnough
+                        ? `Wallet price: GH₵ ${Number(wallet.wallet_discount || 0).toFixed(2)} cheaper · balance GH₵ ${walletBalance.toFixed(2)}`
+                        : `Balance GH₵ ${walletBalance.toFixed(2)} · not enough for this order`}
+                    </span>
+                  </button>
+                  <button type="button" onClick={() => setPayMethod("paystack")}
+                    style={{ textAlign: "left", padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+                             border: !useWallet ? "2px solid #22c55e" : "1px solid rgba(255,255,255,0.12)",
+                             background: !useWallet ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.03)", color: "inherit" }}>
+                    <b>💳 Paystack · GH₵ {payAmount.toFixed(2)}</b>
+                    <span style={{ display: "block", fontSize: 12, opacity: 0.75 }}>Mobile money or card</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             <label style={styles.inputLabel}>📱 Recipient Phone Number</label>
             <input
@@ -446,7 +512,7 @@ export default function Shop() {
                 type="checkbox"
                 checked={agree}
                 onChange={() => setAgree(!agree)}
-                style={{ accentColor: "#c8ff3e", width: 16, height: 16, flexShrink: 0, marginTop: 2 }}
+                style={{ accentColor: "#ffb020", width: 16, height: 16, flexShrink: 0, marginTop: 2 }}
               />
               <span style={styles.checkText}>
                 I confirm this number is correct.{" "}
@@ -471,14 +537,37 @@ export default function Shop() {
               >
                 {loading
                   ? pendingMsg ? "⏳ Redirecting to payment..." : "⏳ Processing..."
-                  : `💳 Pay GH₵ ${payAmount.toFixed(2)} via Paystack`}
+                  : useWallet
+                    ? `👛 Pay GH₵ ${walletAmount.toFixed(2)} from wallet`
+                    : `💳 Pay GH₵ ${payAmount.toFixed(2)} via Paystack`}
               </button>
             )}
 
-            <p style={styles.secureNote}>🔒 Secured & encrypted via Paystack</p>
+            <p style={styles.secureNote}>{useWallet ? "🔒 Paid from your EVOS Data wallet" : "🔒 Secured & encrypted via Paystack"}</p>
           </div>
         )}
       </div>
+
+      {/* WALLET TOO LOW POPUP */}
+      {shortPopup && (
+        <div style={styles.verifyOverlay}>
+          <div style={styles.verifyPopup}>
+            <p style={styles.verifyPopupText}>👛 Wallet balance too low</p>
+            <p style={styles.verifyPopupSub}>
+              You have GH₵ {Number(shortPopup.balance).toFixed(2)}; this order needs GH₵ {Number(shortPopup.needed).toFixed(2)}.
+              Top up to get the cheaper wallet price, or pay with Paystack now.
+            </p>
+            <div style={styles.verifyPopupActions}>
+              {setPage && (
+                <button style={styles.verifyPopupProceedBtn}
+                  onClick={() => { setShortPopup(null); setPage("wallet-topup"); }}>Top up wallet</button>
+              )}
+              <button style={styles.verifyPopupCancelBtn}
+                onClick={() => { setShortPopup(null); setPayMethod("paystack"); }}>Pay with Paystack instead</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* VERIFY NUMBER POPUP */}
       {(checkingBlocking || showVerifyResult) && (
@@ -576,11 +665,11 @@ const styles = {
   header: { textAlign: "center", marginBottom: 28 },
   headerBadge: {
     display: "inline-block", padding: "5px 16px", borderRadius: 50,
-    background: "rgba(200,255,62,0.15)", border: "1px solid rgba(200,255,62,0.3)",
-    color: "#c8ff3e", fontSize: 12, fontWeight: 700, marginBottom: 12,
+    background: "rgba(255,176,32,0.15)", border: "1px solid rgba(255,176,32,0.3)",
+    color: "#ffb020", fontSize: 12, fontWeight: 700, marginBottom: 12,
   },
-  title: { fontSize: 26, fontWeight: 900, color: "#f3f0fb", margin: "0 0 6px" },
-  subtitle: { fontSize: 14, color: "#9189b5", margin: 0 },
+  title: { fontSize: 26, fontWeight: 900, color: "#f4f6f9", margin: "0 0 6px" },
+  subtitle: { fontSize: 14, color: "#8b98ab", margin: 0 },
 
   progressWrap: {
     display: "flex", justifyContent: "center", alignItems: "center",
@@ -603,8 +692,8 @@ const styles = {
   },
 
   pendingNotice: {
-    background: "rgba(200,255,62,0.1)", border: "1px solid rgba(200,255,62,0.3)",
-    color: "#c8ff3e", padding: "12px 16px", borderRadius: 12,
+    background: "rgba(255,176,32,0.1)", border: "1px solid rgba(255,176,32,0.3)",
+    color: "#ffb020", padding: "12px 16px", borderRadius: 12,
     marginBottom: 16, fontSize: 14, maxWidth: 480,
     margin: "0 auto 16px", textAlign: "center", fontWeight: 700,
   },
@@ -617,13 +706,13 @@ const styles = {
 
   wrapper: { maxWidth: 480, margin: "0 auto" },
   box: {
-    background: "rgba(22,17,38,0.9)", backdropFilter: "blur(20px)",
+    background: "rgba(22,30,41,0.9)", backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)", padding: "24px 20px",
     borderRadius: 22, border: "1px solid rgba(255,255,255,0.07)",
     boxShadow: "0 25px 60px rgba(0,0,0,0.4)",
   },
   stepLabel: {
-    fontSize: 12, color: "#c8ff3e", fontWeight: 700,
+    fontSize: 12, color: "#ffb020", fontWeight: 700,
     textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 18px",
   },
 
@@ -635,7 +724,7 @@ const styles = {
   },
   networkEmoji: { fontSize: 26, flexShrink: 0 },
   networkName: { fontWeight: 800, fontSize: 16, flex: 1 },
-  networkDesc: { fontSize: 12, color: "#9189b5" },
+  networkDesc: { fontSize: 12, color: "#8b98ab" },
   networkArrow: { fontSize: 18, fontWeight: 900 },
   stockBadge: {
     position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
@@ -643,10 +732,10 @@ const styles = {
     color: "#ef4444", fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 50,
   },
   infoRow: { display: "flex", justifyContent: "center", gap: 20 },
-  infoText: { fontSize: 12, color: "#7a6fa3", fontWeight: 600 },
+  infoText: { fontSize: 12, color: "#6c7a8f", fontWeight: 600 },
 
   backBtn: {
-    background: "none", border: "none", color: "#c8ff3e",
+    background: "none", border: "none", color: "#ffb020",
     fontSize: 14, fontWeight: 700, cursor: "pointer",
     padding: 0, marginBottom: 14, display: "block",
   },
@@ -654,38 +743,38 @@ const styles = {
     display: "inline-block", padding: "6px 16px", borderRadius: 50,
     fontSize: 13, fontWeight: 800, marginBottom: 18,
   },
-  emptyText: { color: "#7a6fa3", fontSize: 14, textAlign: "center", padding: "20px 0" },
+  emptyText: { color: "#6c7a8f", fontSize: 14, textAlign: "center", padding: "20px 0" },
   bundleGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 },
   bundleCard: {
-    background: "rgba(10,8,20,0.7)", border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(11,16,23,0.7)", border: "1px solid rgba(255,255,255,0.08)",
     borderRadius: 16, padding: "16px 14px", cursor: "pointer",
     textAlign: "center", transition: "border-color 0.15s",
   },
-  bundleSize: { fontWeight: 900, fontSize: 18, color: "#f3f0fb", marginBottom: 6 },
-  bundlePrice: { fontWeight: 800, fontSize: 16, color: "#c8ff3e", marginBottom: 8 },
-  bundleTap: { fontSize: 11, color: "#c8ff3e", opacity: 0.6 },
+  bundleSize: { fontWeight: 900, fontSize: 18, color: "#f4f6f9", marginBottom: 6 },
+  bundlePrice: { fontWeight: 800, fontSize: 16, color: "#ffb020", marginBottom: 8 },
+  bundleTap: { fontSize: 11, color: "#ffb020", opacity: 0.6 },
 
   summaryCard: {
-    background: "rgba(10,8,20,0.7)", border: "1px solid rgba(255,255,255,0.06)",
+    background: "rgba(11,16,23,0.7)", border: "1px solid rgba(255,255,255,0.06)",
     borderRadius: 16, padding: "6px 16px", marginBottom: 22,
   },
   summaryRow: {
     display: "flex", justifyContent: "space-between", alignItems: "center",
     padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)",
   },
-  summaryLabel: { fontSize: 13, color: "#9189b5" },
+  summaryLabel: { fontSize: 13, color: "#8b98ab" },
   summaryVal: { fontSize: 15, fontWeight: 700, color: "#e5e7eb" },
 
-  inputLabel: { display: "block", fontSize: 12, color: "#9189b5", fontWeight: 700, marginBottom: 6 },
+  inputLabel: { display: "block", fontSize: 12, color: "#8b98ab", fontWeight: 700, marginBottom: 6 },
   input: {
     width: "100%", padding: "13px 14px", marginBottom: 6, borderRadius: 12,
-    border: "1.5px solid", background: "rgba(10,8,20,0.75)",
+    border: "1.5px solid", background: "rgba(11,16,23,0.75)",
     color: "#fff", outline: "none", fontSize: 14, boxSizing: "border-box",
     transition: "border-color 0.2s",
   },
   phoneHint: { fontSize: 12, color: "#f87171", margin: "0 0 14px", paddingLeft: 2 },
   phoneHintGood: { fontSize: 12, color: "#22c55e", margin: "0 0 14px", paddingLeft: 2 },
-  verifyChecking: { fontSize: 12, color: "#9189b5", margin: "0 0 14px", paddingLeft: 2 },
+  verifyChecking: { fontSize: 12, color: "#8b98ab", margin: "0 0 14px", paddingLeft: 2 },
   verifyWarning: { fontSize: 12, color: "#f59e0b", margin: "0 0 14px", paddingLeft: 2, lineHeight: 1.5 },
 
   checkWrap: {
@@ -693,42 +782,42 @@ const styles = {
     background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)",
     padding: "12px 14px", borderRadius: 12, marginBottom: 16, cursor: "pointer", marginTop: 8,
   },
-  checkText: { fontSize: 13, color: "#b4acd0", lineHeight: 1.55 },
+  checkText: { fontSize: 13, color: "#b3bece", lineHeight: 1.55 },
   buyBtn: {
     width: "100%", padding: "15px", borderRadius: 14, border: "none",
     background: "linear-gradient(135deg, #22c55e, #16a34a)", color: "white",
     fontWeight: 900, fontSize: 15, cursor: "pointer", marginBottom: 12,
     boxShadow: "0 4px 20px rgba(34,197,94,0.3)",
   },
-  secureNote: { textAlign: "center", fontSize: 12, color: "#7a6fa3", margin: 0 },
+  secureNote: { textAlign: "center", fontSize: 12, color: "#6c7a8f", margin: 0 },
 
   verifyOverlay: {
-    position: "fixed", inset: 0, background: "rgba(10,8,20,0.7)",
+    position: "fixed", inset: 0, background: "rgba(11,16,23,0.7)",
     backdropFilter: "blur(2px)", display: "flex",
     alignItems: "center", justifyContent: "center", zIndex: 2000,
   },
   verifyPopup: {
-    background: "#161126", border: "1px solid rgba(255,255,255,0.1)",
+    background: "#161e29", border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 20, padding: "28px 32px", textAlign: "center",
     boxShadow: "0 20px 60px rgba(0,0,0,0.5)", maxWidth: 280,
   },
   verifySpinner: {
     width: 34, height: 34, margin: "0 auto 14px", borderRadius: "50%",
-    border: "3px solid rgba(200,255,62,0.2)", borderTopColor: "#c8ff3e",
+    border: "3px solid rgba(255,176,32,0.2)", borderTopColor: "#ffb020",
     animation: "evos-spin 0.8s linear infinite",
   },
-  verifyPopupText: { fontSize: 15, fontWeight: 800, color: "#f3f0fb", margin: "0 0 4px" },
-  verifyPopupSub: { fontSize: 12, color: "#9189b5", margin: 0 },
+  verifyPopupText: { fontSize: 15, fontWeight: 800, color: "#f4f6f9", margin: "0 0 4px" },
+  verifyPopupSub: { fontSize: 12, color: "#8b98ab", margin: 0 },
   verifyPopupActions: {
     display: "flex", flexDirection: "column", gap: 8, marginTop: 18,
   },
   verifyPopupProceedBtn: {
-    background: "linear-gradient(135deg, #c8ff3e, #8fe600)", color: "#fff",
+    background: "linear-gradient(135deg, #ffb020, #f59300)", color: "#fff",
     border: "none", borderRadius: 12, padding: "12px 16px",
     fontSize: 14, fontWeight: 800, cursor: "pointer",
   },
   verifyPopupCancelBtn: {
-    background: "transparent", color: "#b4acd0",
+    background: "transparent", color: "#b3bece",
     border: "1px solid rgba(255,255,255,0.12)", borderRadius: 12,
     padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
   },
@@ -738,12 +827,12 @@ const styles = {
     display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10,
   },
   chatPopup: {
-    background: "#161126", border: "1px solid rgba(255,255,255,0.1)",
+    background: "#161e29", border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: 18, padding: 18, width: 270, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
   },
   chatHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  chatClose: { background: "none", border: "none", color: "#9189b5", cursor: "pointer", fontSize: 14 },
-  chatMsg: { fontSize: 13, color: "#b4acd0", lineHeight: 1.55, margin: "0 0 12px" },
+  chatClose: { background: "none", border: "none", color: "#8b98ab", cursor: "pointer", fontSize: 14 },
+  chatMsg: { fontSize: 13, color: "#b3bece", lineHeight: 1.55, margin: "0 0 12px" },
   chatOptions: { display: "flex", flexDirection: "column", gap: 8 },
   chatOption: {
     padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)",
