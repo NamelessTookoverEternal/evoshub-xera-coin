@@ -103,7 +103,8 @@ export default function ETATrack({ setPage, backTo = "home" }) {
 
     setLoading(true);
     try {
-      const res = await smartFetch(`/orders/track?phone=${encodeURIComponent(cleaned)}`);
+      const tok = (() => { try { return localStorage.getItem("userToken") || ""; } catch { return ""; } })();
+      const res = await smartFetch(`/orders/track?phone=${encodeURIComponent(cleaned)}`, tok ? { headers: { "X-User-Token": tok } } : {});
       const data = await res.json();
 
       if (data.orders && data.orders.length > 0) {
@@ -214,7 +215,7 @@ export default function ETATrack({ setPage, backTo = "home" }) {
               <div style={styles.detailRow}>
                 <span style={styles.detailLabel}>Amount Paid</span>
                 <span style={{ ...styles.detailVal, color: "#ffb020", fontWeight: 800 }}>
-                  GH&#8373; {Number(order.price || 0).toFixed(2)}
+                  {order.masked ? "Hidden" : <>GH&#8373; {Number(order.price || 0).toFixed(2)}</>}
                 </span>
               </div>
               <div style={styles.detailRow}>
@@ -231,6 +232,11 @@ export default function ETATrack({ setPage, backTo = "home" }) {
                   {order.evosdata_ref || order.paystack_ref || "—"}
                 </span>
               </div>
+              {order.masked && (
+                <p style={{ fontSize: 11, color: "#8b98ab", margin: "8px 0 0" }}>
+                  🔒 Sign in to see the amount and reference of your own orders.
+                </p>
+              )}
             </div>
 
             {/* ETA */}

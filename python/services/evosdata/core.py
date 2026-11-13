@@ -3512,8 +3512,10 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
 def get_user_orders(request: Request, user_id: int = Query(...)):
     require_user(request, user_id)  # token must belong to this user_id
     try:
-        orders = supabase.table("orders").select("*").eq("user_id", user_id).execute()
-        return {"status": "success", "orders": orders.data or []}
+        orders = supabase.table("orders").select("*").eq("user_id", user_id) \
+            .order("created_at", desc=True).limit(100).execute()          # newest first
+        from services.evosdata import delivery_eta
+        return {"status": "success", "orders": delivery_eta.enrich(supabase, orders.data or [])}
     except Exception as e:
         logger.error("GET ORDERS ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch orders")
@@ -3523,7 +3525,7 @@ def get_user_orders(request: Request, user_id: int = Query(...)):
 def track_orders(request: Request, phone: str = Query(...)):
     try:
         cleaned = normalise_phone(phone)
-        cols = "network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref"
+        cols = "user_id, network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref"
         try:
             orders = supabase.table("orders").select(cols + ", delivered_at") \
                 .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
@@ -3531,7 +3533,18 @@ def track_orders(request: Request, phone: str = Query(...)):
             orders = supabase.table("orders").select(cols) \
                 .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
         from services.evosdata import delivery_eta
-        return {"orders": delivery_eta.enrich(supabase, orders.data or [])}
+        rows = delivery_eta.enrich(supabase, orders.data or [])
+        # Anyone with the number sees status + delivery time. The reference and the amount are only shown to the
+        # signed-in owner of the order; everybody else gets them masked. (No/invalid token = just masked, never an error.)
+        token = request.headers.get("X-User-Token", "")
+        for r in rows:
+            owner = r.pop("user_id", None)
+            r["masked"] = not (token and owner and verify_user_token(token, owner))
+            if r["masked"]:
+                r["price"] = None
+                r["evosdata_ref"] = "***"
+                r["paystack_ref"] = "***"
+        return {"orders": rows}
     except HTTPException:
         raise
     except Exception as e:

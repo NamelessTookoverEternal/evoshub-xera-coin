@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { getOrders } from "../api";
 
-export default function Orders() {
+export default function Orders({ user } = {}) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ✅ USE REAL USER ID INSTEAD OF EMAIL
-  const userId = localStorage.getItem("user_id");
+  // The signed-in account: prefer the app's user, fall back to what login saved (some sign-in paths only save the user object).
+  const userId = (() => {
+    try {
+      return user?.id || localStorage.getItem("user_id") || JSON.parse(localStorage.getItem("user") || "{}")?.id || null;
+    } catch { return user?.id || null; }
+  })();
 
   // 🔥 STATUS COLOR MAP
   const getColor = (status) => {
@@ -22,8 +26,8 @@ export default function Orders() {
   const getStatusLabel = (status) => {
     if (status === "pending_payment") return "Waiting for Payment";
 
-    if (status === "processing")
-      return "Processed (Delivery: 1 min - 4 hrs)";
+    if (status === "processing" || status === "paid")
+      return "On its way";
 
     if (status === "successful")
       return "Delivered Successfully";
@@ -48,14 +52,16 @@ export default function Orders() {
 
       // ✅ BACKEND RETURNS { status, orders }
       if (Array.isArray(res.data.orders)) {
-        setOrders(res.data.orders);
+        // newest first, whatever order the server returns
+        setOrders([...res.data.orders].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
       } else {
         setOrders([]);
       }
     } catch (err) {
       console.error(err);
-      setOrders([]);
-      setError("Failed to load orders");
+      setError(err?.response?.status === 403
+        ? "Your session expired. Please sign in again to see your orders."
+        : "Couldn't load your orders. Retrying...");
     } finally {
       setLoading(false);
     }
@@ -64,7 +70,7 @@ export default function Orders() {
   useEffect(() => {
     loadOrders();
 
-    const interval = setInterval(loadOrders, 5000);
+    const interval = setInterval(loadOrders, 15000);
 
     return () => clearInterval(interval);
   }, [userId]);
@@ -104,11 +110,21 @@ export default function Orders() {
               {getStatusLabel(o.status)}
             </p>
 
+            {o.status === "successful" && o.delivered_at ? (
+              <p style={styles.meta}>✅ Delivered {fmt(o.delivered_at)}</p>
+            ) : (o.status === "processing" || o.status === "paid") && o.eta_text ? (
+              <p style={styles.meta}>⏱ {o.eta_text}</p>
+            ) : null}
+
             <p>GH₵ {o.price}</p>
 
             <p style={styles.phone}>
               {o.phone_number}
             </p>
+            <p style={styles.meta}>Placed {fmt(o.created_at)}</p>
+            {(o.evosdata_ref || o.paystack_ref) && (
+              <p style={{ ...styles.meta, wordBreak: "break-all" }}>Ref: {o.evosdata_ref || o.paystack_ref}</p>
+            )}
           </div>
         ))}
       </div>
@@ -116,7 +132,14 @@ export default function Orders() {
   );
 }
 
+const fmt = (d) => {
+  if (!d) return "";
+  const x = new Date(d);
+  return isNaN(x) ? "" : x.toLocaleString("en-GH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+};
+
 const styles = {
+  meta: { fontSize: 12, opacity: 0.75, margin: "4px 0" },
   container: {
     padding: "24px",
     minHeight: "auto",
@@ -139,7 +162,7 @@ const styles = {
   card: {
     padding: "16px",
     borderRadius: "14px",
-    background: "rgba(22,17,38, 0.85)",
+    background: "rgba(22,30,41, 0.85)",
     backdropFilter: "blur(14px)",
     WebkitBackdropFilter: "blur(14px)",
     boxShadow: "0 20px 50px rgba(0,0,0,0.35)",
@@ -149,13 +172,13 @@ const styles = {
 
   phone: {
     fontSize: "12px",
-    color: "#b4acd0",
+    color: "#b3bece",
     marginTop: "6px",
   },
 
   info: {
     textAlign: "center",
-    color: "#b4acd0",
+    color: "#b3bece",
     fontSize: "14px",
     marginTop: "20px",
   },
