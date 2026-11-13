@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import API, { verifyNumber } from "../api";
+import { getCachedPrices, subscribePrices, refreshPrices } from "../lib/pricesStore";
 import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 export default function Shop({ setPage } = {}) {
@@ -9,7 +10,7 @@ export default function Shop({ setPage } = {}) {
   const [bundlePrice, setBundlePrice] = useState(0);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState(localStorage.getItem("email") || "");
-  const [prices, setPrices] = useState([]);
+  const [prices, setPrices] = useState(getCachedPrices); // instant: saved copy / build snapshot
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pendingMsg, setPendingMsg] = useState(""); // ← new
@@ -88,16 +89,11 @@ export default function Shop({ setPage } = {}) {
       localStorage.removeItem("selectedNetwork");
     }
 
-    const loadPrices = async () => {
-      try {
-        const res = await API.get("/prices");
-        const data = res.data?.data;
-        setPrices(Array.isArray(data) ? data : []);
-      } catch {
-        setPrices([]);
-      }
-    };
-    loadPrices();
+    // Background refresh: the saved list is already on screen; this only swaps it if prices,
+    // stock or a new bundle size changed on the server.
+    const off = subscribePrices(setPrices);
+    refreshPrices();
+    return off;
   }, []);
 
   const OUT_OF_STOCK = [];
@@ -267,13 +263,14 @@ export default function Shop({ setPage } = {}) {
 .sh-tab.on { background: var(--lime); color: #0b1017; }
 .sh-tab:disabled { opacity: .4; cursor: not-allowed; }
 .sh-hint { margin: 22px 0; text-align: center; font-size: 14px; color: var(--faint); }
-.sh-list { display: flex; flex-direction: column; margin-top: 14px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); }
-.sh-row { display: flex; justify-content: space-between; align-items: center; min-height: 56px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--text); font-family: inherit; cursor: pointer; text-align: left; }
-.sh-row:last-child { border-bottom: 0; }
-.sh-row:hover:not(:disabled) { background: var(--surface-2); }
+.sh-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+@media (max-width: 340px) { .sh-list { grid-template-columns: repeat(2, 1fr); } }
+.sh-row { aspect-ratio: 1 / 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text); font-family: inherit; cursor: pointer; text-align: center; transition: transform .12s, border-color .12s; }
+.sh-row:hover:not(:disabled) { background: var(--surface-2); border-color: var(--lime); }
+.sh-row:active:not(:disabled) { transform: scale(.97); }
 .sh-row:disabled { opacity: .5; cursor: not-allowed; }
-.sh-size { font: 800 17px var(--font-display); }
-.sh-price { font-weight: 800; font-size: 15px; color: var(--lime); }
+.sh-size { font: 800 clamp(17px, 5vw, 22px) var(--font-display); }
+.sh-price { font-weight: 800; font-size: 14px; color: var(--lime); }
 .sh-out { font-size: 12px; font-weight: 700; color: var(--danger); }
 .sh-note { margin-top: 12px; text-align: center; font-size: 12.5px; color: var(--faint); }
 .sh-tab:focus-visible, .sh-row:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
@@ -333,7 +330,7 @@ export default function Shop({ setPage } = {}) {
             {!network && <p className="sh-hint">Choose a network to see its bundles.</p>}
 
             {network && bundles.length === 0 && (
-              <p className="sh-hint">No bundles available for this network.</p>
+              <p className="sh-hint">{prices.length === 0 ? "Loading bundles…" : "No bundles available for this network."}</p>
             )}
 
             <div className="sh-list">

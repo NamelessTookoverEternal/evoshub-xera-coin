@@ -9,10 +9,11 @@ Differences from the standalone app are limited to: shared limiter / Supabase
 client, Hub-session authentication (see "HUB SESSION" below), environment
 validation, and URLs that used to point at the standalone deployment.
 """
-from fastapi import APIRouter, Request, HTTPException, Query, Depends, Header, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, Query, Depends, Header, BackgroundTasks, Response
 from slowapi.util import get_remote_address
 
 import os
+import json
 import re
 import base64
 import requests
@@ -1532,18 +1533,74 @@ def increment_user_orders(user_id: int):
 
 
 # =========================
-# PRICES
+# PRICES  (served from an in-memory cache, refreshed in the background)
 # =========================
+# The shop page used to hit Supabase on every visit, which is slow. Now /prices answers from
+# memory. prices_cache_loop (started in startup_event) reloads the `prices` table every
+# PRICES_REFRESH_SECONDS (default 2h). If background jobs are switched off, /prices itself
+# reloads when the copy is older than that, so it can never go stale for good.
+# Orders are NOT priced from this cache: /orders/create, /wallet/quote etc. still read the live
+# `prices` table, so an old cached display price can never change what a customer is charged.
+PRICES_REFRESH_SECONDS = max(60, int(os.getenv("PRICES_REFRESH_SECONDS", "7200")))
+_prices_cache = {"data": None, "updated_at": None, "loaded_mono": 0.0}
+_prices_cache_lock = threading.Lock()
+
+
+def refresh_prices_cache() -> bool:
+    """Reload the prices table into memory. On failure the previous copy is kept."""
+    try:
+        rows = supabase.table("prices").select("*").execute().data or []
+        with _prices_cache_lock:
+            _prices_cache["data"] = rows
+            _prices_cache["updated_at"] = datetime.now(timezone.utc).isoformat()
+            _prices_cache["loaded_mono"] = time.monotonic()
+        logger.info("PRICES CACHE: refreshed (%d rows)", len(rows))
+        return True
+    except Exception as e:
+        logger.error("PRICES CACHE: refresh failed, keeping previous copy (%s)", str(e))
+        return False
+
+
+async def prices_cache_loop():
+    while True:
+        await asyncio.to_thread(refresh_prices_cache)
+        await asyncio.sleep(PRICES_REFRESH_SECONDS)
+
+
+def _prices_snapshot():
+    with _prices_cache_lock:
+        return _prices_cache["data"], _prices_cache["updated_at"], _prices_cache["loaded_mono"]
+
+
 @router.get("/prices")
 @limiter.limit("60/minute")
-def get_prices(request: Request):
+def get_prices(request: Request, response: Response):
     try:
-        data = supabase.table("prices").select("*").execute().data or []
+        cached, updated_at, loaded = _prices_snapshot()
+        # Empty, or older than twice the interval (the background job is not running): reload now.
+        if cached is None or (time.monotonic() - loaded) > PRICES_REFRESH_SECONDS * 2:
+            refresh_prices_cache()
+            cached, updated_at, loaded = _prices_snapshot()
+        if cached is None:
+            raise HTTPException(status_code=500, detail="Failed to load prices")
+
+        data = [dict(r) for r in cached]         # copy: stock flags must not leak into the cache
         try:
-            datamart_stock.annotate(data)   # adds in_stock to every bundle
+            datamart_stock.annotate(data)        # adds in_stock to every bundle
         except Exception as stock_err:
             logger.warning("PRICES: stock annotate skipped (%s)", stock_err)
-        return {"status": "success", "data": data}
+
+        # `version` changes whenever a price, a bundle size or a stock flag changes, so the
+        # frontend can cheaply tell whether it needs to redraw.
+        fingerprint = json.dumps(
+            sorted([[r.get("network"), r.get("bundle"), str(r.get("price")), r.get("in_stock")] for r in data], key=str),
+            default=str,
+        )
+        version = hashlib.sha1(fingerprint.encode()).hexdigest()[:16]
+        response.headers["Cache-Control"] = "public, max-age=30"
+        return {"status": "success", "data": data, "version": version, "updated_at": updated_at}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("PRICES ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Failed to load prices")
@@ -3350,6 +3407,7 @@ async def startup_event():
     asyncio.create_task(retry_stuck_afa())
     asyncio.create_task(retry_stuck_paystack_withdrawals())
     asyncio.create_task(datamart_stock.poller_loop())
+    asyncio.create_task(prices_cache_loop())
 
 
 # =========================
