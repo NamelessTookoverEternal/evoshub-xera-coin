@@ -7,7 +7,9 @@ Copy these folders into the repo root (evoshub-main). All files are NEW.
   hub-frontend/src/pages/xera-transfer.html      -> send page + public ledger
   hub-frontend/src/js/xera-transfer.js
 
-## Edits to existing files (3 small ones)
+## Edits to existing files
+
+READY-MADE: hub-frontend/src/pages/xera/index.html is included as a changed copy (Transfer chip made live) - just overwrite. Do it LAST, after transfer_enabled = true. Only 2 manual edits remain: main.py and vite.config.js (below).
 
 1) python/main.py  - add next to the other `from xera...` imports (~line 35):
    from xera.p2p import router as xera_p2p_router
