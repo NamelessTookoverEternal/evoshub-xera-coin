@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="robots" content="noindex, nofollow"/>
+<meta name="theme-color" content="#060810"/>
+<title>XERA P2P review | Admin</title>
+<link href="../css/xera.css" rel="stylesheet"/>
+<style>
+  .pp-wrap{max-width:860px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px}
+  .pp-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pp-top a,.pp-top button.link{font:inherit;color:var(--text-secondary,#9aa5b8);background:none;border:0;cursor:pointer;text-decoration:underline}
+  .pp-box{border:1px solid var(--border,rgba(255,255,255,.1));border-radius:14px;padding:12px 14px;font-size:.84rem;line-height:1.5;background:var(--surface,rgba(255,255,255,.03))}
+  .pp-box h2{font-size:1rem;margin:0 0 8px}
+  .pp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .pp-stat{border:1px solid var(--border,rgba(255,255,255,.1));border-radius:12px;padding:10px 12px}
+  .pp-stat span{display:block;font-size:.74rem;color:var(--text-secondary,#9aa5b8)}
+  .pp-stat b{font-size:1.05rem}
+  .pp-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .pp-form label{display:flex;flex-direction:column;gap:4px;font-size:.76rem;color:var(--text-secondary,#9aa5b8)}
+  .pp-form input{font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.18));background:rgba(255,255,255,.04);color:inherit}
+  .pp-btn{font:inherit;font-weight:650;min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.2));background:rgba(76,126,255,.25);color:inherit;cursor:pointer}
+  .pp-btn:disabled{opacity:.5;cursor:not-allowed}
+  .pp-item{border-top:1px solid var(--border,rgba(255,255,255,.08));padding:10px 0;display:flex;flex-direction:column;gap:4px;font-size:.82rem}
+  .pp-item:first-child{border-top:0}
+  .pp-line{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pp-muted{color:var(--text-secondary,#9aa5b8);font-size:.76rem;overflow-wrap:anywhere}
+  .pp-tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.7rem;border:1px solid currentColor;margin-right:4px}
+  .pp-bad{color:#ff8a80}.pp-warn{color:#ffd180}.pp-ok{color:#7ee0a8}
+  .pp-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .pp-filters input{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.18));background:rgba(255,255,255,.04);color:inherit;flex:1;min-width:140px}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+<main class="pp-wrap">
+  <div class="pp-top">
+    <a href="/admin-website-chat.html">&larr; Admin console</a>
+    <span><span id="ppWho">Checking sign-in…</span> · <button type="button" class="link" id="ppSignout">Sign out</button></span>
+  </div>
+  <h1 style="font-size:1.25rem;margin:0">XERA P2P review</h1>
+  <p class="pp-box">
+    Transfers between XERA users. Look for wallets that receive XERA from many accounts that never finished verification,
+    from accounts sharing one IP address, or through a VPN. Nothing here moves money; the only change you can make is
+    the limits and fee settings, and each change is logged with your admin id.
+  </p>
+  <p class="banner-error" id="ppError" role="alert"></p>
+
+  <section class="pp-box">
+    <h2>Overview</h2>
+    <div class="pp-grid" id="ppStats"></div>
+    <p class="pp-muted" id="ppIpNote" style="margin:8px 0 0"></p>
+  </section>
+
+  <section class="pp-box">
+    <h2>Suspicious wallets</h2>
+    <p class="pp-muted" id="ppFlagHint" style="margin:0 0 8px"></p>
+    <div id="ppFlagged"></div>
+  </section>
+
+  <section class="pp-box">
+    <h2>Transfer log</h2>
+    <div class="pp-filters">
+      <input id="ppFilterRecipient" placeholder="Recipient XERA ID (XR-…)" maxlength="20" autocapitalize="characters">
+      <input id="ppFilterSender" placeholder="Sender XERA ID (XR-…)" maxlength="20" autocapitalize="characters">
+      <button type="button" class="pp-btn" id="ppFilterGo">Filter</button>
+    </div>
+    <div id="ppTransfers"></div>
+    <button type="button" class="pp-btn" id="ppMore" hidden style="margin-top:8px">Load more</button>
+  </section>
+
+  <section class="pp-box">
+    <h2>Limits and fee</h2>
+    <form id="ppForm" class="pp-form" autocomplete="off">
+      <label>Fee for unverified senders (%)<input name="unverified_fee_percent" inputmode="decimal"></label>
+      <label>Daily cap, unverified (XERA)<input name="unverified_daily_max" inputmode="decimal"></label>
+      <label>Daily cap, verified (XERA)<input name="daily_max_total" inputmode="decimal"></label>
+      <label>Minimum per transfer<input name="min_amount" inputmode="decimal"></label>
+      <label>Maximum per transfer<input name="max_amount" inputmode="decimal"></label>
+      <label>Flag at N unverified senders<input name="flag_min_senders" inputmode="numeric"></label>
+      <label>Flag window (days)<input name="flag_window_days" inputmode="numeric"></label>
+      <label style="grid-column:1/-1">Reason (saved in the admin log)<input name="reason" maxlength="300"></label>
+      <div style="grid-column:1/-1"><button type="submit" class="pp-btn" id="ppSave">Save changes</button> <span class="pp-muted" id="ppSaved"></span></div>
+    </form>
+  </section>
+</main>
+<script src="../js/admin-xera-p2p.js" type="module"></script>
+</body>
+</html>

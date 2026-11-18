@@ -77,7 +77,10 @@ async function loadMe() {
   } catch (_e) { $('tfBalance').textContent = '—'; }
 
   if (!me.enabled) { show('tfClosed', true); return; }
-  if (me.missing && me.missing.length) showRequirements(me.missing);
+  if (!me.complete) {
+    $('tfFeeNote').textContent = `Until your steps are complete, each transfer costs an extra ${fmt(me.fee_percent)}% of the amount, and you can send up to ${fmt(me.limits.daily_total)} XERA per 24 hours.`;
+    showRequirements(me.missing);
+  }
   step(1);
 }
 
@@ -132,6 +135,14 @@ $('step1').addEventListener('submit', async (ev) => {
     $('cfName').textContent = d.name;
     $('cfXid').textContent = d.xera_id;
     $('cfAmount').textContent = fmt(amt.num);
+    // The server decides the real fee; this is the same sum, shown before the sender confirms.
+    const pct = me && me.fee_percent ? me.fee_percent : 0;
+    const fee = Math.round(amt.num * pct * 100) / 10000;
+    $('cfFeePct').textContent = fmt(pct);
+    $('cfFee').textContent = fmt(fee);
+    $('cfTotal').textContent = fmt(amt.num + fee);
+    show('cfFeeRow', fee > 0);
+    show('cfTotalRow', fee > 0);
     $('cfErr').textContent = '';
     step(2);
   } catch (e) {
@@ -156,20 +167,17 @@ $('cfSend').addEventListener('click', async () => {
       body: JSON.stringify({ xera_id: pending.xid, amount: pending.amount, request_id: pending.requestId }),
     });
     $('doneTitle').textContent = 'Sent';
+    const paidFee = Number(d.transfer.fee_amount || 0);
     $('doneMsg').textContent = `${fmt(d.transfer.amount)} XERA sent to ${pending.name} (${pending.xid}).` +
+      (paidFee > 0 ? ` Fee: ${fmt(paidFee)} XERA.` : '') +
       (d.new_balance != null ? ` Your balance is now ${fmt(d.new_balance)} XERA.` : '');
     if (d.new_balance != null) $('tfBalance').textContent = fmt(d.new_balance);
     pending = null;
     ledgerLoaded = false;
     step(3);
   } catch (e) {
-    if (e.code === 'transfer_requirements_incomplete') {
-      pending = null; step(1); showRequirements(me ? me.missing && me.missing.length ? me.missing : ['KYC', 'FEE'] : ['KYC', 'FEE']);
-      $('tfErr').textContent = e.message;
-    } else {
-      // Keep `pending` (and its request id) so pressing Send again is safe after a dropped connection.
-      $('cfErr').textContent = e.status ? e.message : 'Connection problem. Your transfer may not have gone through. Check your balance, or press Send again: it will not send twice.';
-    }
+    // Keep `pending` (and its request id) so pressing Send again is safe after a dropped connection.
+    $('cfErr').textContent = e.status ? e.message : 'Connection problem. Your transfer may not have gone through. Check your balance, or press Send again: it will not send twice.';
   } finally {
     sending = false;
     btn.disabled = false;

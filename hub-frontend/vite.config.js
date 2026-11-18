@@ -48,6 +48,7 @@ export default defineConfig({
         xeraWallet:        'src/pages/xera-wallet.html',
         xeraTransfer:      'src/pages/xera-transfer.html',
         adminXeraKyc:      'src/pages/admin-xera-kyc.html',
+        adminXeraP2p:      'src/pages/admin-xera-p2p.html',
         adminUpdates:      'src/pages/admin-updates.html',
         updates:           'src/pages/updates.html',
         comingSoon:        'src/pages/coming-soon.html',

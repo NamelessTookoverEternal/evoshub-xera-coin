@@ -49,7 +49,8 @@
     <p class="tf-box" id="tfGuest" hidden>Sign in on the XERA app to send XERA. <a href="/xera">Open XERA</a></p>
     <p class="tf-box" id="tfClosed" hidden>Transfers between XERA users are not open yet. You can still see your XERA ID below, and the global ledger.</p>
     <div class="tf-box" id="tfReq" hidden>
-      <b>Finish these steps before your first transfer:</b>
+      <b id="tfFeeNote">Your transfer steps are not complete.</b>
+      <p style="margin:6px 0">Finish these to send with no fee and a higher daily limit:</p>
       <ul id="tfReqList" style="margin:6px 0 8px;padding-left:18px"></ul>
       <a href="/xera">Open the XERA app to complete them</a>
     </div>
@@ -84,6 +85,8 @@
         <div class="tf-row"><span>Name</span><b id="cfName">—</b></div>
         <div class="tf-row"><span>XERA ID</span><b id="cfXid">—</b></div>
         <div class="tf-row"><span>Amount</span><b><span id="cfAmount">—</span> XERA</b></div>
+        <div class="tf-row" id="cfFeeRow" hidden><span>Fee (<span id="cfFeePct">0</span>%)</span><b><span id="cfFee">0</span> XERA</b></div>
+        <div class="tf-row" id="cfTotalRow" hidden><span>Total taken from you</span><b><span id="cfTotal">0</span> XERA</b></div>
       </div>
       <p style="font-size:.76rem;color:var(--text-secondary,#9aa5b8);margin:0">Transfers can't be undone. If the name or ID is not the person you mean, go back.</p>
       <p class="tf-err" id="cfErr" role="alert"></p>

@@ -9,8 +9,13 @@ Rules:
     body can name the sender.
   * Balance moves only inside the Postgres function xera_p2p_transfer
     (migration 20261116_xera_p2p_v1.sql). This module never writes a balance.
-  * The sender must pass the same first-transfer gate as on-chain claims
-    (KYC verified + one-time fee paid) via readiness.require_transfer_ready.
+  * A sender who has completed every transfer step (KYC verified + one-time fee
+    paid, via readiness.transfer_missing) sends free with the normal daily cap.
+    A sender who has NOT may still send, but pays a fee on top (default 50% of the
+    amount, set in xera_p2p_config) and has a lower daily cap. The recipient always
+    gets the full amount. The fee is not paid to any wallet (look-only vault total).
+  * The client IP is recorded with each transfer, with a VPN/proxy note when
+    an IP checker is set up (xera/ipcheck.py). The note never blocks a transfer.
   * This module does not touch on-chain claims or external-wallet withdrawal.
 
 Routes (all under /api/xera/transfer):
@@ -30,6 +35,8 @@ from pydantic import BaseModel, Field, field_validator
 from main import supabase, limiter
 from xera.config import get_config
 from xera import readiness
+from xera import ipcheck
+from utils.rate_limit import get_client_ip
 from xera.routes import _current_user_id, _log_security_event
 
 logger = logging.getLogger(__name__)
@@ -46,7 +53,7 @@ _P2P_ERROR_HTTP = [
     ("self_transfer",        (400, "You can't send XERA to yourself.")),
     ("amount_out_of_range",  (400, "Amount is outside the allowed range.")),
     ("daily_limit_exceeded", (409, "You've reached your 24-hour sending limit.")),
-    ("insufficient_balance", (409, "Not enough available balance. Tokens held for a pending order can't be sent.")),
+    ("insufficient_balance", (409, "Not enough available balance for the amount plus any fee. Tokens held for a pending order can't be sent.")),
     ("wallet_not_active",    (403, "Your wallet is suspended.")),
     ("wallet_not_found",     (404, "Wallet not found.")),
     ("request_id_conflict",  (409, "This request ID was already used. Please try again.")),
@@ -119,6 +126,8 @@ def p2p_me(request: Request, authorization: str = Header(default="")):
     except Exception as e:
         logger.error("XERA P2P ensure id failed: %s", e)
         raise HTTPException(status_code=503, detail="Could not load your XERA ID. Please try again.")
+    missing = readiness.transfer_missing(user_id)
+    complete = not missing
     return {
         "status": "ok",
         "xera_id": xera_id,
@@ -126,9 +135,12 @@ def p2p_me(request: Request, authorization: str = Header(default="")):
         "limits": {
             "min": float(pc["min_amount"]),
             "max": float(pc["max_amount"]),
-            "daily_total": float(pc["daily_max_total"]),
+            # The cap that applies to THIS user right now.
+            "daily_total": float(pc["daily_max_total"] if complete else pc["unverified_daily_max"]),
         },
-        "missing": readiness.transfer_missing(user_id),
+        "complete": complete,
+        "fee_percent": 0 if complete else pc["unverified_fee_bps"] / 100,
+        "missing": missing,
     }
 
 
@@ -158,19 +170,22 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
     if not (cfg["system_enabled"] and cfg["transfer_enabled"]):
         raise HTTPException(status_code=403, detail="Transfers are not open yet.")
 
-    # Same gate as on-chain claims: identity check + one-time fee.
-    try:
-        readiness.require_transfer_ready(user_id)
-    except readiness.TransferRequirementsError as e:
-        return readiness.requirements_response(e.missing)
+    # Every transfer step done (identity check + one-time fee) = free; otherwise the
+    # database applies the unverified fee and the lower daily cap.
+    verified = not readiness.transfer_missing(user_id)
 
     xid = _normalise_xera_id(data.xera_id)
+    ip = get_client_ip(request)
+    ip_risk = ipcheck.check_ip(ip)
     try:
         res = supabase.rpc("xera_p2p_transfer", {
             "p_sender_user_id": user_id,
             "p_recipient_xera_id": xid,
             "p_amount": str(data.amount),
             "p_request_id": data.request_id,
+            "p_sender_verified": verified,
+            "p_ip_address": ip if ip and ip != "unknown" else None,
+            "p_ip_risk": ip_risk,
         }).execute()
     except Exception as e:
         msg = str(e)
@@ -183,6 +198,8 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
         raise HTTPException(status_code=500, detail="Transfer failed. Nothing was sent. Please try again.")
 
     row = res.data[0] if isinstance(res.data, list) and res.data else (res.data or {})
+    if ip_risk.get("vpn"):
+        _log_security_event(user_id, "P2P_VPN_DETECTED", request, {"transfer_id": row.get("id"), "type": ip_risk.get("type")})
     try:
         balance = supabase.table("xera_wallets").select("cached_balance").eq("user_id", user_id).limit(1).execute().data
         new_balance = balance[0]["cached_balance"] if balance else None
@@ -194,6 +211,7 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
         "transfer": {
             "id": row.get("id"),
             "amount": row.get("amount"),
+            "fee_amount": row.get("fee_amount", 0),
             "recipient_xera_id": row.get("recipient_xera_id"),
             "created_at": row.get("created_at"),
         },

@@ -34,6 +34,7 @@ from xera.routes_readiness import router as xera_readiness_router, admin_router 
 from xera.routes_hashrate import router as xera_hashrate_router
 from xera.routes_referral import router as xera_referral_router
 from xera.p2p import router as xera_p2p_router
+from xera.routes_admin_p2p import router as xera_admin_p2p_router
 from routes.updates import router as updates_router, admin_router as updates_admin_router
 from routes.product_switches import router as products_router, admin_router as products_admin_router
 _IS_PROD = os.getenv("ENVIRONMENT", "development").strip().lower() == "production"
@@ -142,6 +143,7 @@ app.include_router(xera_admin_readiness_router, prefix="/api/admin/xera", tags=[
 app.include_router(xera_hashrate_router, prefix="/api/xera/hashrate", tags=["xera-hashrate"])
 app.include_router(xera_referral_router, prefix="/api/xera/referral", tags=["xera-referral"])
 app.include_router(xera_p2p_router, prefix="/api/xera/transfer", tags=["xera-p2p"])
+app.include_router(xera_admin_p2p_router, prefix="/api/admin/xera/p2p", tags=["xera-admin-p2p"])
 app.include_router(updates_router, prefix="/api/updates", tags=["updates"])
 app.include_router(updates_admin_router, prefix="/api/admin/updates")
 app.include_router(products_router, prefix="/api/products", tags=["products"])
