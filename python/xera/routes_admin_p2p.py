@@ -86,6 +86,7 @@ class P2PConfigUpdate(BaseModel):
     max_amount: Decimal | None = Field(default=None, gt=0, le=1_000_000)
     daily_max_total: Decimal | None = Field(default=None, gt=0, le=10_000_000)
     unverified_fee_percent: Decimal | None = Field(default=None, ge=0, le=100)
+    verified_fee_percent: Decimal | None = Field(default=None, ge=0, le=100)
     unverified_daily_max: Decimal | None = Field(default=None, gt=0, le=10_000_000)
     flag_min_senders: int | None = Field(default=None, ge=2, le=100)
     flag_window_days: int | None = Field(default=None, ge=1, le=90)
@@ -103,6 +104,8 @@ def p2p_update_config(request: Request, data: P2PConfigUpdate, authorization: st
             patch[field] = str(v)
     if data.unverified_fee_percent is not None:
         patch["unverified_fee_bps"] = int((data.unverified_fee_percent * 100).to_integral_value())
+    if data.verified_fee_percent is not None:
+        patch["verified_fee_bps"] = int((data.verified_fee_percent * 100).to_integral_value())
     for field in ("flag_min_senders", "flag_window_days"):
         v = getattr(data, field)
         if v is not None:

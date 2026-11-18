@@ -43,13 +43,15 @@ async function loadOverview() {
   kpi('Last 30 days', fmt(v.fees_last_30d), 'XERA in fees');
   kpi('Transfers', fmt(v.transfers_total), `${fmt(v.transfers_with_fee)} paid a fee`);
   kpi('Volume', fmt(v.volume_total), 'XERA sent between users');
-  kpi('Unverified fee', `${fmt(cfg.unverified_fee_bps / 100)}%`, 'Charged on top of the amount');
+  kpi('Verified fee', `${fmt(cfg.verified_fee_bps / 100)}%`, 'Charged on top of the amount');
+  kpi('Unverified fee', `${fmt(cfg.unverified_fee_bps / 100)}%`, 'Senders with steps incomplete');
   $('p2p-ipnote').textContent = d.ip_check_configured
     ? 'VPN check is on: new transfers are tagged VPN when the IP looks like a VPN or proxy.'
     : 'VPN check is off. IP addresses are still recorded. To switch the check on, set XERA_IP_INTEL_PROVIDER=proxycheck and XERA_IP_INTEL_API_KEY in Render.';
   $('p2p-flaghint').textContent = `A wallet is flagged when, in the last ${cfg.flag_window_days} days, it received XERA from ${cfg.flag_min_senders}+ different accounts that had not finished verification, or from 2+ accounts sharing one IP.`;
   const f = $('p2p-form');
   f.unverified_fee_percent.value = cfg.unverified_fee_bps / 100;
+  f.verified_fee_percent.value = cfg.verified_fee_bps / 100;
   ['unverified_daily_max', 'daily_max_total', 'min_amount', 'max_amount', 'flag_min_senders', 'flag_window_days'].forEach((n) => { f[n].value = cfg[n]; });
 }
 
@@ -102,7 +104,7 @@ function wire() {
     ev.preventDefault();
     err(''); $('p2p-saved').textContent = '';
     const f = ev.target; const body = {};
-    const cur = { unverified_fee_percent: cfg.unverified_fee_bps / 100 };
+    const cur = { unverified_fee_percent: cfg.unverified_fee_bps / 100, verified_fee_percent: cfg.verified_fee_bps / 100 };
     ['unverified_daily_max', 'daily_max_total', 'min_amount', 'max_amount', 'flag_min_senders', 'flag_window_days'].forEach((n) => { cur[n] = cfg[n]; });
     Object.keys(cur).forEach((n) => {
       const v = f[n].value.trim();

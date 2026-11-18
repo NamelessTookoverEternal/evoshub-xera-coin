@@ -10,8 +10,8 @@ Rules:
   * Balance moves only inside the Postgres function xera_p2p_transfer
     (migration 20261116_xera_p2p_v1.sql). This module never writes a balance.
   * A sender who has completed every transfer step (KYC verified + one-time fee
-    paid, via readiness.transfer_missing) sends free with the normal daily cap.
-    A sender who has NOT may still send, but pays a fee on top (default 50% of the
+    paid, via readiness.transfer_missing) pays a small fee (default 1%) with the normal daily cap.
+    A sender who has NOT may still send, but pays a bigger fee on top (default 50% of the
     amount, set in xera_p2p_config) and has a lower daily cap. The recipient always
     gets the full amount. The fee is not paid to any wallet (look-only vault total).
   * The client IP is recorded with each transfer, with a VPN/proxy note when
@@ -139,7 +139,7 @@ def p2p_me(request: Request, authorization: str = Header(default="")):
             "daily_total": float(pc["daily_max_total"] if complete else pc["unverified_daily_max"]),
         },
         "complete": complete,
-        "fee_percent": 0 if complete else pc["unverified_fee_bps"] / 100,
+        "fee_percent": (pc["verified_fee_bps"] if complete else pc["unverified_fee_bps"]) / 100,
         "missing": missing,
     }
 
