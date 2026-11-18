@@ -204,6 +204,55 @@
         </div>
       </section>
 
+      <!-- XERA P2P review -->
+      <section id="sec-p2p" hidden>
+        <div class="dx-stack" style="max-width:980px">
+          <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
+            Transfers between XERA users. Look for wallets that receive XERA from many accounts that never finished verification,
+            from accounts sharing one IP address, or through a VPN. Nothing here moves money; the only change you can make is the
+            limits and fee settings, and each change is logged with your admin id.
+          </p>
+          <p class="banner-error" id="p2p-err" role="alert" hidden></p>
+          <div class="dx-kpis" id="p2p-kpis"></div>
+          <p class="dx-note" id="p2p-ipnote"></p>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Suspicious wallets</h2></div>
+            <p class="dx-note" id="p2p-flaghint" style="margin:0 0 10px"></p>
+            <div class="dx-table-wrap"><table class="dx-table">
+              <thead><tr><th>Wallet</th><th>Why</th><th>Senders</th><th>XERA received</th><th>Window</th></tr></thead>
+              <tbody id="p2p-flagged"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+            </table></div>
+          </div>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Transfer log</h2></div>
+            <div class="dx-filters" style="margin-bottom:10px">
+              <input class="dx-input" id="p2p-f-rec" placeholder="Recipient XERA ID (XR-…)" maxlength="20" autocapitalize="characters">
+              <input class="dx-input" id="p2p-f-snd" placeholder="Sender XERA ID (XR-…)" maxlength="20" autocapitalize="characters">
+              <button type="button" class="dx-btn sm ghost" id="p2p-filter">Filter</button>
+            </div>
+            <div class="dx-table-wrap"><table class="dx-table">
+              <thead><tr><th>Date</th><th>From → To</th><th>XERA</th><th>Status</th><th>IP</th></tr></thead>
+              <tbody id="p2p-rows"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+            </table></div>
+            <button type="button" class="dx-btn sm ghost" id="p2p-more" hidden style="margin-top:10px">Load more</button>
+          </div>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Limits and fee</h2></div>
+            <form id="p2p-form" autocomplete="off" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+              <label class="dx-dim">Fee for unverified senders (%)<input class="dx-input" name="unverified_fee_percent" inputmode="decimal" style="width:100%"></label>
+              <label class="dx-dim">Daily cap, unverified (XERA)<input class="dx-input" name="unverified_daily_max" inputmode="decimal" style="width:100%"></label>
+              <label class="dx-dim">Daily cap, verified (XERA)<input class="dx-input" name="daily_max_total" inputmode="decimal" style="width:100%"></label>
+              <label class="dx-dim">Minimum per transfer<input class="dx-input" name="min_amount" inputmode="decimal" style="width:100%"></label>
+              <label class="dx-dim">Maximum per transfer<input class="dx-input" name="max_amount" inputmode="decimal" style="width:100%"></label>
+              <label class="dx-dim">Flag at N unverified senders<input class="dx-input" name="flag_min_senders" inputmode="numeric" style="width:100%"></label>
+              <label class="dx-dim">Flag window (days)<input class="dx-input" name="flag_window_days" inputmode="numeric" style="width:100%"></label>
+              <label class="dx-dim" style="grid-column:1/-1">Reason (saved in the admin log)<input class="dx-input" name="reason" maxlength="300" style="width:100%"></label>
+              <div style="grid-column:1/-1"><button type="submit" class="dx-btn sm" id="p2p-save">Save changes</button> <span class="dx-dim" id="p2p-saved"></span></div>
+            </form>
+          </div>
+        </div>
+      </section>
+
       <!-- Product switches -->
       <section id="sec-products" hidden>
         <div class="dx-stack" style="max-width:760px">

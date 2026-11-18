@@ -15,6 +15,7 @@ const SECTIONS = [
   { id: 'vault', label: 'Discount vault', icon: '▣' },
   { id: 'wallet', label: 'XERA wallet (pilot)', icon: '◐' },
   { id: 'kyc', label: 'XERA KYC review', icon: '✓' },
+  { id: 'p2p', label: 'XERA P2P review', icon: '⇄' },
   { id: 'updates', label: 'App updates', icon: '◇' },
   { id: 'products', label: 'Product switches', icon: '⏻' },
 ]
@@ -111,6 +112,7 @@ async function loadSection(id, force) {
     else if (id === 'token') { if (force || !loaded.token) { loaded.token = true; await Promise.all([loadTokenStats(), loadDailyConfig(), loadEcosystem()]) } }
     else if (id === 'wallet') await openWallet(force)
     else if (id === 'kyc') { const m = await import('./admin-console-kyc.js'); await m.initKyc() }
+    else if (id === 'p2p') { const m = await import('./admin-console-p2p.js'); await m.initP2p() }
     else if (id === 'updates') { const m = await import('./admin-console-updates.js'); m.initUpdates() }
     else if (id === 'vault') await loadVault()
     else if (id === 'products') { const m = await import('./admin-console-products.js'); await m.initProducts() }
