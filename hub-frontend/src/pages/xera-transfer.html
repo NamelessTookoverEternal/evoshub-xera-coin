@@ -29,6 +29,22 @@
   .tf-ledger-item{padding:10px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.08));font-size:.82rem}
   .tf-ledger-item .tf-l1{display:flex;justify-content:space-between;gap:8px;font-weight:600}
   .tf-ledger-item .tf-l2{color:var(--text-secondary,#9aa5b8);font-size:.74rem;margin-top:2px}
+  .tf-qr{display:flex;flex-direction:column;gap:10px;align-items:stretch;margin-top:10px;padding-top:10px;border-top:1px solid var(--border,rgba(255,255,255,.08))}
+  .tf-qr-note{margin:0;font-size:.74rem;color:var(--text-secondary,#9aa5b8);text-align:center}
+  .tf-xid-row{display:flex;gap:8px}
+  .tf-xid-row .tf-input{flex:1;min-width:0}
+  .tf-xid-row .btn{flex:0 0 auto;width:auto;padding-left:14px;padding-right:14px}
+  .tf-seg{display:flex;gap:6px}
+  .tf-seg button{flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.12));background:transparent;color:inherit;font:inherit;font-size:.8rem;cursor:pointer}
+  .tf-seg button[aria-pressed="true"]{background:var(--surface,rgba(255,255,255,.08));border-color:currentColor;font-weight:600}
+  .tf-hist-item{padding:10px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.08));font-size:.82rem;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .tf-hist-main{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .tf-hist-main b{letter-spacing:.04em;word-break:break-all}
+  .tf-hist-sub{color:var(--text-secondary,#9aa5b8);font-size:.74rem}
+  .tf-hist-amt{font-weight:700;white-space:nowrap;text-align:right}
+  .tf-hist-amt small{display:block;font-weight:400;color:var(--text-secondary,#9aa5b8);font-size:.72rem}
+  .tf-in{color:#4ade80}.tf-out{color:#ff9b9b}
+  .tf-mini{flex:0 0 auto;width:auto;padding:6px 12px;font-size:.78rem}
   .tf-err{color:#ff7b7b;font-size:.82rem;min-height:1.1em;margin:0}
   [hidden]{display:none !important}
 </style>
@@ -41,6 +57,7 @@
 
   <div class="tf-tabs" role="tablist">
     <button type="button" class="tf-tab" id="tabSend" role="tab" aria-selected="true">Send</button>
+    <button type="button" class="tf-tab" id="tabHistory" role="tab" aria-selected="false">My transfers</button>
     <button type="button" class="tf-tab" id="tabLedger" role="tab" aria-selected="false">Global ledger</button>
   </div>
 
@@ -59,7 +76,19 @@
     <div class="tf-box" id="tfMe" hidden>
       <div class="tf-id">
         <div><span style="font-size:.74rem;color:var(--text-secondary,#9aa5b8)">Your XERA ID</span><br><b id="myXeraId">—</b></div>
-        <button type="button" class="btn btn-sm btn-ghost" id="copyId">Copy</button>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-sm btn-ghost" id="copyId">Copy</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="qrToggle" aria-expanded="false">QR</button>
+        </div>
+      </div>
+      <div class="tf-qr" id="qrBox" hidden>
+        <div id="qrCanvas" style="min-height:120px"></div>
+        <p class="tf-qr-note">Anyone can scan this to send you Pure XERA. It holds only your XERA ID.</p>
+        <p class="tf-err" id="qrErr" role="alert"></p>
+        <div class="tf-actions">
+          <button type="button" class="btn btn-ghost" id="qrCopyLink">Copy link</button>
+          <button type="button" class="btn btn-ghost" id="qrSave">Save image</button>
+        </div>
       </div>
       <div class="tf-row" style="margin-top:8px"><span>Balance</span><b><span id="tfBalance">—</span> Pure XERA</b></div>
       <div class="tf-row"><span>Limits</span><b id="tfLimits">—</b></div>
@@ -69,7 +98,10 @@
     <form id="step1" class="tf-box" autocomplete="off" hidden style="display:flex;flex-direction:column;gap:12px">
       <div class="tf-field">
         <label for="tfXid">Recipient's XERA ID</label>
-        <input class="tf-input" id="tfXid" type="text" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="20" placeholder="XR-XXXXXXXX">
+        <div class="tf-xid-row">
+          <input class="tf-input" id="tfXid" type="text" inputmode="text" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="20" placeholder="XR-XXXXXXXX">
+          <button type="button" class="btn btn-ghost" id="tfScan">Scan QR</button>
+        </div>
       </div>
       <div class="tf-field">
         <label for="tfAmount">Amount (Pure XERA)</label>
@@ -103,6 +135,20 @@
       <p id="doneMsg" style="margin:0"></p>
       <button type="button" class="btn" id="again">Send another</button>
     </div>
+  </section>
+
+  <!-- ============ MY TRANSFERS ============ -->
+  <section id="historyPanel" hidden style="display:flex;flex-direction:column;gap:10px">
+    <p class="tf-box" style="margin:0">Every Pure XERA transfer you sent or received, with the XERA ID of the other person. Only you can see this list.</p>
+    <p class="tf-box" id="histGuest" hidden>Sign in on the XERA app to see your transfers. <a href="/xera">Open XERA</a></p>
+    <div class="tf-seg" id="histSeg" role="group" aria-label="Filter my transfers">
+      <button type="button" data-dir="all" aria-pressed="true">All</button>
+      <button type="button" data-dir="sent" aria-pressed="false">Sent</button>
+      <button type="button" data-dir="received" aria-pressed="false">Received</button>
+    </div>
+    <div id="histList"></div>
+    <p class="tf-err" id="histErr"></p>
+    <button type="button" class="btn btn-ghost" id="histMore" hidden>Load more</button>
   </section>
 
   <!-- ============ LEDGER ============ -->

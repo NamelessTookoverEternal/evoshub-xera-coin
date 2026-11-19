@@ -23,6 +23,7 @@ Routes (all under /api/xera/transfer):
   GET  /me       my XERA ID, limits, and whether I'm ready to send
   POST /lookup   masked name for an XERA ID (so the sender can confirm)
   POST /send     send XERA (idempotent on request_id)
+  GET  /history  MY transfers: who I sent to and who sent to me (full XERA IDs, visible only to me)
   GET  /ledger   PUBLIC global ledger of transfers (masked IDs only)
 """
 
@@ -229,6 +230,53 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
         },
         "new_balance": new_balance,
     }
+
+
+def _shape_history_row(t: dict, user_id: int, names: dict) -> dict:
+    """One of MY transfers, seen from my side. Only what I'm entitled to see: the other person's XERA ID
+    (full), a masked name, amount, time. The fee is shown only when I was the sender. No user ids, IPs or
+    verification flags ever leave the server here."""
+    sent = t["sender_user_id"] == user_id
+    other_uid = t["recipient_user_id"] if sent else t["sender_user_id"]
+    return {
+        "id": t["id"],
+        "direction": "sent" if sent else "received",
+        "counterparty_xera_id": t["recipient_xera_id"] if sent else t["sender_xera_id"],
+        "counterparty_name": _mask_name(names.get(other_uid)),
+        "amount": t["amount"],
+        "fee_amount": (t.get("fee_amount") or 0) if sent else 0,
+        "status": t.get("status", "COMPLETED"),
+        "created_at": t["created_at"],
+    }
+
+
+@router.get("/history")
+@limiter.limit("30/minute")
+def p2p_history(request: Request, authorization: str = Header(default=""),
+                direction: str = "all", limit: int = 30, offset: int = 0):
+    """My own transfers, newest first. `direction` = all | sent | received."""
+    user_id = _current_user_id(request, authorization)
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    cols = "id,sender_user_id,recipient_user_id,sender_xera_id,recipient_xera_id,amount,fee_amount,status,created_at"
+    q = supabase.table("xera_p2p_transfers").select(cols)
+    if direction == "sent":
+        q = q.eq("sender_user_id", user_id)
+    elif direction == "received":
+        q = q.eq("recipient_user_id", user_id)
+    else:
+        q = q.or_(f"sender_user_id.eq.{user_id},recipient_user_id.eq.{user_id}")   # user_id is an int from the token
+    try:
+        rows = q.order("id", desc=True).range(offset, offset + limit - 1).execute().data or []
+        other_ids = sorted({(r["recipient_user_id"] if r["sender_user_id"] == user_id else r["sender_user_id"]) for r in rows})
+        names = {}
+        if other_ids:
+            users = supabase.table("users").select("id,full_name").in_("id", other_ids).execute().data or []
+            names = {u["id"]: u.get("full_name") for u in users}
+    except Exception as e:
+        logger.error("XERA P2P history failed for user %s: %s", user_id, e)
+        raise HTTPException(status_code=503, detail="Could not load your transfers. Please try again.")
+    return {"status": "ok", "transfers": [_shape_history_row(r, user_id, names) for r in rows]}
 
 
 @router.get("/ledger")

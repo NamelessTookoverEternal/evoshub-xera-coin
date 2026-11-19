@@ -1,9 +1,12 @@
 // XERA in-app P2P transfer page (/xera-transfer).
 //
 // Send XERA from your in-app balance to another XERA user, plus the public global ledger.
+// Also: a QR code for your XERA ID (show / save / scan, see xera-qr.js) and "My transfers" (who you sent to and who sent to you).
 // Talks only to /api/xera/transfer/* (python/xera/p2p.py). The server decides everything:
 // who the sender is (session token), the limits, the identity-check/fee gate and the balance move.
 // This file only collects input and shows results. No on-chain code lives here.
+
+import { extractXeraId, shareLink, showQr, qrPngBlob, scanQr } from './xera-qr.js';
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
   ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
@@ -46,14 +49,16 @@ function step(n) { show('step1', n === 1); show('step2', n === 2); show('step3',
 
 // ---------------- tabs ----------------
 function selectTab(which) {
-  const send = which === 'send';
-  $('tabSend').setAttribute('aria-selected', String(send));
-  $('tabLedger').setAttribute('aria-selected', String(!send));
-  show('sendPanel', send);
-  show('ledgerPanel', !send);
-  if (!send && !ledgerLoaded) loadLedger(true);
+  const map = { send: ['tabSend', 'sendPanel'], history: ['tabHistory', 'historyPanel'], ledger: ['tabLedger', 'ledgerPanel'] };
+  Object.entries(map).forEach(([k, [tab, panel]]) => {
+    $(tab).setAttribute('aria-selected', String(k === which));
+    show(panel, k === which);
+  });
+  if (which === 'ledger' && !ledgerLoaded) loadLedger(true);
+  if (which === 'history' && !historyLoaded) loadHistory(true);
 }
 $('tabSend').addEventListener('click', () => selectTab('send'));
+$('tabHistory').addEventListener('click', () => selectTab('history'));
 $('tabLedger').addEventListener('click', () => selectTab('ledger'));
 
 // ---------------- load my info ----------------
@@ -83,6 +88,7 @@ async function loadMe() {
     showRequirements(me.missing);
   }
   step(1);
+  prefillFromLink();
 }
 
 const REQ_TEXT = {
@@ -175,6 +181,7 @@ $('cfSend').addEventListener('click', async () => {
     if (d.new_balance != null) $('tfBalance').textContent = fmt(d.new_balance);
     pending = null;
     ledgerLoaded = false;
+    historyLoaded = false;
     step(3);
   } catch (e) {
     // Keep `pending` (and its request id) so pressing Send again is safe after a dropped connection.
@@ -241,5 +248,118 @@ async function loadLedger(reset) {
   }
 }
 $('ledgerMore').addEventListener('click', () => loadLedger(false));
+
+// ---------------- QR: show my code, scan someone else's ----------------
+function prefillFromLink() {
+  // A QR scanned with the phone's camera opens /xera-transfer?to=XR-... : put that ID in the form.
+  const xid = extractXeraId(new URLSearchParams(location.search).get('to'));
+  if (xid && me && me.xera_id !== xid && !$('tfXid').value) {
+    $('tfXid').value = xid;
+    $('tfAmount').focus();
+  }
+}
+
+let qrDrawn = false;
+$('qrToggle').addEventListener('click', async () => {
+  const open = $('qrBox').hidden;
+  show('qrBox', open);
+  $('qrToggle').setAttribute('aria-expanded', String(open));
+  $('qrErr').textContent = '';
+  if (open && !qrDrawn && me && me.xera_id) {
+    try { await showQr($('qrCanvas'), shareLink(me.xera_id)); qrDrawn = true; }
+    catch (e) { $('qrErr').textContent = e.message || 'Could not make the QR code.'; }
+  }
+});
+$('qrCopyLink').addEventListener('click', async () => {
+  const b = $('qrCopyLink');
+  try { await navigator.clipboard.writeText(shareLink(me.xera_id)); b.textContent = 'Copied'; }
+  catch (_e) { b.textContent = 'Copy failed'; }
+  setTimeout(() => { b.textContent = 'Copy link'; }, 1800);
+});
+$('qrSave').addEventListener('click', async () => {
+  $('qrErr').textContent = '';
+  try {
+    const blob = await qrPngBlob(shareLink(me.xera_id), me.xera_id);
+    const file = new File([blob], `${me.xera_id}.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'My XERA ID' }); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `${me.xera_id}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  } catch (e) { if (!e || e.name !== 'AbortError') $('qrErr').textContent = 'Could not save the image.'; }
+});
+$('tfScan').addEventListener('click', async () => {
+  const xid = await scanQr();
+  if (!xid) return;
+  if (me && me.xera_id === xid) { $('tfErr').textContent = "That's your own XERA ID."; return; }
+  $('tfErr').textContent = '';
+  $('tfXid').value = xid;
+  $('tfAmount').focus();
+});
+
+// ---------------- my transfers ----------------
+let historyLoaded = false;
+let historyOffset = 0;
+let historyDir = 'all';
+
+function historyRow(t) {
+  const sent = t.direction === 'sent';
+  const row = document.createElement('div');
+  row.className = 'tf-hist-item';
+  const main = document.createElement('div'); main.className = 'tf-hist-main';
+  const top = document.createElement('span');
+  top.textContent = sent ? 'Sent to ' : 'Received from ';
+  const id = document.createElement('b'); id.textContent = t.counterparty_xera_id;
+  top.appendChild(id);
+  const sub = document.createElement('span'); sub.className = 'tf-hist-sub';
+  const when = new Date(t.created_at);
+  sub.textContent = `${t.counterparty_name} · ${isNaN(when) ? '' : when.toLocaleString()} · #${t.id}`;
+  main.append(top, sub);
+  const amt = document.createElement('div'); amt.className = 'tf-hist-amt ' + (sent ? 'tf-out' : 'tf-in');
+  amt.textContent = `${sent ? '−' : '+'}${fmt(t.amount)}`;
+  if (sent && Number(t.fee_amount) > 0) { const f = document.createElement('small'); f.textContent = `fee ${fmt(t.fee_amount)}`; amt.appendChild(f); }
+  const again = document.createElement('button'); again.type = 'button'; again.className = 'btn btn-ghost tf-mini';
+  again.textContent = sent ? 'Send again' : 'Send back';
+  again.addEventListener('click', () => {
+    selectTab('send');
+    if (me && me.enabled && !me.locked && $('step2').hidden) step(1);
+    $('tfXid').value = t.counterparty_xera_id;
+    $('tfAmount').focus();
+  });
+  row.append(main, amt, again);
+  return row;
+}
+
+async function loadHistory(reset) {
+  const list = $('histList'), more = $('histMore');
+  $('histErr').textContent = '';
+  if (!signedIn()) { show('histGuest', true); show('histSeg', false); return; }
+  show('histGuest', false); show('histSeg', true);
+  if (reset) { historyOffset = 0; list.textContent = ''; }
+  more.disabled = true;
+  try {
+    const d = await req(`/history?direction=${historyDir}&limit=${PAGE}&offset=${historyOffset}`);
+    const rows = d.transfers || [];
+    rows.forEach((t) => list.appendChild(historyRow(t)));
+    historyOffset += rows.length;
+    historyLoaded = true;
+    more.hidden = rows.length < PAGE;
+    if (!list.children.length) {
+      const empty = document.createElement('p'); empty.className = 'tf-box';
+      empty.textContent = historyDir === 'sent' ? 'You have not sent any Pure XERA yet.' : historyDir === 'received' ? 'Nobody has sent you Pure XERA yet.' : 'No transfers yet.';
+      list.appendChild(empty);
+    }
+  } catch (e) {
+    $('histErr').textContent = e.message;
+  } finally {
+    more.disabled = false;
+  }
+}
+$('histMore').addEventListener('click', () => loadHistory(false));
+$('histSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+  historyDir = b.dataset.dir;
+  $('histSeg').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  loadHistory(true);
+}));
 
 loadMe();
