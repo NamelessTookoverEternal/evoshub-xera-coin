@@ -6309,21 +6309,23 @@ def forgot_password(request: Request, data: ForgotPasswordRequest, background_ta
     try:
         email = str(data.email).strip().lower()
 
-        # No HTTPS mail API configured but a standalone backend is: let it send (see above).
-        if (os.getenv("EVOSDATA_MAIL_RELAY_URL") and not os.getenv("RESEND_API_KEY")
-                and not os.getenv("BREVO_API_KEY")):
-            background_tasks.add_task(_relay_forgot_password, email)
-            return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
-
         user_res = supabase.table("users") \
             .select("id, full_name, email") \
             .ilike("email", email) \
             .limit(1) \
             .execute()
 
+        # The reset page tells the person plainly when no account uses this email (product decision),
+        # so check this first, before any mail is sent or relayed.
         if not user_res.data:
             _otp_log("FORGOT PASSWORD: no account matches %s", _mask_email(email))
-            return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
+            raise HTTPException(status_code=404, detail="No account exists with this email address.")
+
+        # No HTTPS mail API configured but a standalone backend is: let it send (see above).
+        if (os.getenv("EVOSDATA_MAIL_RELAY_URL") and not os.getenv("RESEND_API_KEY")
+                and not os.getenv("BREVO_API_KEY")):
+            background_tasks.add_task(_relay_forgot_password, email)
+            return {"status": "sent", "message": "An OTP has been sent to your email."}
 
         user    = user_res.data[0]
         _otp_log("FORGOT PASSWORD: account found for %s (user %s), sending OTP", _mask_email(email), user["id"])
@@ -6354,8 +6356,10 @@ def forgot_password(request: Request, data: ForgotPasswordRequest, background_ta
             user.get("full_name") or "User",
         )
 
-        return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
+        return {"status": "sent", "message": "An OTP has been sent to your email."}
 
+    except HTTPException:
+        raise
     except Exception as e:
         _otp_log("FORGOT PASSWORD ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Server error")

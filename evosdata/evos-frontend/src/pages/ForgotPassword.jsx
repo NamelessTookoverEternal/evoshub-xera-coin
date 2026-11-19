@@ -4,9 +4,10 @@ import { IS_HUB_MOUNT } from "../lib/basePath";
 import { hubSignInUrl } from "../lib/hubSession";
 
 // Inside the Hub (evoshub.xyz/evosdata) accounts sign in on the Hub login page,
-// so send people there; standalone (evosdata.xyz) uses the in-app login.
+// and after signing in they land on the Hub's own dashboard (/hub/), not EVOS Data.
+// Standalone (evosdata.xyz) uses the in-app login.
 const goToLogin = (setPage) => {
-  if (IS_HUB_MOUNT) window.location.assign(hubSignInUrl("/evosdata/dashboard"));
+  if (IS_HUB_MOUNT) window.location.assign(hubSignInUrl("/hub/"));
   else setPage("login");
 };
 
@@ -21,6 +22,7 @@ export default function ForgotPassword({ setPage }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [notFound, setNotFound] = useState(false); // "no account with this email" dialog
 
   // ── Step 1: Send OTP ──
   const handleSendOTP = async () => {
@@ -35,13 +37,14 @@ export default function ForgotPassword({ setPage }) {
         email: email.trim().toLowerCase(),
       });
       if (res.data?.status === "sent") {
-        setSuccess("OTP sent! Check your email inbox.");
+        setSuccess("");
         setStep(2);
       } else {
         setError("Something went wrong. Try again.");
       }
     } catch (err) {
-      setError(err?.response?.data?.detail || "Server error. Try again.");
+      if (err?.response?.status === 404) setNotFound(true);
+      else setError(err?.response?.data?.detail || "Server error. Try again.");
     } finally {
       setLoading(false);
     }
@@ -61,7 +64,7 @@ export default function ForgotPassword({ setPage }) {
         otp: otp.trim(),
       });
       if (res.data?.status === "valid") {
-        setSuccess("OTP verified! Set your new password.");
+        setSuccess("");
         setStep(3);
       } else {
         setError("Invalid or expired OTP. Try again.");
@@ -76,15 +79,20 @@ export default function ForgotPassword({ setPage }) {
   // ── Step 3: Reset Password ──
   const handleResetPassword = async () => {
     setError("");
-    if (!newPassword || !confirmPassword) {
+    // Login and Register both trim the password, so the reset must store the trimmed
+    // value too — otherwise a stray space (paste / keyboard autocomplete) makes the
+    // new password impossible to sign in with.
+    const pw = newPassword.trim();
+    const pwConfirm = confirmPassword.trim();
+    if (!pw || !pwConfirm) {
       setError("Please fill in both password fields");
       return;
     }
-    if (newPassword.length < 6) {
+    if (pw.length < 6) {
       setError("Password must be at least 6 characters");
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (pw !== pwConfirm) {
       setError("Passwords do not match");
       return;
     }
@@ -93,7 +101,7 @@ export default function ForgotPassword({ setPage }) {
       const res = await smartPost(`/auth/reset-password`, {
         email: email.trim().toLowerCase(),
         otp: otp.trim(),
-        new_password: newPassword,
+        new_password: pw,
       });
       if (res.data?.status === "success") {
         setSuccess("Password reset successfully! Redirecting to login...");
@@ -127,16 +135,16 @@ export default function ForgotPassword({ setPage }) {
               <div style={{
                 ...s.stepCircle,
                 background: step >= n
-                  ? "linear-gradient(135deg,#c8ff3e,#8fe600)"
+                  ? "linear-gradient(135deg,#ffb020,#f59300)"
                   : "rgba(255,255,255,0.07)",
-                color: step >= n ? "#000" : "#7a6fa3",
+                color: step >= n ? "#000" : "#6c7a8f",
                 fontWeight: step >= n ? 900 : 500,
               }}>
                 {step > n ? "✓" : n}
               </div>
               <span style={{
                 ...s.stepText,
-                color: step >= n ? "#b4acd0" : "#3d3460",
+                color: step >= n ? "#b3bece" : "#36445a",
               }}>
                 {stepLabel[n - 1]}
               </span>
@@ -150,12 +158,26 @@ export default function ForgotPassword({ setPage }) {
           {step === 3 && "New Password"}
         </h2>
         <p style={s.sub}>
-          {step === 1 && "We'll send a 6-digit OTP to your email"}
-          {step === 2 && `OTP sent to ${email}`}
+          {step === 1 && "Enter the email on your account. You will receive a 6-digit OTP from the Evoxera Technology Team."}
+          {step === 2 && `Expect an OTP from the Evoxera Technology Team. We sent it to ${email.trim().toLowerCase()}. Check your inbox and spam folder.`}
           {step === 3 && "Choose a strong new password"}
         </p>
 
-        {/* Success Banner */}
+        {/* No-account dialog (the only popup on this page) */}
+        {notFound && (
+          <div style={s.overlay} role="alertdialog" aria-modal="true" aria-labelledby="fpNfTitle" onClick={() => setNotFound(false)}>
+            <div style={s.dialog} onClick={(e) => e.stopPropagation()}>
+              <h3 id="fpNfTitle" style={s.dialogTitle}>No account found</h3>
+              <p style={s.dialogText}>
+                This email doesn't exist. No account is registered with <b>{email.trim().toLowerCase()}</b>.
+                Please check the spelling or use the email you signed up with.
+              </p>
+              <button style={s.btn} autoFocus onClick={() => setNotFound(false)}>Try another email</button>
+            </div>
+          </div>
+        )}
+
+        {/* Success Banner (only after the password is changed) */}
         {success && (
           <div style={s.successBox}>{success}</div>
         )}
@@ -285,7 +307,17 @@ export default function ForgotPassword({ setPage }) {
 }
 
 const s = {
-  help: { fontSize: 12, color: "#9189b5", textAlign: "center", margin: "16px 0 0" },
+  overlay: {
+    position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1000,
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+  },
+  dialog: {
+    width: "100%", maxWidth: 340, background: "#161e29", borderRadius: 18, padding: "24px 22px 8px",
+    border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 48px rgba(0,0,0,0.5)", textAlign: "center",
+  },
+  dialogTitle: { margin: "0 0 8px", fontSize: 18, fontWeight: 900, color: "#f87171" },
+  dialogText: { margin: "0 0 18px", fontSize: 13, lineHeight: 1.5, color: "#b3bece" },
+  help: { fontSize: 12, color: "#8b98ab", textAlign: "center", margin: "16px 0 0" },
   page: {
     minHeight: "calc(100dvh - var(--dock, 0px) - 58px)",
     display: "flex",
@@ -296,7 +328,7 @@ const s = {
   card: {
     width: "100%",
     maxWidth: 400,
-    background: "rgba(22,17,38,0.92)",
+    background: "rgba(22,30,41,0.92)",
     backdropFilter: "blur(20px)",
     WebkitBackdropFilter: "blur(20px)",
     borderRadius: 24,
@@ -318,13 +350,13 @@ const s = {
     width: 10,
     height: 10,
     borderRadius: "50%",
-    background: "#c8ff3e",
-    boxShadow: "0 0 10px #c8ff3e",
+    background: "#ffb020",
+    boxShadow: "0 0 10px #ffb020",
   },
   brandName: {
     fontSize: 18,
     fontWeight: 900,
-    color: "#c8ff3e",
+    color: "#ffb020",
     letterSpacing: "0.15em",
   },
   steps: {
@@ -366,7 +398,7 @@ const s = {
   },
   sub: {
     fontSize: 13,
-    color: "#9189b5",
+    color: "#8b98ab",
     textAlign: "center",
     margin: "0 0 24px",
   },
@@ -386,7 +418,7 @@ const s = {
   label: {
     display: "block",
     fontSize: 12,
-    color: "#b4acd0",
+    color: "#b3bece",
     marginBottom: 6,
     letterSpacing: "0.04em",
     textTransform: "uppercase",
@@ -396,7 +428,7 @@ const s = {
     padding: "13px 14px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(10,8,20,0.7)",
+    background: "rgba(11,16,23,0.7)",
     color: "#e5e7eb",
     fontSize: 14,
     outline: "none",
@@ -433,7 +465,7 @@ const s = {
     padding: "14px",
     borderRadius: 14,
     border: "none",
-    background: "linear-gradient(135deg,#c8ff3e,#8fe600)",
+    background: "linear-gradient(135deg,#ffb020,#f59300)",
     color: "#000",
     fontWeight: 900,
     fontSize: 15,
@@ -443,13 +475,13 @@ const s = {
   },
   resend: {
     fontSize: 12,
-    color: "#9189b5",
+    color: "#8b98ab",
     textAlign: "center",
     marginBottom: 16,
     marginTop: -8,
   },
   resendLink: {
-    color: "#c8ff3e",
+    color: "#ffb020",
     cursor: "pointer",
     fontWeight: 700,
   },
