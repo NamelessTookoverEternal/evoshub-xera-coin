@@ -120,7 +120,7 @@
           <div class="dash-col dash-col-left">
           <div class="balance-block">
             <div class="label">TOTAL BALANCE</div>
-            <div class="amount"><span id="balance">0</span><small>XERA</small></div>
+            <div class="amount"><span id="balance">0</span><small>Pure XERA</small></div>
             <span class="status-pill" id="walletStatus"><span class="dot"></span>ACTIVE</span>
           </div>
 
@@ -141,7 +141,7 @@
             <button type="button" class="btn hh-cta" id="miningActionDash">Start mining</button>
             <p class="hh-hint" id="rewardTextDash"></p>
             <p class="banner-error" id="errorDash"></p>
-            <div class="hh-earn"><span id="miningEarnLabelDash">Earned so far</span><b id="miningEarnedDash">0 XERA</b></div>
+            <div class="hh-earn"><span id="miningEarnLabelDash">Earned so far</span><b id="miningEarnedDash">0 Pure XERA</b></div>
             <span hidden id="miningElapsedDash">--:--:--</span>
           </div>
 
@@ -197,7 +197,7 @@
               <span class="mini-card-title">Daily claim</span>
             </div>
             <div class="daily-info">
-              <div class="daily-amount"><span id="dailyAmountDash">0</span><small>XERA / day</small></div>
+              <div class="daily-amount"><span id="dailyAmountDash">0</span><small>Pure XERA / day</small></div>
               <div class="daily-streak" id="dailyStreakDash"></div>
             </div>
             <button type="button" class="btn daily-btn" id="dailyClaimBtnDash">Claim</button>
@@ -296,7 +296,7 @@
             <div class="section-title" style="margin-top:0">Daily claim</div>
             <div class="daily-card">
               <div class="daily-info">
-                <div class="daily-amount"><span id="dailyAmount">0</span><small>XERA / day</small></div>
+                <div class="daily-amount"><span id="dailyAmount">0</span><small>Pure XERA / day</small></div>
                 <div class="daily-streak" id="dailyStreak"></div>
               </div>
               <button type="button" class="btn daily-btn" id="dailyClaimBtn">Claim</button>
@@ -351,7 +351,7 @@
         <section class="tab-panel" data-panel="wallet">
           <div class="balance-block">
             <div class="label">TOTAL BALANCE</div>
-            <div class="amount"><span id="balanceWallet">0</span><small>XERA</small></div>
+            <div class="amount"><span id="balanceWallet">0</span><small>Pure XERA</small></div>
             <span class="status-pill" id="walletStatusWallet"><span class="dot"></span>ACTIVE</span>
           </div>
           <div class="profile-row" data-xera-id-row style="display:none;align-items:center;gap:10px"><span>Your XERA ID</span><b data-xera-id style="margin-left:auto;letter-spacing:.05em">—</b><button type="button" class="btn btn-sm btn-ghost" data-xera-id-copy style="flex:0 0 auto;width:auto">Copy</button></div>
@@ -359,8 +359,8 @@
             <div class="wp-stat"><span>Total earned (all-time)</span><b id="totalEarned">—</b></div>
             <div class="wp-stat"><span>Mining allocation left ecosystem-wide</span><b id="walletRemainingSupply">—</b></div>
           </div>
-          <p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">This balance is held in your EVOS account. You can move part of it to your own BNB Smart Chain wallet once KYC and the one-time fee are complete. Buying and withdrawals are not yet available. You can send XERA to other XERA users with Transfer.</p>
-          <a class="btn" id="openChainClaim" href="/xera-wallet.html" style="margin-top:12px">Move XERA to your wallet</a>
+<p style="font-size:.78rem;color:var(--text-secondary);margin-top:14px">Your in-app balance is <b>Pure XERA</b>. It is held in your EVOS account and can be sent to other XERA users with Transfer. When you move it to your own BNB Smart Chain wallet (after KYC and the one-time fee), it becomes <b>XERA</b>, the on-chain token. This is one-way: on-chain XERA cannot be sent back into the app. Buying is done in the app and adds Pure XERA to your balance.</p>
+          <a class="btn" id="openChainClaim" href="/xera-wallet.html" style="margin-top:12px">Move to your wallet as XERA</a>
           <div class="section-title">Actions</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>
@@ -371,7 +371,7 @@
 
         <!-- ---------------- BLOCKCHAIN ---------------- -->
         <section class="tab-panel" data-panel="chain">
-          <div class="section-title">Mining balance → Blockchain claim</div>
+          <div class="section-title">Pure XERA → XERA on-chain claim</div>
           <p style="font-size:.8rem;color:var(--text-secondary)">
             Settling a mined entitlement on-chain sends <b>25% straight to your wallet</b> and locks the remaining
             <b>75% for the 6-month launch phase</b>, releasing gradually. The 75% is not spendable until it vests —
@@ -390,7 +390,7 @@
           <p class="banner-info" id="chainWalletNotice" hidden></p>
           <p class="banner-error" id="chainWalletError"></p>
 
-          <div class="section-title" style="margin-top:18px">Move XERA to your wallet</div>
+          <div class="section-title" style="margin-top:18px">Move Pure XERA to your wallet as XERA</div>
           <div class="chain-claim-selector">
             <label for="chainSelect">Send to</label>
             <select id="chainSelect">
@@ -491,7 +491,7 @@
             <div class="ref-stats">
               <div><b id="refTotal">0</b><span>Invited</span></div>
               <div><b id="refQualified">0</b><span>Active</span></div>
-              <div><b id="refEarned">0</b><span>XERA earned</span></div>
+              <div><b id="refEarned">0</b><span>Pure XERA earned</span></div>
             </div>
             <p class="reward-line" id="refInvitedBy" hidden></p>
             <div class="ref-recent" id="refRecent"></div>
@@ -661,7 +661,7 @@
         <li>A mining session lasts <b>24 hours</b> from the moment you start it.</li>
         <li>You need to come back to <b>claim</b> your reward and start another session — it doesn't renew on its own.</li>
         <li>Every session and every reward is <b>validated by the server</b>, not the app on your phone.</li>
-        <li>Moving XERA to your wallet is an <b>on-chain claim</b>. It is opening in stages and needs KYC and a one-time processing fee. You pay the BNB network fee.</li>
+        <li>Moving Pure XERA to your wallet is an <b>on-chain claim</b>, and it arrives as <b>XERA</b>. It is opening in stages and needs KYC and a one-time processing fee. You pay the BNB network fee.</li>
         <li>The displayed reward is an estimate and is subject to the platform's mining rules, which can adjust the rate as the network grows.</li>
       </ul>
       <button class="btn" id="closeMiningInfoBtn" type="button">Got it</button>
@@ -710,6 +710,7 @@
 <script src="../../js/xera.js" type="module"></script>
 <script src="../../js/xera-chain.js" type="module"></script>
 <script src="../../js/xera-id.js" type="module"></script>
+<script src="../../js/install-fab.js" type="module"></script>
 <script src="/hub-back.js" defer></script>
 </body>
 </html>

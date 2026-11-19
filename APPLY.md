@@ -1,12 +1,6 @@
-# Vaults tab: apply
-
-No database migration. Copy these files over the same paths in your repo:
-
-- python/main.py                                   (2 lines added: import + router)
-- python/xera/routes_admin_vaults.py               (new)
-- hub-frontend/src/js/admin-console.js             (Vaults entry replaces "Discount vault"; old loadVault removed)
-- hub-frontend/src/js/admin-console-vaults.js      (new)
-- hub-frontend/src/pages/admin-website-chat.html   (sec-vault panel replaced by sec-vaults)
-
-Then redeploy backend (Render) and frontend. Old "#vault" links open the discount vault inside Vaults.
-On-chain claim/withdraw code is not touched.
+# Install button: apply
+Copy over the same paths (no backend, no migration):
+- hub-frontend/src/js/install-fab.js              (new)
+- hub-frontend/src/pages/home.html                (1 script line added)
+- hub-frontend/src/pages/xera/index.html          (1 script line added; this is your copy WITH the Pure XERA labels)
+appevoxera already has its own install button and is untouched.
