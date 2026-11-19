@@ -12,7 +12,7 @@ const SECTIONS = [
   { id: 'overview', label: 'Overview', icon: '▤' },
   { id: 'requests', label: 'Website requests', icon: '☰' },
   { id: 'token', label: 'Token dashboard', icon: '◈' },
-  { id: 'vault', label: 'Discount vault', icon: '▣' },
+  { id: 'vaults', label: 'Vaults', icon: '▣' },
   { id: 'wallet', label: 'XERA wallet (pilot)', icon: '◐' },
   { id: 'kyc', label: 'XERA KYC review', icon: '✓' },
   { id: 'p2p', label: 'XERA P2P review', icon: '⇄' },
@@ -92,6 +92,9 @@ $('dx-toggle').addEventListener('click', () => openDrawer(true))
 $('dx-scrim').addEventListener('click', () => openDrawer(false))
 
 function goTo(id) {
+  // '#vaults/p2p' opens a vault inside the Vaults tab; the old '#vault' link opens the discount vault.
+  if (id === 'vault') { try { history.replaceState(null, '', '#vaults/discount') } catch { /* ignore */ } id = 'vaults' }
+  id = String(id).split('/')[0]
   if (!SECTIONS.some((s) => s.id === id)) id = 'overview'
   section = id
   openDrawer(false); showError('')
@@ -99,7 +102,7 @@ function goTo(id) {
   document.querySelectorAll('#dx-nav button').forEach((b) => b.classList.toggle('active', b.dataset.sec === id))
   $('dx-title').textContent = SECTIONS.find((s) => s.id === id).label
   $('dx-sub').textContent = ''
-  try { history.replaceState(null, '', id === 'overview' ? location.pathname : `#${id}`) } catch { /* ignore */ }
+  try { if (!location.hash.startsWith(`#${id}/`)) history.replaceState(null, '', id === 'overview' ? location.pathname : `#${id}`) } catch { /* ignore */ }
   clearInterval(reqTimer)
   if (id !== 'requests') clearInterval(msgTimer)
   loadSection(id, false)
@@ -114,7 +117,7 @@ async function loadSection(id, force) {
     else if (id === 'kyc') { const m = await import('./admin-console-kyc.js'); await m.initKyc() }
     else if (id === 'p2p') { const m = await import('./admin-console-p2p.js'); await m.initP2p() }
     else if (id === 'updates') { const m = await import('./admin-console-updates.js'); m.initUpdates() }
-    else if (id === 'vault') await loadVault()
+    else if (id === 'vaults') { const m = await import('./admin-console-vaults.js'); await m.initVaults() }
     else if (id === 'products') { const m = await import('./admin-console-products.js'); await m.initProducts() }
     $('dx-sub').textContent = `Synced ${new Date().toLocaleTimeString('en-GH')}`
   } catch (e) { fail(e) }
@@ -287,28 +290,6 @@ $('eco-add').addEventListener('click', async () => {
     note('eco-msg', 'Added.', 'ok'); await loadEcosystem()
   } catch (e) { if (e.message !== 'SIGNED_OUT') note('eco-msg', e.message || 'Could not add this link.', 'error') }
 })
-
-/* ------------------------------------------------------------ discount vault (look-only) */
-async function loadVault() {
-  const d = await api(`${XERA_ADMIN}/vault`)
-  const sm = d.summary || {}
-  const k = $('vt-kpis'); k.textContent = ''
-  k.append(kpi('Vault balance', fmt(sm.balance), 'XERA collected, after refunds', '#c8ff3e'),
-    kpi('Orders', sm.orders ?? 0, 'Discounted orders counted'),
-    kpi('Last 30 days', fmt(sm.last_30_days), 'XERA collected'),
-    kpi('Refunded', fmt(sm.total_refunded), 'Taken out of the vault'))
-  const tb = $('vt-rows'); tb.textContent = ''
-  const rows = d.deposits || []
-  if (!rows.length) { const tr = el('tr'); const td = el('td', 'dx-dim', 'No discount deposits yet.'); td.colSpan = 5; tr.append(td); tb.append(tr); return }
-  rows.forEach((r) => {
-    const tr = el('tr')
-    const when = r.created_at ? new Date(r.created_at).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'
-    const pill = el('span', 'dx-pill ' + (r.refunded ? 'mute' : 'ok'), r.refunded ? 'Refunded' : 'Collected')
-    const st = el('td'); st.append(pill)
-    tr.append(el('td', '', when), el('td', '', r.order_ref || '—'), el('td', '', `#${r.user_id}`), el('td', '', fmt(r.amount)), st)
-    tb.append(tr)
-  })
-}
 
 /* ------------------------------------------------------------ XERA wallet */
 // The wallet panel itself is the shared xera-chain.js module. It must be told it is in admin pilot mode

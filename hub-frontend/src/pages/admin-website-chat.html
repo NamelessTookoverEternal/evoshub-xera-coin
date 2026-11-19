@@ -113,19 +113,39 @@
       </section>
 
       <!-- Discount vault (look-only) -->
-      <section id="sec-vault" hidden>
+      <section id="sec-vaults" hidden>
         <div class="dx-stack">
           <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
-            XERA that customers spent on discounts. It is a <b>look-only</b> total worked out from the XERA ledger: nothing can be spent or withdrawn from here,
-            and refunded orders are taken out automatically.
+            XERA kept in the platform's vaults. Every total is <b>look-only</b>, worked out from the XERA ledger: nothing can be spent or withdrawn from here.
+            Click a vault to see who paid and what.
           </p>
-          <div class="dx-kpis" id="vt-kpis"></div>
-          <div class="dx-card dx-panel">
-            <div class="dx-panel-head"><h2 class="dx-panel-title">Recent deposits</h2><span class="dx-note">Latest 50</span></div>
-            <div class="dx-table-wrap"><table class="dx-table">
-              <thead><tr><th>Date</th><th>Order</th><th>User</th><th>XERA</th><th>Status</th></tr></thead>
-              <tbody id="vt-rows"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
-            </table></div>
+          <p class="dx-note" id="vl-err" role="alert" hidden style="color:#ff7b7b"></p>
+          <div style="display:flex;align-items:center;gap:10px"><button type="button" class="dx-btn" id="vl-back" hidden>&larr; Back to all vaults</button><b id="vl-title">All vaults</b></div>
+
+          <div id="vl-list" class="dx-stack">
+            <div class="dx-kpis"><div class="dx-card dx-kpi"><div class="l">All vaults combined</div><div class="v" id="vl-total" style="color:#c8ff3e">—</div><div class="f">XERA, look-only total</div></div></div>
+            <div class="dx-kpis" id="vl-cards"></div>
+          </div>
+
+          <div id="vl-detail-discount" class="dx-stack" hidden>
+            <div class="dx-kpis" id="vl-d-kpis"></div>
+            <div class="dx-card dx-panel">
+              <div class="dx-panel-head"><h2 class="dx-panel-title">Recent deposits</h2><span class="dx-note">Latest 50</span></div>
+              <div class="dx-table-wrap"><table class="dx-table">
+                <thead><tr><th>Date</th><th>Order</th><th>User</th><th>XERA</th><th>Status</th></tr></thead>
+                <tbody id="vl-d-rows"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+              </table></div>
+            </div>
+          </div>
+
+          <div id="vl-detail-p2p" class="dx-stack" hidden>
+            <div class="dx-card dx-panel">
+              <div class="dx-panel-head"><h2 class="dx-panel-title">Fees paid on transfers</h2><span class="dx-note">Latest 50</span></div>
+              <div class="dx-table-wrap"><table class="dx-table">
+                <thead><tr><th>Date</th><th>Paid by</th><th>Sent to</th><th>Amount</th><th>Fee</th><th>Sender</th></tr></thead>
+                <tbody id="vl-p-rows"><tr><td colspan="6" class="dx-dim">Loading…</td></tr></tbody>
+              </table></div>
+            </div>
           </div>
         </div>
       </section>
