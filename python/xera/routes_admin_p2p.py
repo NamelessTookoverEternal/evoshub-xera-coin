@@ -11,6 +11,9 @@ POST /config, which only edits xera_p2p_config and is written to xera_admin_acti
   GET  /flagged     wallets that received XERA from several unverified accounts or shared IPs
   GET  /transfers   recent transfers with IP, VPN note, sender verified/unverified, fee
   POST /config      change limits, the unverified fee, the unverified daily cap, flag thresholds
+  GET  /locks       accounts whose money side (send + withdraw) is locked
+  POST /autolock    switch the auto-lock on or off (switching on runs a scan straight away)
+  POST /unlock      unlock one account, with a reason and an optional false-flag reward
 """
 
 import logging
@@ -22,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from main import supabase, limiter
 from xera import ipcheck
+from xera import money_lock
 from xera.routes_admin import _require_admin, _log_admin_action
 
 logger = logging.getLogger(__name__)
@@ -123,3 +127,82 @@ def p2p_update_config(request: Request, data: P2PConfigUpdate, authorization: st
     new = _cfg()
     _log_admin_action(admin_id, "P2P_CONFIG_UPDATED", old, new, data.reason or None)
     return {"status": "ok", "config": new}
+
+
+# ------------------------------------------------------------
+# AUTO-LOCK (money side only: send + withdraw). Migration 20261119_xera_p2p_autolock_v4.sql
+# ------------------------------------------------------------
+
+@router.get("/locks")
+@limiter.limit("60/minute")
+def p2p_locks(request: Request, authorization: str = Header(default="")):
+    _require_admin(request, authorization)
+    try:
+        rows = (supabase.table("xera_money_locks")
+                .select("user_id,locked_at,lock_source,lock_role,lock_reasons,related_xera_id,lock_count")
+                .eq("locked", True).order("locked_at", desc=True).limit(200).execute().data or [])
+    except Exception as e:
+        if money_lock._table_missing(e):
+            raise HTTPException(status_code=503, detail="Auto-lock is not set up yet. Run the v4 migration.")
+        raise
+    if rows:
+        ids = [r["user_id"] for r in rows]
+        users = supabase.table("users").select("id,xera_id").in_("id", ids).execute().data or []
+        xid = {u["id"]: u.get("xera_id") for u in users}
+        for r in rows:
+            r["xera_id"] = xid.get(r["user_id"])
+    return {"status": "ok", "locks": rows}
+
+
+class AutoLockSwitch(BaseModel):
+    enabled: bool
+    reason: str = Field(default="", max_length=300)
+
+
+@router.post("/autolock")
+@limiter.limit("10/minute")
+def p2p_autolock_switch(request: Request, data: AutoLockSwitch, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    old = _cfg()
+    if "auto_lock_enabled" not in old:
+        raise HTTPException(status_code=503, detail="Auto-lock is not set up yet. Run the v4 migration.")
+    supabase.table("xera_p2p_config").update({
+        "auto_lock_enabled": data.enabled, "updated_by": admin_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", 1).execute()
+    _log_admin_action(admin_id, "P2P_AUTOLOCK_ON" if data.enabled else "P2P_AUTOLOCK_OFF",
+                      {"auto_lock_enabled": old.get("auto_lock_enabled")}, {"auto_lock_enabled": data.enabled},
+                      data.reason or None)
+    newly = money_lock.run_scan() if data.enabled else []
+    return {"status": "ok", "auto_lock_enabled": data.enabled, "newly_locked": len(newly)}
+
+
+class UnlockRequest(BaseModel):
+    user_id: int = Field(gt=0)
+    reason: str = Field(min_length=3, max_length=300)
+    false_flag: bool = False
+    reward: Decimal = Field(default=Decimal(0), ge=0, le=100_000)
+
+
+@router.post("/unlock")
+@limiter.limit("20/minute")
+def p2p_unlock(request: Request, data: UnlockRequest, authorization: str = Header(default="")):
+    admin_id = _require_admin(request, authorization)
+    if data.reward > 0 and not data.false_flag:
+        raise HTTPException(status_code=400, detail="Tick \"false flag\" to give a reward.")
+    if data.reward.as_tuple().exponent < -4:
+        raise HTTPException(status_code=400, detail="Reward can have up to 4 decimals.")
+    try:
+        res = supabase.rpc("xera_money_unlock", {
+            "p_user_id": data.user_id, "p_admin_id": admin_id, "p_reason": data.reason,
+            "p_false_flag": data.false_flag, "p_reward": str(data.reward),
+        }).execute()
+    except Exception as e:
+        msg = str(e)
+        if "not_locked" in msg:
+            raise HTTPException(status_code=409, detail="That account is not locked.")
+        if "reason_required" in msg:
+            raise HTTPException(status_code=400, detail="Give a reason (at least 3 characters).")
+        logger.error("XERA money unlock failed: %s", msg)
+        raise HTTPException(status_code=500, detail="Could not unlock. Nothing was changed.")
+    return {"status": "ok", "result": res.data}

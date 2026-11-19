@@ -229,12 +229,35 @@
         <div class="dx-stack" style="max-width:980px">
           <p class="dx-card dx-panel dx-note" style="font-size:12.5px">
             Transfers between XERA users. Look for wallets that receive XERA from many accounts that never finished verification,
-            from accounts sharing one IP address, or through a VPN. Nothing here moves money; the only change you can make is the
-            limits and fee settings, and each change is logged with your admin id.
+            from accounts sharing one IP address, or through a VPN. Nothing here moves money. You can change the limits and fee settings, switch the auto-lock on or off, and unlock a locked account;
+            each change is logged with your admin id.
           </p>
           <p class="banner-error" id="p2p-err" role="alert" hidden></p>
           <div class="dx-kpis" id="p2p-kpis"></div>
           <p class="dx-note" id="p2p-ipnote"></p>
+          <div class="dx-card dx-panel">
+            <div class="dx-panel-head"><h2 class="dx-panel-title">Auto-lock</h2></div>
+            <p class="dx-note" style="margin:0 0 10px">
+              When this is on, any flag below locks the <b>money side</b> of both the flagged wallet and the senders involved: they cannot send or withdraw.
+              They can still sign in, see their balance, mine, receive XERA and contact support, and they see: “Transfers and withdrawals are paused: suspected breach of agreement. Contact support for details.”
+              Flags can be wrong (for example family sharing one phone network), so check an account, then use Unlock. When you find it was a false flag you can give a reward.
+            </p>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <button type="button" class="dx-btn sm" id="p2p-autolock-btn" disabled>Loading…</button>
+              <span class="dx-dim" id="p2p-autolock-state"></span>
+            </div>
+            <div class="dx-table-wrap" style="margin-top:12px"><table class="dx-table">
+              <thead><tr><th>Locked account</th><th>Why</th><th>Linked to</th><th>Since</th><th></th></tr></thead>
+              <tbody id="p2p-locks"><tr><td colspan="5" class="dx-dim">Loading…</td></tr></tbody>
+            </table></div>
+            <form id="p2p-unlock-form" hidden autocomplete="off" style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <b id="p2p-unlock-title" style="grid-column:1/-1"></b>
+              <label class="dx-dim" style="grid-column:1/-1">Reason (saved in the admin log)<input class="dx-input" name="reason" maxlength="300" style="width:100%" required></label>
+              <label class="dx-dim"><span><input type="checkbox" name="false_flag"> False flag, reward the user</span></label>
+              <label class="dx-dim">Reward (Pure XERA)<input class="dx-input" name="reward" inputmode="decimal" placeholder="0" style="width:100%"></label>
+              <div style="grid-column:1/-1"><button type="submit" class="dx-btn sm" id="p2p-unlock-go">Unlock account</button> <button type="button" class="dx-btn sm ghost" id="p2p-unlock-cancel">Cancel</button></div>
+            </form>
+          </div>
           <div class="dx-card dx-panel">
             <div class="dx-panel-head"><h2 class="dx-panel-title">Suspicious wallets</h2></div>
             <p class="dx-note" id="p2p-flaghint" style="margin:0 0 10px"></p>

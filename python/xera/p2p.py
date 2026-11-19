@@ -16,7 +16,8 @@ Rules:
     gets the full amount. The fee is not paid to any wallet (look-only vault total).
   * The client IP is recorded with each transfer, with a VPN/proxy note when
     an IP checker is set up (xera/ipcheck.py). The note never blocks a transfer.
-  * This module does not touch on-chain claims or external-wallet withdrawal.
+  * A sender whose money side is locked (xera.money_lock) cannot send. This module does not touch on-chain claims
+    or external-wallet withdrawal.
 
 Routes (all under /api/xera/transfer):
   GET  /me       my XERA ID, limits, and whether I'm ready to send
@@ -36,6 +37,7 @@ from main import supabase, limiter
 from xera.config import get_config
 from xera import readiness
 from xera import ipcheck
+from xera import money_lock
 from utils.rate_limit import get_client_ip
 from xera.routes import _current_user_id, _log_security_event
 
@@ -128,9 +130,12 @@ def p2p_me(request: Request, authorization: str = Header(default="")):
         raise HTTPException(status_code=503, detail="Could not load your XERA ID. Please try again.")
     missing = readiness.transfer_missing(user_id)
     complete = not missing
+    locked = money_lock.is_locked(user_id)
     return {
         "status": "ok",
         "xera_id": xera_id,
+        "locked": locked,
+        "lock_message": money_lock.LOCK_MESSAGE if locked else None,
         "enabled": bool(cfg["system_enabled"] and cfg["transfer_enabled"]),
         "limits": {
             "min": float(pc["min_amount"]),
@@ -170,6 +175,11 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
     if not (cfg["system_enabled"] and cfg["transfer_enabled"]):
         raise HTTPException(status_code=403, detail="Transfers are not open yet.")
 
+    # Money lock (auto-lock for flagged accounts): the sender cannot send. Receiving is still allowed.
+    if money_lock.is_locked(user_id):
+        _log_security_event(user_id, "P2P_REFUSED", request, {"code": "money_locked"})
+        raise HTTPException(status_code=403, detail=money_lock.LOCK_MESSAGE)
+
     # Every transfer step done (identity check + one-time fee) = free; otherwise the
     # database applies the unverified fee and the lower daily cap.
     verified = not readiness.transfer_missing(user_id)
@@ -198,6 +208,8 @@ def p2p_send(request: Request, data: SendRequest, authorization: str = Header(de
         raise HTTPException(status_code=500, detail="Transfer failed. Nothing was sent. Please try again.")
 
     row = res.data[0] if isinstance(res.data, list) and res.data else (res.data or {})
+    if money_lock.auto_lock_enabled():
+        money_lock.run_scan()   # never raises; locks both sides of any flag this transfer caused
     if ip_risk.get("vpn"):
         _log_security_event(user_id, "P2P_VPN_DETECTED", request, {"transfer_id": row.get("id"), "type": ip_risk.get("type")})
     try:

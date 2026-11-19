@@ -76,9 +76,10 @@ async function loadMe() {
     $('tfBalance').textContent = fmt(w.balance);
   } catch (_e) { $('tfBalance').textContent = '—'; }
 
+  if (me.locked) { $('tfLocked').textContent = me.lock_message || 'Transfers and withdrawals are paused: suspected breach of agreement. Contact support for details.'; show('tfLocked', true); return; }
   if (!me.enabled) { show('tfClosed', true); return; }
   if (!me.complete) {
-    $('tfFeeNote').textContent = `Until your steps are complete, each transfer costs an extra ${fmt(me.fee_percent)}% of the amount, and you can send up to ${fmt(me.limits.daily_total)} XERA per 24 hours.`;
+    $('tfFeeNote').textContent = `Until your steps are complete, each transfer costs an extra ${fmt(me.fee_percent)}% of the amount, and you can send up to ${fmt(me.limits.daily_total)} Pure XERA per 24 hours.`;
     showRequirements(me.missing);
   }
   step(1);
@@ -122,7 +123,7 @@ $('step1').addEventListener('submit', async (ev) => {
   const amt = parseAmount($('tfAmount').value);
   if (!amt) { err.textContent = 'Enter a valid amount (up to 4 decimals).'; return; }
   if (me && (amt.num < me.limits.min || amt.num > me.limits.max)) {
-    err.textContent = `Amount must be between ${fmt(me.limits.min)} and ${fmt(me.limits.max)} XERA.`; return;
+    err.textContent = `Amount must be between ${fmt(me.limits.min)} and ${fmt(me.limits.max)} Pure XERA.`; return;
   }
   const btn = $('tfCheck');
   btn.disabled = true;
@@ -168,9 +169,9 @@ $('cfSend').addEventListener('click', async () => {
     });
     $('doneTitle').textContent = 'Sent';
     const paidFee = Number(d.transfer.fee_amount || 0);
-    $('doneMsg').textContent = `${fmt(d.transfer.amount)} XERA sent to ${pending.name} (${pending.xid}).` +
-      (paidFee > 0 ? ` Fee: ${fmt(paidFee)} XERA.` : '') +
-      (d.new_balance != null ? ` Your balance is now ${fmt(d.new_balance)} XERA.` : '');
+    $('doneMsg').textContent = `${fmt(d.transfer.amount)} Pure XERA sent to ${pending.name} (${pending.xid}).` +
+      (paidFee > 0 ? ` Fee: ${fmt(paidFee)} Pure XERA.` : '') +
+      (d.new_balance != null ? ` Your balance is now ${fmt(d.new_balance)} Pure XERA.` : '');
     if (d.new_balance != null) $('tfBalance').textContent = fmt(d.new_balance);
     pending = null;
     ledgerLoaded = false;
@@ -204,7 +205,7 @@ function ledgerRow(t) {
   const who = document.createElement('span');
   who.textContent = `${t.sender} → ${t.recipient}`;
   const amt = document.createElement('span');
-  amt.textContent = `${fmt(t.amount)} XERA`;
+  amt.textContent = `${fmt(t.amount)} Pure XERA`;
   l1.append(who, amt);
   const l2 = document.createElement('div');
   l2.className = 'tf-l2';

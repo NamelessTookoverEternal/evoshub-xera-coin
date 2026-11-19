@@ -23,6 +23,7 @@ from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_cla
 from xera.chain import migration as legacy_migration
 from xera.chain.migration import MigrationClaimError, MigrationRequirementsError
 from xera.readiness import requirements_response
+from xera import money_lock
 from xera.chain.config import get_chain_config, bnb_network_public, ChainConfigError
 from xera.chain.onchain_indexer import get_vesting_status, IndexerError
 
@@ -294,6 +295,7 @@ def claim_sign_amount(request: Request, data: ClaimAmountRequest, authorization:
     sends 25% to the wallet and locks 75% in vesting.
     """
     user_id = _current_user_id(authorization)
+    money_lock.ensure_not_locked(user_id)   # locked accounts cannot withdraw; claim code itself is untouched
     try:
         result = sign_amount_claim(user_id, data.chain, data.amount)
     except ClaimRequirementsError as e:
@@ -346,6 +348,7 @@ def claim_retry(request: Request, data: ClaimRetryRequest, authorization: str = 
     BNB transaction failed shouldn't be permanently stranded.
     """
     user_id = _current_user_id(authorization)
+    money_lock.ensure_not_locked(user_id)
     try:
         result = retry_claim(user_id, data.reference_id, data.chain)
     except ClaimRequirementsError as e:
@@ -403,6 +406,7 @@ class MigrationPrepareRequest(BaseModel):
 @limiter.limit("10/minute")
 def migration_claim_prepare(request: Request, data: MigrationPrepareRequest, authorization: str = Header(default="")):
     user_id = _current_user_id(authorization)
+    money_lock.ensure_not_locked(user_id)
     try:
         result = legacy_migration.prepare_claim(user_id, data.chain)
     except MigrationRequirementsError as e:

@@ -132,10 +132,13 @@ function kpi(label, value, foot, tone) {
   return c
 }
 async function loadOverview() {
-  const [reqs, stats, kyc] = await Promise.all([
+  const [reqs, stats, kyc, flagged, locks] = await Promise.all([
     api('/api/admin/website-requests').catch((e) => { if (e.message === 'SIGNED_OUT') throw e; return null }),
     api('/api/admin/xera/stats').catch((e) => { if (e.message === 'SIGNED_OUT') throw e; return null }),
     api('/api/admin/xera/kyc?status=PENDING').catch((e) => { if (e.message === 'SIGNED_OUT') throw e; return null }),
+    // P2P review: if these fail (for example the P2P migration is not applied) the Overview loads as normal without them.
+    api('/api/admin/xera/p2p/flagged').catch((e) => { if (e.message === 'SIGNED_OUT') throw e; return null }),
+    api('/api/admin/xera/p2p/locks').catch((e) => { if (e.message === 'SIGNED_OUT') throw e; return null }),
   ])
   const list = reqs ? (reqs.requests || []) : null
   if (list) requests = list
@@ -161,6 +164,15 @@ async function loadOverview() {
     setBadge('kyc', kycPending)
     if (kycPending) addAttn(`${kycPending} KYC case${kycPending > 1 ? 's' : ''} to review`, 'Users are waiting before their first on-chain transfer.', 'kyc')
     kpis.append(kpi('KYC pending', kycPending, 'Waiting for review', kycPending ? '#fb923c' : undefined))
+  }
+  if (flagged) {
+    const n = (flagged.flagged || []).length
+    const lockedN = locks ? (locks.locks || []).length : 0
+    setBadge('p2p', n + lockedN)
+    if (n) addAttn(`${n} wallet${n > 1 ? 's' : ''} flagged for P2P review`, 'Received XERA from several unverified accounts or shared IPs.', 'p2p')
+    if (lockedN) addAttn(`${lockedN} account${lockedN > 1 ? 's' : ''} locked (send and withdraw)`, 'Check them and unlock any false flags.', 'p2p')
+    kpis.append(kpi('Flagged wallets', n, 'P2P review', n ? '#fb923c' : undefined))
+    if (locks) kpis.append(kpi('Locked accounts', lockedN, 'Send and withdraw paused', lockedN ? '#fb923c' : undefined))
   }
 }
 
