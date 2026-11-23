@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import API, { verifyNumber } from "../api";
-import { getCachedPrices, subscribePrices, refreshPrices } from "../lib/pricesStore";
+import { getCachedPrices, subscribePrices, refreshPrices, startAutoRefresh } from "../lib/pricesStore";
 import { isGhanaPhone, toGhanaPhone, GHANA_ONLY_MSG } from "../lib/ghanaPhone";
 
 export default function Shop({ setPage } = {}) {
@@ -93,7 +93,8 @@ export default function Shop({ setPage } = {}) {
     // stock or a new bundle size changed on the server.
     const off = subscribePrices(setPrices);
     refreshPrices();
-    return off;
+    const stop = startAutoRefresh(60000);   // stock can change while the page is open
+    return () => { off(); stop(); };
   }, []);
 
   const OUT_OF_STOCK = [];

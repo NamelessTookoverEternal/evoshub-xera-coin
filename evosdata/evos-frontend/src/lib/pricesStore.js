@@ -55,3 +55,18 @@ export function refreshPrices() {
     .finally(() => { inflight = null; });
   return inflight;
 }
+
+// Keep stock flags fresh while the shop stays open: re-check every `ms` while the tab is
+// visible, and immediately when the user comes back to the tab. Returns a stop function.
+export function startAutoRefresh(ms = 60000) {
+  const tick = () => { if (typeof document === "undefined" || !document.hidden) refreshPrices(); };
+  const timer = setInterval(tick, ms);
+  const onVisible = () => { if (!document.hidden) refreshPrices(); };
+  document.addEventListener("visibilitychange", onVisible);
+  window.addEventListener("focus", onVisible);
+  return () => {
+    clearInterval(timer);
+    document.removeEventListener("visibilitychange", onVisible);
+    window.removeEventListener("focus", onVisible);
+  };
+}
