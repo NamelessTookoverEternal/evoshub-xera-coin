@@ -6010,6 +6010,11 @@ async def create_store_checker_order(request: Request, payload: CheckerStoreOrde
 @router.post("/auth/register")
 @limiter.limit("5/minute")
 def register(request: Request, data: RegisterRequest):
+    from xera.name_rules import check_real_name
+    clean_name, name_err = check_real_name(data.full_name)
+    if name_err:
+        raise HTTPException(status_code=400, detail=name_err)
+    data.full_name = clean_name
     try:
         username = data.username
         email    = str(data.email).strip().lower()

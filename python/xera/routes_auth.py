@@ -17,6 +17,7 @@ from utils.supabase_admin import (
     link_referral,
     PublicUserConflict,
 )
+from xera.name_rules import check_real_name
 from xera.referrals import clean_ref, new_unique_code
 from xera.user_auth import make_user_token
 
@@ -146,6 +147,11 @@ async def xera_register(
 ):
     username = data.username
     email = str(data.email).strip().lower()
+
+    clean_name, name_err = check_real_name(data.full_name)
+    if name_err:
+        raise HTTPException(status_code=400, detail=name_err)
+    data.full_name = clean_name
 
     # Check both identifiers up front so we can give a specific error —
     # create_public_user still guards against a concurrent-signup race.
