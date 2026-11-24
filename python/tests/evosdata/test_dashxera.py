@@ -284,6 +284,9 @@ reset_db(orders=[
      "base_price": 32.0, "agent_id": None, "network": "MTN", "bundle": "4GB",
      "datamart_ref": None, "paystack_ref": "p4"},
 ])
+_real_verify = dx._verify_paystack
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "paid"}        # Paystack confirms the failed order was paid
 s = dx.dashxera_summary(days=7, _=ADMIN)
 o, f = s["orders"], s["financials"]
 check("total 4", o["total"] == 4, o["total"])
@@ -298,6 +301,30 @@ check("failed value 30", f["failed_value"] == 30.0)
 check("undispatched value 50", f["undispatched_value"] == 50.0, f["undispatched_value"])
 check("success rate 50%", s["quality"]["success_rate"] == 50.0)
 check("7-day series covers 8 days", len(s["series"]) == 8, len(s["series"]))
+
+# ---- The payment check: a failed order is only "undispatched" if the money really came in ----
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "abandoned"}   # Paystack: the customer never paid
+s = dx.dashxera_summary(days=7, _=ADMIN)
+o, f = s["orders"], s["financials"]
+check("unpaid failed order is NOT undispatched", o["undispatched"] == 1, o["undispatched"])       # only the processing one
+check("unpaid failed order counted separately", o["failed_unpaid"] == 1, o["failed_unpaid"])
+check("unpaid failed value tracked", f["failed_unpaid_value"] == 30.0, f["failed_unpaid_value"])
+check("unpaid failed order is not a sale", o["paid"] == 2 and f["total_sold"] == 30.0, (o["paid"], f["total_sold"]))
+check("undispatched value only counts paid orders", f["undispatched_value"] == 20.0, f["undispatched_value"])
+
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "verify_error"}  # Paystack unreachable
+s = dx.dashxera_summary(days=7, _=ADMIN)
+o = s["orders"]
+check("unverifiable failed order is not called undispatched", o["undispatched"] == 1, o["undispatched"])
+check("unverifiable failed order is reported as needing a check", o["undispatched_unverified"] == 1)
+check("unverifiable order stays counted until proven unpaid", o["paid"] == 3, o["paid"])
+att = dx.dashxera_attention(days=7, actor=ADMIN)
+check("attention asks for a payment check, not a dispatch", "payment_unverified" in [i["kind"] for i in att["items"]])
+
+dx._verify_paystack = _real_verify
+dx._PAYMENT_CACHE.clear()
 
 s90 = dx.dashxera_summary(days=90, _=ADMIN)
 check("90-day window returns the same 4 orders", s90["orders"]["total"] == 4)
@@ -352,9 +379,11 @@ reset_db(orders=[
      "base_price": 24.0, "agent_id": None, "network": "MTN", "bundle": "3GB",
      "datamart_ref": None, "paystack_ref": "EVOS-AGT-XYZ"},
 ])
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "paid"} if ref == "p1" else {"state": "abandoned"}
 u = dx.dashxera_undispatched(days=7, verify=False, page=1, page_size=50, _=ADMIN)
 rows = {r["id"]: r for r in u["orders"]}
-check("failed order is eligible", rows[1]["eligible"] is True)
+check("failed order that was PAID is eligible", rows[1]["eligible"] is True and rows[1]["flag"] == "paid_not_dispatched")
 check("unpaid order is not eligible", rows[2]["eligible"] is False)
 check("unpaid reason names the cause", "never completed payment" in rows[2]["eligibility_reason"])
 check("agent wallet order flagged", rows[3]["wallet_order"] is True)
@@ -363,6 +392,24 @@ check("eligible count excludes unpaid", u["eligible_on_page"] == 2, u["eligible_
 check("value counts only eligible", u["value_on_page"] == 40.0, u["value_on_page"])
 check("age_hours present", all("age_hours" in r for r in u["orders"]))
 
+# failed order whose payment never arrived: a failed order, not a missed dispatch
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "abandoned"}
+u2 = dx.dashxera_undispatched(days=7, verify=False, page=1, page_size=50, _=ADMIN)
+r1 = {r["id"]: r for r in u2["orders"]}[1]
+check("failed + unpaid is flagged failed_unpaid", r1["flag"] == "failed_unpaid" and r1["eligible"] is False, (r1["flag"], r1["eligible"]))
+check("failed + unpaid says why", "never completed" in r1["eligibility_reason"], r1["eligibility_reason"])
+check("pending order is labelled awaiting_payment", {r["id"]: r for r in u2["orders"]}[2]["flag"] == "awaiting_payment")
+# Paystack unreachable: never guess
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "verify_error"}
+u3 = dx.dashxera_undispatched(days=7, verify=False, page=1, page_size=50, _=ADMIN)
+r1 = {r["id"]: r for r in u3["orders"]}[1]
+check("failed + unverifiable is not eligible and asks for a check",
+      r1["flag"] == "payment_unverified" and r1["eligible"] is False and "could not be checked" in r1["eligibility_reason"])
+dx._verify_paystack = _real_verify
+dx._PAYMENT_CACHE.clear()
+
 check("dispatched order ineligible",
       dx._is_eligible({"status": "processing", "datamart_ref": "DM9"})[0] is False)
 check("fulfilled order ineligible",
@@ -370,6 +417,13 @@ check("fulfilled order ineligible",
 check("no payment reference ineligible",
       dx._is_eligible({"status": "paid", "datamart_ref": None})[0] is False)
 
+
+# a paid order younger than the grace period is just being queued, not "never dispatched"
+reset_db(orders=[{"id": 1, "created_at": iso(NOW - timedelta(minutes=2)), "status": "paid", "price": 10.0,
+                  "base_price": 8.0, "agent_id": None, "network": "MTN", "bundle": "1GB",
+                  "datamart_ref": None, "paystack_ref": "pfresh"}])
+s = dx.dashxera_summary(days=7, _=ADMIN)
+check("a just-paid order is not flagged as undispatched", s["orders"]["undispatched"] == 0, s["orders"]["undispatched"])
 
 # ============================================================================
 section("[8] Reprocessing")
@@ -622,11 +676,21 @@ reset_db(
                          "severity": "critical", "message": "Balance too low",
                          "occurrences": 1, "last_seen_at": iso(NOW), "resolved_at": None}],
 )
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "paid"}         # Paystack confirms the money came in
 a = dx.dashxera_attention(days=7, actor=ADMIN)
 kinds = {i["kind"] for i in a["items"]}
 check("undispatched money flagged", "undispatched" in kinds, kinds)
 check("provider trouble flagged", "provider" in kinds)
 check("amount stated in the detail", any("25.0" in i["detail"] for i in a["items"]))
+
+# the same order, but the payment never arrived: it is NOT flagged as paid money that was never dispatched
+dx._PAYMENT_CACHE.clear()
+dx._verify_paystack = lambda ref: {"state": "abandoned"}
+a = dx.dashxera_attention(days=7, actor=ADMIN)
+check("unpaid failed order is not flagged as undispatched money", "undispatched" not in {i["kind"] for i in a["items"]})
+dx._verify_paystack = _real_verify
+dx._PAYMENT_CACHE.clear()
 
 
 # ============================================================================

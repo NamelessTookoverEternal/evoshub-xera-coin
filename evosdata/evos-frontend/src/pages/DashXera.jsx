@@ -22,6 +22,13 @@ const WINDOWS = [7, 14, 30, 60, 90];
 const REFRESH_MS = 60000;
 const TOKEN_KEY = "dashxeraToken";
 const USER_KEY = "dashxeraUser";
+const FLAG_TEXT = {
+  paid_not_dispatched: "Paid, not dispatched",
+  failed_unpaid: "Failed: payment never completed",
+  payment_unverified: "Payment not checked yet",
+  awaiting_payment: "Awaiting payment",
+};
+
 const PAGE_SIZE = 25;
 
 const SECTIONS = [
@@ -538,6 +545,9 @@ export default function DashXera() {
               <Kpi label="Paid / undispatched" value={counts?.undispatched}
                    tone={counts?.undispatched ? "#fb923c" : "#9189b5"}
                    foot={fin ? cedi(fin.undispatched_value) : ""} small />
+              <Kpi label="Failed, never paid" value={counts?.failed_unpaid ?? 0}
+                   tone="#9189b5"
+                   foot="Payment never arrived: not counted as sales" small />
             </div>
 
             <Panel title="Provider health"
@@ -774,7 +784,9 @@ export default function DashXera() {
           <>
             <div style={styles.explainer}>
               Payment was taken but no provider reference was ever written. This is the
-              money-and-customer queue. Only eligible rows can be reprocessed — an order that
+              money-and-customer queue. Every failed order has its payment checked with Paystack
+              first: if the money never arrived, it is a failed order (not a missed dispatch) and
+              cannot be reprocessed. Only eligible rows can be reprocessed — an order that
               already has a provider reference or is already fulfilled is never re-sent.
             </div>
 
@@ -856,6 +868,11 @@ export default function DashXera() {
                             <Td>
                               <StatusPill status={o.status} />
                               <div style={styles.dim}>{o.payment_state}</div>
+                              {o.flag && FLAG_TEXT[o.flag] && (
+                                <div style={{ ...styles.dim, color: o.flag === "paid_not_dispatched" ? "#fb923c" : undefined }}>
+                                  {FLAG_TEXT[o.flag]}
+                                </div>
+                              )}
                             </Td>
                             <Td>
                               {o.provider_attempted || "—"}

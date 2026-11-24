@@ -39,6 +39,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
@@ -100,6 +101,13 @@ PROVIDER_NAMES = ("DATAMART", "BUNDLES_GHANA", "SWIFT_DATA_LINK", "AGYEKUMDATA",
 
 # Agent wallet orders are debited directly and never touch a Paystack charge.
 AGENT_REF_PREFIX = "EVOS-AGT-"
+# Customer wallet orders (EVOS-WLT-) are also paid from a balance, not by Paystack.
+WALLET_REF_PREFIXES = ("EVOS-AGT-", "EVOS-WLT-")
+
+# An order is only "paid but never dispatched" once Paystack (or a wallet debit) confirms the money came in.
+# An order that never got paid ends up "failed" after 30 minutes: that is a failed order, not a missed dispatch.
+UNDISPATCHED_GRACE_MINUTES = 10     # a paid order younger than this is simply still being queued
+PAYMENT_CHECK_BUDGET = 40           # most Paystack look-ups per request (results are cached)
 
 
 # ============================================================================
@@ -761,7 +769,7 @@ def dashxera_summary(days: int = Query(7), _: str = Depends(require_dashxera_adm
     since = utc_now() - timedelta(days=days)
     since_iso = since.isoformat()
 
-    row = _summary_row(since_iso)
+    row = _summary_row_verified(since_iso)
 
     total = int(row.get("total_orders") or 0)
     successful = int(row.get("successful_orders") or 0)
@@ -794,6 +802,10 @@ def dashxera_summary(days: int = Query(7), _: str = Depends(require_dashxera_adm
             "other": int(row.get("other_orders") or 0),
             "paid": paid_orders,
             "undispatched": int(row.get("undispatched_orders") or 0),
+            # failed orders whose payment never arrived: failed orders, not missed dispatches
+            "failed_unpaid": int(row.get("failed_unpaid_orders") or 0),
+            # failed orders whose payment could not be checked yet (Paystack unreachable)
+            "undispatched_unverified": int(row.get("undispatched_unverified") or 0),
         },
 
         # Three separate concepts. Never collapsed into one another.
@@ -819,6 +831,7 @@ def dashxera_summary(days: int = Query(7), _: str = Depends(require_dashxera_adm
 
             "failed_value": _money(row.get("failed_value")),
             "undispatched_value": _money(row.get("undispatched_value")),
+            "failed_unpaid_value": _money(row.get("failed_unpaid_value")),
 
             "cost_coverage": {
                 "orders_with_recorded_cost": with_base,
@@ -1304,14 +1317,139 @@ def dashxera_alerts_legacy(days: int = Query(7), actor: str = Depends(require_da
 
 
 # ============================================================================
+# PAYMENT CHECK (the order is never called "not delivered" until its payment is confirmed)
+# ============================================================================
+
+_PAYMENT_CACHE: Dict[str, tuple] = {}     # reference -> (raw Paystack state, expires_at epoch seconds)
+_PAYMENT_CACHE_MAX = 5000
+
+
+def _is_wallet_ref(reference: Any) -> bool:
+    return str(reference or "").startswith(WALLET_REF_PREFIXES)
+
+
+def _checked_payment_state(reference: Optional[str]) -> str:
+    """Paystack's verdict for a reference, cached (paid for a day, anything else for 5 minutes, errors never)."""
+    ref = str(reference or "")
+    now = time.time()
+    hit = _PAYMENT_CACHE.get(ref)
+    if hit and hit[1] > now:
+        return hit[0]
+    state = str(_verify_paystack(ref).get("state") or "unknown")
+    if state not in ("verify_error", "verify_unavailable", "no_reference", "unknown"):
+        if len(_PAYMENT_CACHE) >= _PAYMENT_CACHE_MAX:
+            _PAYMENT_CACHE.clear()
+        _PAYMENT_CACHE[ref] = (state, now + (86400 if state == "paid" else 300))
+    return state
+
+
+def _verdict(state: str) -> str:
+    """paid | unpaid | unknown, from a raw payment state."""
+    if state in ("paid", "wallet_debited"):
+        return "paid"
+    if state in ("verify_error", "verify_unavailable", "no_reference", "unknown", "unverified", ""):
+        return "unknown"
+    return "unpaid"      # failed, abandoned, ongoing, pending, reversed, queued...: the money did not arrive
+
+
+def _check_failed_payments(orders: List[dict], budget: int = PAYMENT_CHECK_BUDGET) -> Dict[Any, str]:
+    """Raw payment state for each ambiguous (failed, no provider reference) order, looked up in parallel.
+    Wallet orders need no look-up. Orders beyond the budget are left out (reported as unverified)."""
+    out: Dict[Any, str] = {}
+    todo = []
+    for o in orders:
+        ref = o.get("paystack_ref")
+        if _is_wallet_ref(ref):
+            out[o["id"]] = "wallet_debited"
+        elif ref and len(todo) < budget:
+            todo.append(o)
+        elif not ref:
+            out[o["id"]] = "no_reference"
+    if todo:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            for o, st in zip(todo, pool.map(lambda x: _checked_payment_state(x.get("paystack_ref")), todo)):
+                out[o["id"]] = st
+    return out
+
+
+def _undispatched_truth(since_iso: str) -> dict:
+    """Orders with no provider reference, split by what the payment check says:
+       candidates   paid, not dispatched (these really need action)
+       unpaid       failed, and Paystack says the money never arrived: a failed order, NOT a missed dispatch
+       unknown      failed, payment could not be checked (Paystack unreachable or over the check budget)"""
+    rows = _page_all(lambda: _db().table("orders")
+                     .select("id, created_at, status, price, base_price, agent_price, agent_id, paystack_ref, datamart_ref")
+                     .is_("datamart_ref", None).gte("created_at", since_iso)
+                     .in_("status", list(STATUS_IN_FLIGHT + STATUS_FAILED)))
+    now = utc_now()
+    grace = timedelta(minutes=UNDISPATCHED_GRACE_MINUTES)
+    candidates, failed = [], []
+    for o in rows:
+        status = str(o.get("status") or "").lower()
+        if status in STATUS_FAILED:
+            failed.append(o)
+        else:  # paid / processing: payment was confirmed before the status moved. Skip ones still being queued.
+            age = now - (_parse_dt(o.get("created_at")) or now)
+            if age >= grace:
+                candidates.append(o)
+    states = _check_failed_payments(failed)
+    unpaid, unknown = [], []
+    for o in failed:
+        v = _verdict(states.get(o["id"], "unverified"))
+        (candidates if v == "paid" else unpaid if v == "unpaid" else unknown).append(o)
+    return {"candidates": candidates, "unpaid": unpaid, "unknown": unknown}
+
+
+def _apply_verified_counts(row: dict, truth: dict) -> dict:
+    """Replace the raw 'paid but undispatched' figures with payment-checked ones, and stop counting orders whose
+    payment never arrived as sales."""
+    row = dict(row or {})
+    row["undispatched_orders"] = len(truth["candidates"])
+    row["undispatched_value"] = sum(_num(o.get("price")) for o in truth["candidates"])
+    row["undispatched_unverified"] = len(truth["unknown"])
+    row["failed_unpaid_orders"] = len(truth["unpaid"])
+    row["failed_unpaid_value"] = sum(_num(o.get("price")) for o in truth["unpaid"])
+    for o in truth["unpaid"]:                      # undo how the summary counted them as sales
+        price = _num(o.get("price"))
+        row["paid_orders"] = max(0, int(row.get("paid_orders") or 0) - 1)
+        row["sold"] = max(0.0, _num(row.get("sold")) - price)
+        if o.get("base_price") is not None:
+            row["base_cost"] = max(0.0, _num(row.get("base_cost")) - _num(o["base_price"]))
+            row["orders_with_base"] = max(0, int(row.get("orders_with_base") or 0) - 1)
+        else:
+            row["orders_missing_base"] = max(0, int(row.get("orders_missing_base") or 0) - 1)
+            row["sold_missing_base"] = max(0.0, _num(row.get("sold_missing_base")) - price)
+        if o.get("agent_id"):
+            row["agent_orders"] = max(0, int(row.get("agent_orders") or 0) - 1)
+            row["agent_sold"] = max(0.0, _num(row.get("agent_sold")) - price)
+            row["agent_price_total"] = max(0.0, _num(row.get("agent_price_total")) - _num(o.get("agent_price")))
+        else:
+            row["direct_orders"] = max(0, int(row.get("direct_orders") or 0) - 1)
+            row["direct_sold"] = max(0.0, _num(row.get("direct_sold")) - price)
+    return row
+
+
+def _summary_row_verified(since_iso: str) -> dict:
+    row = _summary_row(since_iso)
+    try:
+        return _apply_verified_counts(row, _undispatched_truth(since_iso))
+    except Exception as exc:   # never break the overview because the payment check failed
+        logger.warning("DASHXERA: payment check unavailable, showing unchecked counts: %s", exc)
+        return row
+
+
+# ============================================================================
 # PAID BUT NOT DISPATCHED
 # ============================================================================
 
 
-def _is_eligible(order: dict) -> tuple:
+def _is_eligible(order: dict, payment_state: Optional[str] = None) -> tuple:
     """
     Single source of truth for reprocess eligibility. Used by the listing, the
     single reprocess and the bulk path, so the three can never disagree.
+
+    payment_state (from the payment check) is passed by the listing: a failed order is only "paid but not
+    dispatched" if its payment is confirmed. The reprocess path leaves it out and verifies with Paystack itself.
     """
     status = str(order.get("status") or "").lower()
 
@@ -1325,6 +1463,12 @@ def _is_eligible(order: dict) -> tuple:
         return False, f"Status {status or 'unknown'} is not reprocessable"
     if not (order.get("paystack_ref") or order.get("evosdata_ref")):
         return False, "No payment reference on the order"
+    if payment_state is not None and status in STATUS_FAILED:
+        verdict = _verdict(payment_state)
+        if verdict == "unpaid":
+            return False, "Payment was never completed: a failed order, not a paid order missing from the queue"
+        if verdict == "unknown":
+            return False, "Payment could not be checked yet: press Verify payments"
     return True, "Paid, no provider reference"
 
 
@@ -1352,23 +1496,32 @@ def dashxera_undispatched(
     total = getattr(result, "count", None)
     _decorate_orders(rows)
 
+    # A failed order is ambiguous (paid but the dispatch failed, or never paid and timed out), so its payment is
+    # always checked before it can be flagged. With verify=true every row on the page is checked, not just failed ones.
+    to_check = rows[:25] if verify else [r for r in rows if str(r.get("status") or "").lower() in STATUS_FAILED]
+    checked = _check_failed_payments([r for r in to_check if not r.get("datamart_ref")])
+
     for row in rows:
         ref = str(row.get("paystack_ref") or "")
-        eligible, reason = _is_eligible(row)
-        row["wallet_order"] = ref.startswith(AGENT_REF_PREFIX)
-        row["eligible"] = eligible
-        row["eligibility_reason"] = reason
+        row["wallet_order"] = _is_wallet_ref(ref)
         row["provider_attempted"] = row.get("provider")
         row["age_hours"] = round(
             (utc_now() - (_parse_dt(row.get("created_at")) or utc_now())).total_seconds() / 3600, 1
         )
-        row["payment_state"] = "wallet_debited" if row["wallet_order"] else "unverified"
-
-    if verify:
-        for row in rows[:25]:
-            if row["wallet_order"]:
-                continue
-            row["payment_state"] = _verify_paystack(row.get("paystack_ref")).get("state", "unverified")
+        row["payment_state"] = "wallet_debited" if row["wallet_order"] else checked.get(row["id"], "unverified")
+        eligible, reason = _is_eligible(row, row["payment_state"] if row["id"] in checked else None)
+        row["eligible"] = eligible
+        row["eligibility_reason"] = reason
+        v = _verdict(row["payment_state"])
+        status = str(row.get("status") or "").lower()
+        # What this row really is, in plain words for the dashboard
+        row["flag"] = (
+            "dispatched" if row.get("datamart_ref")
+            else "awaiting_payment" if status in STATUS_AWAITING
+            else "failed_unpaid" if status in STATUS_FAILED and v == "unpaid"
+            else "payment_unverified" if status in STATUS_FAILED and v == "unknown"
+            else "paid_not_dispatched"
+        )
 
     eligible_rows = [r for r in rows if r["eligible"]]
     return {
@@ -1774,8 +1927,16 @@ def dashxera_attention(days: int = Query(7), actor: str = Depends(require_dashxe
     since_iso = (utc_now() - timedelta(days=days)).isoformat()
     items = []
 
-    row = _summary_row(since_iso)
+    row = _summary_row_verified(since_iso)
     undispatched = int(row.get("undispatched_orders") or 0)
+    unverified = int(row.get("undispatched_unverified") or 0)
+    if unverified:
+        items.append({
+            "kind": "payment_unverified", "severity": "warning",
+            "title": f"{unverified} failed order{'' if unverified == 1 else 's'} need a payment check",
+            "detail": "Paystack could not be reached, so we cannot yet say if these were paid",
+            "link": "undispatched",
+        })
     if undispatched:
         items.append({
             "kind": "undispatched", "severity": "critical",
