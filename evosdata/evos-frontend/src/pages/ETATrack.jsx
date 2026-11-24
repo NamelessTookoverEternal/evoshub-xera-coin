@@ -7,20 +7,20 @@ const SESSION_KEY = "evos_store_state";
 
 const STATUS_CONFIG = {
   pending_payment: {
-    label: "Awaiting Payment",
+    label: "Confirming Payment",
     color: "#f59e0b",
     bg: "rgba(245,158,11,0.1)",
     border: "rgba(245,158,11,0.3)",
-    eta: "Complete your payment to proceed.",
+    eta: "If you have already paid, your order will be queued in a moment. If you have not paid yet, complete your payment to continue.",
     icon: "⏳",
   },
   paid: {
-    label: "Payment Confirmed",
+    label: "Order Is Being Queued",
     color: "#ffb020",
     bg: "rgba(255,176,32,0.1)",
     border: "rgba(255,176,32,0.3)",
-    eta: "Your order is queued for delivery. Usually starts within 1-2 minutes.",
-    icon: "✅",
+    eta: "Payment confirmed. Your order is being queued for delivery and usually starts within 1-2 minutes.",
+    icon: "🕒",
   },
   processing: {
     label: "Processing",

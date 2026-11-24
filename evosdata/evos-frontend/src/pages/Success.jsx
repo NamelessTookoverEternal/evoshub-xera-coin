@@ -296,13 +296,13 @@ export default function Success() {
               📦
             </div>
             <h2 style={{ ...s.title, color: "#ffb020" }}>Order Placed!</h2>
-            <p style={s.sub}>Your data bundle is being processed ✅</p>
+            <p style={s.sub}>Payment received. Your order is being queued ✅</p>
 
             <div style={s.summaryBox}>
               <div style={{ ...s.summaryRow, borderBottom: "none" }}>
                 <span style={s.summaryLabel}>Status</span>
                 <span style={{ ...s.summaryVal, color: "#22c55e", fontWeight: 800 }}>
-                  ✅ Processing
+                  ✅ Order is being queued
                 </span>
               </div>
             </div>

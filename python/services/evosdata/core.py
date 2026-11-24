@@ -2966,7 +2966,7 @@ async def retry_stuck_order_payments():
             hold_minutes = int(xera_discount.load_config(supabase).get("hold_minutes") or 60)
 
             now    = utc_now()
-            floor  = (now - timedelta(minutes=5)).isoformat()   # give the webhook a head start
+            floor  = (now - timedelta(minutes=1)).isoformat()   # give the webhook a head start (the success page and "my orders" also settle paid orders at once)
             cutoff = (now - timedelta(hours=6)).isoformat()     # don't dig up ancient rows forever
 
             stuck = supabase.table("orders") \
@@ -3039,7 +3039,9 @@ async def retry_stuck_order_payments():
                         )
                         continue
 
-                    supabase.table("orders").update({"status": "paid"}).eq("id", order_id).execute()
+                    if not _claim_order_paid(order_id, ("pending_payment", "failed")):
+                        logger.info("ORDER PAYMENT RETRY: order %s was settled by another caller, skipping", order_id)
+                        continue
                     logger.info("ORDER PAYMENT RETRY: order %s confirmed paid by Paystack ✅", order_id)
                     xera_discount.consume(supabase, reference)   # no-op unless this order had a XERA discount
 
@@ -3567,23 +3569,37 @@ def send_otp_email(to_email: str, otp: str, full_name: str) -> bool:
 # =========================
 @router.get("/orders/me")
 @limiter.limit("30/minute")
-def get_user_orders(request: Request, user_id: int = Query(...)):
+def get_user_orders(request: Request, user_id: int = Query(...), background: BackgroundTasks = None):
     require_user(request, user_id)  # token must belong to this user_id
     try:
-        orders = supabase.table("orders").select("*").eq("user_id", user_id) \
-            .order("created_at", desc=True).limit(100).execute()          # newest first
+        rows = supabase.table("orders").select("*").eq("user_id", user_id) \
+            .order("created_at", desc=True).limit(100).execute().data or []
+        # A purchase made while signed out is saved as a guest order with the buyer's email. Show those here too,
+        # so an order a person placed is never missing from their own orders page.
+        try:
+            u = supabase.table("users").select("email").eq("id", user_id).limit(1).execute().data
+            email = ((u[0].get("email") if u else "") or "").strip()
+            if email:
+                guest = supabase.table("orders").select("*").is_("user_id", "null") \
+                    .in_("guest_email", sorted({email, email.lower()})) \
+                    .order("created_at", desc=True).limit(50).execute().data or []
+                rows = sorted(rows + guest, key=lambda r: r.get("created_at") or "", reverse=True)[:100]   # newest first
+        except Exception as e:
+            logger.warning("GET ORDERS: guest-order lookup skipped: %s", e)
+        if background is not None:
+            background.add_task(_heal_pending_orders, [dict(r) for r in rows])   # settles paid-but-pending orders right away
         from services.evosdata import delivery_eta
-        return {"status": "success", "orders": delivery_eta.enrich(supabase, orders.data or [])}
+        return {"status": "success", "orders": delivery_eta.enrich(supabase, rows)}
     except Exception as e:
         logger.error("GET ORDERS ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch orders")
 
 @router.get("/orders/track")
 @limiter.limit("20/minute")
-def track_orders(request: Request, phone: str = Query(...)):
+def track_orders(request: Request, phone: str = Query(...), background: BackgroundTasks = None):
     try:
         cleaned = normalise_phone(phone)
-        cols = "user_id, network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref"
+        cols = "id, datamart_ref, user_id, network, bundle, price, phone_number, status, created_at, evosdata_ref, paystack_ref"
         try:
             orders = supabase.table("orders").select(cols + ", delivered_at") \
                 .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
@@ -3592,6 +3608,10 @@ def track_orders(request: Request, phone: str = Query(...)):
                 .eq("phone_number", cleaned).order("created_at", desc=True).limit(10).execute()
         from services.evosdata import delivery_eta
         rows = delivery_eta.enrich(supabase, orders.data or [])
+        if background is not None:
+            background.add_task(_heal_pending_orders, [dict(r) for r in rows])   # settles paid-but-pending orders right away
+        for r in rows:
+            r.pop("id", None); r.pop("datamart_ref", None)    # internal, never sent to the browser
         # Anyone with the number sees status + delivery time. The reference and the amount are only shown to the
         # signed-in owner of the order; everybody else gets them masked. (No/invalid token = just masked, never an error.)
         token = request.headers.get("X-User-Token", "")
@@ -3769,6 +3789,96 @@ def create_order(request: Request, data: CreateOrderRequest):
         raise HTTPException(status_code=500, detail="Server error")
 
 
+# =========================
+# PAYMENT CONFIRMATION (shared by the Paystack webhook, the success page, and "my orders" / "track order")
+# A paid order must never sit on "pending_payment" waiting for a slow webhook or the 5-minute background job:
+# whoever notices first asks Paystack, and exactly one caller wins the atomic claim and dispatches the order.
+# =========================
+_WALLET_REF_PREFIXES = ("EVOS-AGT-", "EVOS-WLT-")   # paid from a wallet: there is no Paystack payment to verify
+_healing_orders: set = set()
+
+
+def _paystack_confirms_paid(reference: str) -> bool:
+    try:
+        r = requests.get(
+            f"https://api.paystack.co/transaction/verify/{reference}",
+            headers={"Authorization": f"Bearer {PAYSTACK_SECRET}"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        return (r.json().get("data") or {}).get("status") == "success"
+    except Exception as e:
+        logger.warning("PAYMENT CHECK: could not verify %s with Paystack: %s", reference, e)
+        return False
+
+
+def _claim_order_paid(order_id, from_statuses=("pending_payment",)) -> bool:
+    """Atomically flip the order to 'paid'. True only for the single caller that actually changed the row,
+    so the webhook, the success page and the background job can never dispatch the same order twice."""
+    res = supabase.table("orders").update({"status": "paid"}) \
+        .eq("id", order_id).in_("status", list(from_statuses)).is_("datamart_ref", None).execute()
+    return bool(res.data)
+
+
+def _find_order_by_ref(reference: str):
+    """The order for a Paystack reference. If the buyer re-opened a pending order, the order row now holds a newer
+    reference (old one + '-R....'); a payment made on the older reference still belongs to that same order."""
+    res = supabase.table("orders").select("*").eq("paystack_ref", reference).limit(1).execute()
+    if res.data:
+        return res.data[0]
+    if re.fullmatch(r"[A-Za-z0-9-]{6,100}", reference or ""):
+        res = supabase.table("orders").select("*").like("paystack_ref", f"{reference}-R%") \
+            .order("created_at", desc=True).limit(1).execute()
+        if res.data:
+            return res.data[0]
+    return None
+
+
+def _settle_if_paid(order: dict, paid_ref: str = None) -> bool:
+    """If Paystack says this order is paid, move it on and send it to the data provider. Never raises.
+    Returns True if THIS call did the settling."""
+    try:
+        ref = order.get("paystack_ref")
+        if not ref or str(ref).startswith(_WALLET_REF_PREFIXES):
+            return False
+        if order.get("datamart_ref") or order.get("status") not in ("pending_payment", "failed"):
+            return False
+        if not _paystack_confirms_paid(paid_ref or ref):
+            return False
+        if not _claim_order_paid(order["id"], ("pending_payment", "failed")):
+            return False   # the webhook (or another caller) already took it
+        logger.info("PAYMENT CHECK: order %s confirmed paid by Paystack, queued for delivery", order["id"])
+        xera_discount.consume(supabase, ref)   # no-op unless this order had a XERA discount
+        if order.get("user_id"):
+            increment_user_orders(order["user_id"])
+        dispatch_paid_order(order, ref)
+        return True
+    except Exception as e:
+        logger.error("PAYMENT CHECK ERROR for order %s: %s", order.get("id"), e)
+        return False
+
+
+def _heal_pending_orders(orders: list) -> None:
+    """Background: re-check up to 3 recent orders still showing 'pending_payment' (older than 10 s, newer than 6 h)."""
+    checked = 0
+    for o in orders:
+        if checked >= 3:
+            break
+        if o.get("status") != "pending_payment" or o.get("datamart_ref") or not o.get("id") or not o.get("created_at"):
+            continue
+        try:
+            age = utc_now() - parse_db_dt(o["created_at"])
+        except Exception:
+            continue
+        if age < timedelta(seconds=10) or age > timedelta(hours=6) or o["id"] in _healing_orders:
+            continue
+        _healing_orders.add(o["id"])
+        try:
+            _settle_if_paid(o)
+        finally:
+            _healing_orders.discard(o["id"])
+        checked += 1
+
+
 def dispatch_paid_order(order: dict, reference: str) -> dict:
     """Send an order that is already PAID (by Paystack or from the customer wallet) to its data provider.
     Returns {"status": "success"} or {"status": "purchase failed"} (the order is then marked failed)."""
@@ -3940,17 +4050,16 @@ async def paystack_webhook(request: Request):
                 return {"status": "success"}
 
             # ── DATA ORDER (existing logic, unchanged) ────────────────────
-            order_res = supabase.table("orders").select("*").eq("paystack_ref", reference).limit(1).execute()
-            if not order_res.data:
+            order = _find_order_by_ref(reference)
+            if not order:
                 print(f"PAYSTACK WEBHOOK: no order found for reference={reference}")
                 return {"status": "not found"}
+            reference = order["paystack_ref"]   # the order's current reference (differs only after a re-opened pending order)
 
-            order = order_res.data[0]
-            if order["status"] != "pending_payment":
+            # Atomic: only ONE of webhook / success page / background job gets to mark it paid and dispatch it.
+            if order["status"] != "pending_payment" or not _claim_order_paid(order["id"]):
                 print(f"PAYSTACK WEBHOOK: order {order['id']} already processed (status={order['status']})")
                 return {"status": "already processed"}
-
-            supabase.table("orders").update({"status": "paid"}).eq("paystack_ref", reference).execute()
             print(f"PAYSTACK WEBHOOK: order {order['id']} marked as paid")
 
             # XERA discount (if this order had one): the customer has paid, so the held XERA is
@@ -4280,14 +4389,19 @@ async def agyekumdata_webhook(request: Request):
 @limiter.limit("20/minute")
 def sync_order(request: Request, reference: str):
     try:
-        order_res = supabase.table("orders").select("*").eq("paystack_ref", reference).limit(1).execute()
-        if not order_res.data:
+        order = _find_order_by_ref(reference)
+        if not order:
             raise HTTPException(404, "Order not found")
 
-        order    = order_res.data[0]
         tracker  = order.get("datamart_order_id") or order.get("datamart_ref")
+        if not tracker and order.get("status") in ("pending_payment", "failed"):
+            # The buyer is back from Paystack but the webhook may not have arrived yet: ask Paystack ourselves,
+            # right now, instead of leaving the order on "awaiting payment" until the background job runs.
+            _settle_if_paid(order, paid_ref=reference)
+            order   = _find_order_by_ref(order["paystack_ref"]) or order
+            tracker = order.get("datamart_order_id") or order.get("datamart_ref")
         if not tracker:
-            return {"status": "not processed yet"}
+            return {"status": order.get("status") or "not processed yet"}
 
         provider = get_provider(order["network"])
 
@@ -4331,7 +4445,7 @@ def sync_order(request: Request, reference: str):
             else "failed" if status in ["failed", "cancelled", "refunded"]
             else "processing"
         )
-        supabase.table("orders").update({"status": final_status}).eq("paystack_ref", reference).execute()
+        supabase.table("orders").update({"status": final_status}).eq("id", order["id"]).execute()
         return {"status": final_status}
 
     except HTTPException as e:
@@ -6309,23 +6423,21 @@ def forgot_password(request: Request, data: ForgotPasswordRequest, background_ta
     try:
         email = str(data.email).strip().lower()
 
+        # No HTTPS mail API configured but a standalone backend is: let it send (see above).
+        if (os.getenv("EVOSDATA_MAIL_RELAY_URL") and not os.getenv("RESEND_API_KEY")
+                and not os.getenv("BREVO_API_KEY")):
+            background_tasks.add_task(_relay_forgot_password, email)
+            return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
+
         user_res = supabase.table("users") \
             .select("id, full_name, email") \
             .ilike("email", email) \
             .limit(1) \
             .execute()
 
-        # The reset page tells the person plainly when no account uses this email (product decision),
-        # so check this first, before any mail is sent or relayed.
         if not user_res.data:
             _otp_log("FORGOT PASSWORD: no account matches %s", _mask_email(email))
-            raise HTTPException(status_code=404, detail="No account exists with this email address.")
-
-        # No HTTPS mail API configured but a standalone backend is: let it send (see above).
-        if (os.getenv("EVOSDATA_MAIL_RELAY_URL") and not os.getenv("RESEND_API_KEY")
-                and not os.getenv("BREVO_API_KEY")):
-            background_tasks.add_task(_relay_forgot_password, email)
-            return {"status": "sent", "message": "An OTP has been sent to your email."}
+            return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
         user    = user_res.data[0]
         _otp_log("FORGOT PASSWORD: account found for %s (user %s), sending OTP", _mask_email(email), user["id"])
@@ -6356,10 +6468,8 @@ def forgot_password(request: Request, data: ForgotPasswordRequest, background_ta
             user.get("full_name") or "User",
         )
 
-        return {"status": "sent", "message": "An OTP has been sent to your email."}
+        return {"status": "sent", "message": "If that email exists, an OTP has been sent."}
 
-    except HTTPException:
-        raise
     except Exception as e:
         _otp_log("FORGOT PASSWORD ERROR: %s", str(e))
         raise HTTPException(status_code=500, detail="Server error")

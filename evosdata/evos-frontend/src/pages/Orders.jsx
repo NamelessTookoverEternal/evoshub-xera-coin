@@ -16,6 +16,7 @@ export default function Orders({ user } = {}) {
   // 🔥 STATUS COLOR MAP
   const getColor = (status) => {
     if (status === "pending_payment") return "#f59e0b";
+    if (status === "paid") return "#60a5fa";
     if (status === "processing") return "#3b82f6";
     if (status === "successful") return "#10b981";
     if (status === "failed") return "#ef4444";
@@ -24,10 +25,10 @@ export default function Orders({ user } = {}) {
 
   // ⚡ NEW: STATUS LABEL MAP (UI ONLY - DATAMART AWARE)
   const getStatusLabel = (status) => {
-    if (status === "pending_payment") return "Waiting for Payment";
-
-    if (status === "processing" || status === "paid")
-      return "On its way";
+    // "paid" = payment confirmed, waiting to be sent to the network: shown as queued, then it moves to Processing.
+    if (status === "pending_payment") return "Confirming your payment";
+    if (status === "paid") return "Order is being queued";
+    if (status === "processing") return "Processing";
 
     if (status === "successful")
       return "Delivered Successfully";
@@ -102,7 +103,7 @@ export default function Orders({ user } = {}) {
       {/* ORDERS */}
       <div style={styles.grid}>
         {orders.map((o, i) => (
-          <div key={i} style={styles.card}>
+          <div key={o.id ?? i} style={styles.card}>
             <h3>{o.network} • {o.bundle}</h3>
 
             {/* 🔥 UPDATED STATUS DISPLAY */}
@@ -110,7 +111,9 @@ export default function Orders({ user } = {}) {
               {getStatusLabel(o.status)}
             </p>
 
-            {o.status === "successful" && o.delivered_at ? (
+            {o.status === "pending_payment" ? (
+              <p style={styles.meta}>If you have already paid, this updates in a moment.</p>
+            ) : o.status === "successful" && o.delivered_at ? (
               <p style={styles.meta}>✅ Delivered {fmt(o.delivered_at)}</p>
             ) : (o.status === "processing" || o.status === "paid") && o.eta_text ? (
               <p style={styles.meta}>⏱ {o.eta_text}</p>
