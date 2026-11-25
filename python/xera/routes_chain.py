@@ -10,11 +10,14 @@ trust a user_id from the request body.
 """
 
 import logging
+import time
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from main import limiter
+from main import limiter, supabase
+from xera.routes import _log_security_event
+from xera.routes_auth import pwd_context
 from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.chain.wallet_link import (
     start_link, verify_and_link, get_linked_wallets, get_wallets, set_manual_wallet, remove_wallet, WalletLinkError,
@@ -71,6 +74,7 @@ _CLAIM_ERROR_HTTP = {
     "claim_on_other_chain":             (409, "An earlier attempt for this entitlement was made on the other network. Use Retry to move it to this network."),
     "no_verified_wallet":               (400, "Your {chain} wallet must be connected before this entitlement can be settled."),
     "wallet_not_verified":              (400, "Your {chain} wallet address was added manually and hasn't been verified. Connect the wallet and sign the ownership request before settling."),
+    "manual_wallet_cooldown":           (403, "Your manually added wallet address is still in its safety waiting period. You can withdraw to it once the waiting period ends."),
     "onchain_disabled":                 (403, "On-chain claims are currently disabled."),
     "distributor_not_configured":       (503, "This chain isn't fully configured yet."),
     "claim_signer_not_configured":      (503, "Claim signing is temporarily unavailable."),
@@ -218,7 +222,7 @@ def wallet_manual(request: Request, data: ManualWalletRequest, authorization: st
     return {
         "status": "ok",
         "wallet": wallet,
-        "notice": "Wallet address added. This address has not been cryptographically verified as wallet ownership.",
+        "notice": "Wallet address saved. It has not been cryptographically verified. You can withdraw to it after a safety waiting period (12 hours by default), with your password, and the wallet must hold BNB for the network fee.",
     }
 
 
@@ -276,6 +280,59 @@ class ClaimAmountRequest(BaseModel):
     chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
     # A string or number — parsed with Decimal on the server, never as a float.
     amount: str = Field(..., min_length=1, max_length=32)
+    # Only needed when the withdrawal goes to a manually added address.
+    password: str | None = Field(default=None, max_length=200)
+
+
+# ------------------------------------------------------------
+# WITHDRAWING TO A MANUAL (typed) ADDRESS
+# ------------------------------------------------------------
+# A typed address proves nothing about ownership, so a withdrawal to one needs extra care: the account
+# password on every withdrawal, and (in claims.py) a waiting period after the address was added or changed.
+# A wrong-password counter stops the Withdraw button being used to guess the password.
+
+_PW_FAIL_LIMIT = 5
+_PW_FAIL_WINDOW_SECONDS = 15 * 60
+_pw_failures: dict[int, list[float]] = {}
+
+
+def _recent_pw_failures(user_id: int) -> list[float]:
+    cutoff = time.time() - _PW_FAIL_WINDOW_SECONDS
+    kept = [t for t in _pw_failures.get(user_id, []) if t > cutoff]
+    _pw_failures[user_id] = kept
+    return kept
+
+
+def _manual_withdraw_gate(request: Request, user_id: int, chain: str, password: str | None) -> bool:
+    """
+    True when this withdrawal goes to a manual address and the password was correct (so the claim code may use it).
+    False when the user has a connected, signature-verified wallet (or none): nothing changes for them.
+    """
+    if chain.upper() != "BNB":
+        return False
+    try:
+        wallet = next((w for w in get_wallets(user_id) if w["chain"] == "BNB"), None)
+    except Exception:
+        return False
+    if not wallet or wallet.get("verified") or wallet.get("connection_method") != "manual":
+        return False
+
+    if not password:
+        raise HTTPException(status_code=400, detail="Enter your account password to withdraw to a manually added address.")
+    if len(_recent_pw_failures(user_id)) >= _PW_FAIL_LIMIT:
+        raise HTTPException(status_code=429, detail="Too many wrong passwords. Please wait 15 minutes and try again.")
+
+    row = supabase.table("users").select("password").eq("id", user_id).limit(1).execute().data
+    try:
+        ok = bool(row and row[0].get("password") and pwd_context.verify(password, row[0]["password"]))
+    except Exception:
+        ok = False
+    if not ok:
+        _pw_failures.setdefault(user_id, []).append(time.time())
+        _log_security_event(user_id, "MANUAL_WALLET_WITHDRAW_BAD_PASSWORD", request, {})
+        raise HTTPException(status_code=403, detail="That password is not correct.")
+    _pw_failures.pop(user_id, None)
+    return True
 
 
 @router.get("/claim/overview")
@@ -296,8 +353,9 @@ def claim_sign_amount(request: Request, data: ClaimAmountRequest, authorization:
     """
     user_id = _current_user_id(authorization)
     money_lock.ensure_not_locked(user_id)   # locked accounts cannot withdraw; claim code itself is untouched
+    allow_manual = _manual_withdraw_gate(request, user_id, data.chain, data.password)
     try:
-        result = sign_amount_claim(user_id, data.chain, data.amount)
+        result = sign_amount_claim(user_id, data.chain, data.amount, allow_manual=allow_manual)
     except ClaimRequirementsError as e:
         return requirements_response(e.missing)
     except ClaimError as e:
@@ -334,6 +392,7 @@ def claim_confirm(request: Request, data: ClaimConfirmRequest, authorization: st
 class ClaimRetryRequest(BaseModel):
     reference_id: str = Field(..., min_length=1, max_length=128)
     chain: str = Field(..., pattern="^(BNB|TON|bnb|ton)$")
+    password: str | None = Field(default=None, max_length=200)   # only for a manually added address
 
 
 @router.post("/claim/retry")
@@ -349,8 +408,9 @@ def claim_retry(request: Request, data: ClaimRetryRequest, authorization: str = 
     """
     user_id = _current_user_id(authorization)
     money_lock.ensure_not_locked(user_id)
+    allow_manual = _manual_withdraw_gate(request, user_id, data.chain, data.password)
     try:
-        result = retry_claim(user_id, data.reference_id, data.chain)
+        result = retry_claim(user_id, data.reference_id, data.chain, allow_manual=allow_manual)
     except ClaimRequirementsError as e:
         return requirements_response(e.missing)
     except ClaimError as e:
@@ -366,6 +426,12 @@ def onchain_status(request: Request, chain: str = "BNB", authorization: str = He
 
     wallets = get_linked_wallets(user_id)
     wallet = next((w for w in wallets if w["chain"] == chain), None)
+    if wallet is None:
+        # Display only (vesting balance): a manually added address can receive withdrawals, so show its vesting too.
+        try:
+            wallet = next((w for w in get_wallets(user_id) if w["chain"] == chain and w.get("connection_method") == "manual"), None)
+        except Exception:
+            wallet = None
 
     vesting = None
     if wallet:

@@ -8,6 +8,7 @@ xera_claim_mining_reward, see mining.py) and authorizes moving exactly
 that amount on-chain, once.
 """
 
+import datetime
 import os
 import re
 import time
@@ -23,6 +24,7 @@ from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
 from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, IndexerError
 from xera import readiness
+from xera.chain.wallet_link import manual_ready_at
 
 _CLAIM_SIGNATURE_TTL_SECONDS = 15 * 60
 _XERA_DECIMALS = 18
@@ -107,6 +109,35 @@ def _get_verified_wallet(user_id: int, chain: str) -> dict:
             manual = None
         raise ClaimError("wallet_not_verified" if manual is not None and manual.data else "no_verified_wallet")
     return res.data[0]
+
+
+def _get_claim_wallet(user_id: int, chain: str, allow_manual: bool = False) -> dict:
+    """
+    The wallet a claim is signed for. A signature-verified wallet always wins. A manual
+    (typed) BNB address is accepted only when the caller has opted in (`allow_manual`, which
+    the route sets only after the account password was checked) AND the address has waited
+    out its cooldown. Everything else behaves exactly as _get_verified_wallet.
+    """
+    try:
+        return _get_verified_wallet(user_id, chain)
+    except ClaimError as e:
+        if not allow_manual or str(e) not in ("wallet_not_verified", "no_verified_wallet"):
+            raise
+        if chain.upper() != "BNB":
+            raise
+    res = (
+        supabase.table("xera_external_wallets").select("*")
+        .eq("user_id", user_id).eq("chain", "BNB")
+        .eq("status", "PENDING").eq("connection_method", "manual")
+        .limit(1).execute()
+    )
+    if not res.data:
+        raise ClaimError("no_verified_wallet")
+    wallet = res.data[0]
+    ready = manual_ready_at(wallet)
+    if ready is None or ready > datetime.datetime.now(datetime.timezone.utc):
+        raise ClaimError("manual_wallet_cooldown")
+    return wallet
 
 
 def _sweep_expired_claims() -> None:
@@ -366,7 +397,7 @@ def _build_signed_claim(chain, wallet, chain_cfg, reference_id, amount_wei, tran
     }
 
 
-def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
+def sign_amount_claim(user_id: int, chain: str, amount_raw, allow_manual: bool = False) -> dict:
     """
     Move `amount_raw` XERA of the user's claimable balance to their verified
     wallet on `chain`. Returns the signed claim to submit on-chain.
@@ -382,7 +413,7 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw) -> dict:
         raise ClaimError("unsupported_chain")
     amount = parse_claim_amount(amount_raw)
 
-    wallet = _get_verified_wallet(user_id, chain)
+    wallet = _get_claim_wallet(user_id, chain, allow_manual)
     try:
         chain_cfg = require_onchain_enabled(chain)
     except ChainConfigError as e:
@@ -533,7 +564,7 @@ def confirm_claim(user_id: int, reference_id: str, transaction_hash: str) -> dic
     raise ClaimError("unsupported_chain")
 
 
-def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
+def retry_claim(user_id: int, reference_id: str, chain: str, allow_manual: bool = False) -> dict:
     """
     Phase 6 recovery path: re-activates a FAILED/EXPIRED claim (same row,
     same reference_id — see xera_retry_onchain_claim's docstring for why
@@ -556,7 +587,7 @@ def retry_claim(user_id: int, reference_id: str, chain: str) -> dict:
         raise ClaimError("claim_not_retryable")
     _require_same_network(row, chain)
 
-    wallet = _get_verified_wallet(user_id, chain)
+    wallet = _get_claim_wallet(user_id, chain, allow_manual)
     try:
         chain_cfg = require_onchain_enabled(chain)
     except ChainConfigError as e:

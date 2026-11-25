@@ -12,7 +12,7 @@
 // wallet password. Manual input is rejected client-side if it looks like one.
 
 import { TonConnectUI } from '@tonconnect/ui';
-import { appKitConfigured, connectWithAppKit, restoredAppKitProvider, disconnectAppKit, switchAppKitNetwork } from './xera-appkit.js';
+import { appKitConfigured, connectWithAppKit, cancelAppKitConnect, reopenAppKitPicker, restoredAppKitProvider, disconnectAppKit, switchAppKitNetwork, nudgeAppKitConnection, appKitDiagnostics, openChosenWalletApp, liveWalletSession, waitForRelay } from './xera-appkit.js';
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) || ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
 const $ = (id) => document.getElementById(id);
@@ -125,6 +125,68 @@ function userMessage(err, fallback) {
     return fallback;
 }
 const userError = (message) => Object.assign(new Error(message), { userFacing: true });
+
+// ---------------------------------------------------------------- manual (typed) address helpers
+// A typed address can receive withdrawals, but only after a safety wait and with the account password.
+// The server enforces both; the checks here only explain things early and save a round trip.
+const isManual = (w) => !!w && !w.verified && w.connection_method === 'manual';
+
+function manualReadyMs(w) {
+    const t = w && w.withdraw_ready_at ? Date.parse(w.withdraw_ready_at) : NaN;
+    return Number.isNaN(t) ? null : t;
+}
+
+function waitText(ms) {
+    const mins = Math.max(1, Math.ceil(ms / 60000));
+    const hrs = Math.floor(mins / 60);
+    return hrs ? `${hrs} h ${mins % 60} min` : `${mins} min`;
+}
+
+// The address with its first and last 6 characters set apart, so a typo or a swapped address is easy to spot.
+function addressWithEnds(addr) {
+    const box = h('div', { style: 'font-family:ui-monospace,Menlo,monospace;font-size:.9rem;line-height:1.5;word-break:break-all;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14)' });
+    const strong = 'color:#5ee0a0;font-weight:700';
+    box.append(h('span', { style: strong, text: addr.slice(0, 6) }), addr.slice(6, -6), h('span', { style: strong, text: addr.slice(-6) }));
+    return box;
+}
+
+// Confirmation + password popup shown before a withdrawal to a manual address. Resolves to the password,
+// or null if the user cancels. Nothing is reserved or signed until this returns a password.
+function confirmManualWithdraw(wallet, amountText) {
+    return new Promise((resolve) => {
+        const overlay = h('div', { role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Confirm withdrawal address',
+            style: 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,8,18,.78)' });
+        const card = h('div', { style: 'width:100%;max-width:420px;max-height:92vh;overflow:auto;box-sizing:border-box;padding:18px;border-radius:18px;background:#0f1424;color:#e8ecf7;border:1px solid rgba(255,255,255,.14);display:grid;gap:12px' });
+        const pw = h('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Account password', 'aria-label': 'Account password',
+            style: 'width:100%;box-sizing:border-box;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:inherit;font-size:1rem' });
+        const check = h('input', { type: 'checkbox', id: 'mwdCheck', style: 'margin-top:3px' });
+        const err = h('p', { role: 'alert', style: 'margin:0;color:#ff7b8a;font-size:.85rem;min-height:1em' });
+        const go = h('button', { type: 'button', class: 'btn', text: 'Withdraw', disabled: true });
+        const cancel = h('button', { type: 'button', class: 'btn btn-ghost', text: 'Cancel' });
+        const sync = () => { go.disabled = !(check.checked && pw.value.length > 0); };
+        check.addEventListener('change', sync);
+        pw.addEventListener('input', sync);
+        const finish = (value) => { document.removeEventListener('keydown', onKey); overlay.remove(); resolve(value); };
+        const onKey = (e) => { if (e.key === 'Escape') finish(null); };
+        document.addEventListener('keydown', onKey);
+        cancel.addEventListener('click', () => finish(null));
+        go.addEventListener('click', () => { if (!go.disabled) finish(pw.value); });
+        pw.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !go.disabled) finish(pw.value); });
+        card.append(
+            h('h3', { style: 'margin:0;font-size:1.05rem', text: 'Check the address before you withdraw' }),
+            h('p', { style: 'margin:0;font-size:.85rem;line-height:1.45;color:#aeb8d0', text: `${amountText ? `${amountText} XERA will be` : 'XERA will be'} sent to this address. This address was typed in, not verified by your wallet. XERA sent to a wrong address cannot be recovered.` }),
+            addressWithEnds(wallet.address),
+            h('p', { style: 'margin:0;font-size:.85rem;line-height:1.45;color:#aeb8d0', text: 'Compare the first 6 and last 6 characters (green) with the address in your wallet app.' }),
+            h('label', { for: 'mwdCheck', style: 'display:flex;gap:8px;align-items:flex-start;font-size:.85rem;line-height:1.4' }, check,
+                h('span', { text: 'I checked this address. It is my own wallet and it holds BNB for the network fee.' })),
+            pw, err,
+            h('div', { style: 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap' }, cancel, go),
+        );
+        overlay.append(card);
+        document.body.append(overlay);
+        pw.focus();
+    });
+}
 
 function setError(msg) {
     $('chainWalletError').textContent = msg || '';
@@ -396,8 +458,18 @@ function manualForm(chain, w) {
         h('label', { class: 'chain-manual-label', for: `chainManualInput${chain}`, text: `Add ${chain} wallet address manually` }),
         input,
         h('button', { type: 'button', class: 'btn btn-sm chain-manual-submit', text: w && w.connection_method === 'manual' ? 'Update address' : 'Add wallet', onclick: submit }),
-        h('p', { class: 'chain-manual-hint', text: 'Public address only — never a seed phrase or private key. A typed address is saved as unverified.' }),
+        h('p', { class: 'chain-manual-hint', text: 'Public address only — never a seed phrase or private key. A new or changed address can receive XERA after a 12-hour safety wait, and each withdrawal asks for your password. XERA sent to a wrong address cannot be recovered.' }),
     );
+}
+
+function manualWaitNote(w) {
+    const ms = manualReadyMs(w);
+    if (ms === null) return null;
+    const left = ms - Date.now();
+    return h('p', { class: `chain-gas-note ${left > 0 ? 'warn' : 'ok'}`,
+        text: left > 0
+            ? `Safety wait: you can withdraw to this address in ${waitText(left)}. A new or changed address always waits before it can receive XERA.`
+            : 'This address is ready to receive withdrawals.' });
 }
 
 function renderWalletCard(chain) {
@@ -441,7 +513,8 @@ function renderWalletCard(chain) {
     card.append(
         walletCardHeader(chain, 'Manual address · not verified', 'warn'),
         addressRow(w),
-        h('p', { class: 'chain-manual-hint', text: 'Saved to your account, but ownership is not proven — this address can’t be used to settle a claim until you connect the wallet and sign the ownership request.' }),
+        h('p', { class: 'chain-manual-hint', text: 'Saved to your account. You can withdraw XERA to this address. Each withdrawal asks for your password, and this wallet must hold a little BNB for the network fee. You can also verify it with your wallet.' }),
+        manualWaitNote(w),
         h('div', { class: 'chain-actions' },
             connectBtn('Verify with wallet'),
             h('button', { type: 'button', class: 'btn btn-sm btn-ghost', disabled: busy, text: 'Change', onclick: () => { state.manualFormOpen[chain] = !state.manualFormOpen[chain]; renderWalletCard(chain); } }),
@@ -499,7 +572,7 @@ async function addManualWallet(chain, input) {
     try {
         const res = await req(PFX + '/wallet/manual', { method: 'POST', body: JSON.stringify({ chain, address: value }) });
         state.manualFormOpen[chain] = false;
-        setNotice(res.notice || 'Wallet address added. This address has not been cryptographically verified as wallet ownership.');
+        setNotice(res.notice || 'Wallet address saved. You can withdraw to it after a safety waiting period, with your password.');
     } catch (err) {
         setError(userMessage(err, 'Could not save this wallet address. Please try again.'));
     } finally {
@@ -539,15 +612,25 @@ async function connectBnbWallet() {
         let pickerProblem = appKitConfigured() ? '' : 'not_configured';
         if (appKitConfigured()) {
             let picked = null;
+            markLinkPending();
+            trace('Tapped connect: opening the wallet picker');
             try {
-                picked = await connectWithAppKit(state.network && state.network.chain_id);
+                const linkedNow = state.wallets.BNB && state.wallets.BNB.verified ? state.wallets.BNB.address : '';
+                // On a phone the picker closes while the wallet app opens. We keep waiting for the wallet and
+                // only stop when the user taps Cancel (see showWaitingForWallet).
+                picked = await connectWithAppKit(state.network && state.network.chain_id, linkedNow, { onPickerClosed: showWaitingForWallet });
             } catch (err) {
-                if (err && err.cancelled) { return; }            // user closed the picker — not an error
+                clearWaitingForWallet();
+                if (err && err.cancelled) { trace('Wallet connection cancelled'); clearLinkPending(); return; }
+                if (err && err.userFacing) { trace('Stopped: ' + err.message); clearLinkPending(); throw err; }   // e.g. "that's the wallet already linked"
                 pickerProblem = 'failed';
                 console.warn('Wallet picker unavailable, falling back to browser wallet', err);
             }
+            clearWaitingForWallet();
             if (picked) {
+                trace(`Wallet connected: ${shorten(picked.address)}`);
                 await linkWithProvider({ info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: picked.provider, appkit: true, chainId: picked.chainId }, picked.address, picked.chainId);
+                clearLinkPending();
                 return;
             }
         }
@@ -570,10 +653,145 @@ async function connectBnbWallet() {
             return;
         }
     } catch (err) {
+        trace('Failed: ' + ((err && err.message) || err));
+        clearLinkPending();
         setError(userMessage(err, 'Could not connect your BNB wallet. Please try again.'));
     } finally {
         if (!state.pickerOpen) { state.busy.BNB = false; await refreshWallets(); }
     }
+}
+
+// ---- waiting for the wallet app (phone) ----
+// The picker closes as soon as a wallet is tapped and the wallet app can take a while to open and approve.
+// We never treat that as a cancel: this notice stays until the wallet answers or the user taps Cancel.
+let waitingShown = false;
+function showWaitingForWallet() {
+    const el = $('chainWalletNotice');
+    if (!el) return;
+    waitingShown = true;
+    setNotice('Waiting for your wallet… approve the request in your wallet app, then come back to this page.');
+    el.append(' ',
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: 'Pick another wallet', onclick: () => reopenAppKitPicker() }), ' ',
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: 'Cancel', onclick: () => { trace('You tapped Cancel'); cancelAppKitConnect(); } }));
+}
+function addWaitActions() {
+    const el = $('chainWalletNotice');
+    if (!el) return;
+    el.append(' ',
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: 'Pick another wallet', onclick: () => reopenAppKitPicker() }), ' ',
+        h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: 'Cancel', onclick: () => { trace('You tapped Cancel'); cancelAppKitConnect(); clearLinkPending(); setNotice(''); } }));
+}
+function clearWaitingForWallet() { if (waitingShown) { waitingShown = false; setNotice(''); } }
+
+// Shown when the wallet is connected but the link was not completed: a button, so signing starts from a tap
+// when it could not be started automatically.
+function offerFinishLink(restored) {
+    setNotice('Your wallet is connected but not saved to your account yet.');
+    const el = $('chainWalletNotice');
+    const b = h('button', { type: 'button', class: 'btn btn-sm', text: 'Finish connecting', onclick: async () => {
+        b.disabled = true; clearMessages(); clearLinkPending(); setBusy('BNB', true);
+        try {
+            const now = (await restoredAppKitProvider(state.network && state.network.chain_id, 4000)) || restored;     // fresh, not the one saved earlier
+            await linkWithProvider({ info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: now.provider, appkit: true, chainId: now.chainId }, now.address, now.chainId);
+        }
+        catch (err) { setError(userMessage(err, 'Could not finish connecting your wallet. Tap “Change wallet” and try again.')); }
+        finally { state.busy.BNB = false; await refreshWallets(); }
+    } });
+    el.append(' ', b);
+}
+
+// The wallet app sent the user back and the page was reloaded (or only came to the foreground) while a link
+// was in progress: finish it. Order: (1) a signature we already collected is just sent; (2) a restored wallet
+// session is asked to sign ONCE automatically; (3) if that does not work, a "Finish connecting" button.
+let resumingLink = false;
+let signInFlight = false;       // a sign-in request is already waiting in the wallet: never send a second one on top of it
+const LINK_AUTO_KEY = 'xera_bnb_link_auto';
+function pendingStamp() { try { return localStorage.getItem(LINK_PENDING_KEY) || ''; } catch (_e) { return ''; } }
+function autoAlreadyTried() { try { return localStorage.getItem(LINK_AUTO_KEY) === pendingStamp(); } catch (_e) { return true; } }
+function markAutoTried() { try { localStorage.setItem(LINK_AUTO_KEY, pendingStamp()); } catch (_e) { /* ignore */ } }
+
+async function resumePendingBnbLink() {
+    if (resumingLink || state.busy.BNB || !linkPendingFresh() || !appKitConfigured()) return;
+    if (signInFlight) { trace('A sign-in request is already waiting in your wallet app. Open it and approve.'); return; }
+    resumingLink = true;
+    trace('Back on the page while a wallet link was in progress');
+    try {
+        const st = readStash();
+        if (st) {
+            setBusy('BNB', true);
+            setNotice('Finishing connecting your wallet…');
+            try {
+                await req(PFX + '/wallet/link/verify', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address: st.address, nonce: st.nonce, signature: st.signature }) });
+                trace('Saved: wallet verified');
+                setNotice('BNB wallet connected and verified.');
+            } catch (err) {
+                setError(userMessage(err, 'Could not finish connecting your wallet. Tap “Change wallet” and try again.'));
+            } finally { clearStash(); clearLinkPending(); state.busy.BNB = false; await refreshWallets(); }
+            return;
+        }
+        await loadNetworkConfig();
+        nudgeAppKitConnection();
+        setNotice('Reconnecting to your wallet… this can take up to a minute.');
+        addWaitActions();                                   // never a dead end: the user can always switch wallet or cancel
+        const t0 = Date.now();
+        const ticker = setInterval(() => trace(`Still looking for your wallet (${Math.round((Date.now() - t0) / 1000)}s)`), 15000);
+        let restored;
+        try { restored = await restoredAppKitProvider(state.network && state.network.chain_id, 45000); }
+        finally { clearInterval(ticker); }
+        if (!restored || !restored.address) {
+            // Keep the pending mark and KEEP LOOKING (every few seconds, while this page is open and the link is still
+            // fresh): the wallet app may still be answering, and a phone can take a while to bring its connection back.
+            trace('No connected wallet found yet, will keep checking (' + appKitDiagnostics() + ')');
+            setNotice('Still waiting for your wallet. Approve the request in your wallet app. We keep checking, no need to start again. Use a wallet that supports BNB Smart Chain (Trust Wallet, MetaMask, Binance Wallet, SafePal). TON-only wallets such as Tonkeeper cannot link a BNB address.');
+            addWaitActions();
+            setTimeout(() => { if (linkPendingFresh() && document.visibilityState === 'visible') resumePendingBnbLink(); }, 4000);
+            return;
+        }
+        trace(`Found connected wallet: ${shorten(restored.address)}`);
+        const same = (w) => w && w.verified && w.address && w.address.toLowerCase() === restored.address.toLowerCase();
+        if (same(state.wallets.BNB)) { clearLinkPending(); return; }                      // already saved
+        // The wallet app may have reopened the site in a second tab that is still finishing the link: give it a moment.
+        for (let i = 0; i < 3 && linkPendingFresh(); i++) {
+            await sleep(2500);
+            await refreshWallets();
+            if (same(state.wallets.BNB)) { clearLinkPending(); return; }
+        }
+        if (!linkPendingFresh()) return;
+        if (!autoAlreadyTried()) {
+            markAutoTried();
+            trace('Asking your wallet to sign to finish the link');
+            clearMessages(); setBusy('BNB', true);
+            try {
+                await linkWithProvider({ info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: restored.provider, appkit: true, chainId: restored.chainId }, restored.address, restored.chainId);
+                clearLinkPending();
+            } catch (err) {
+                trace('Signing did not finish: ' + ((err && err.message) || err));
+                clearLinkPending();
+                setError(userMessage(err, 'Could not finish connecting your wallet.'));
+                offerFinishLink(restored);
+            } finally { state.busy.BNB = false; await refreshWallets(); }
+            return;
+        }
+        offerFinishLink(restored);
+    } finally {
+        resumingLink = false;
+    }
+}
+
+// The page came back on the home screen. If a wallet link is waiting, open the wallet screen for the user
+// (the on-chain switch loads asynchronously, so wait for it) and let openChainTab finish the link.
+function returnToWalletScreen() {
+    if (!linkPendingFresh() || CFG.autoOpen) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+        tries += 1;
+        if (!linkPendingFresh() || tries > 200) { clearInterval(timer); return; }      // ~60 s
+        if (window.__xeraOnchainEnabled === true && token()) {
+            clearInterval(timer);
+            const btn = $('openChainClaim');
+            if (btn) btn.click();
+        }
+    }, 300);
 }
 
 function renderProviderPicker(providers) {
@@ -599,7 +817,7 @@ function renderProviderPicker(providers) {
 }
 
 async function linkWithProvider(entry, knownAddress, knownChainId) {
-    const { provider } = entry;
+    let { provider } = entry;
     let address = knownAddress;
     if (!address) {
         const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -615,9 +833,59 @@ async function linkWithProvider(entry, knownAddress, knownChainId) {
     // Linking proves ownership of the ADDRESS by signing a message — it moves no
     // funds and doesn't depend on the network, so a wrong network doesn't block it.
     // (It does block settling a claim; see settleClaim.)
+    trace(`Asking the server for a sign-in code for ${shorten(address)}`);
     const nonceRes = await req(PFX + '/wallet/link/nonce', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address }) });
-    const signature = await provider.request({ method: 'personal_sign', params: [utf8ToHex(nonceRes.message_to_sign), address] });
-    await req(PFX + '/wallet/link/verify', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address: nonceRes.address || address, nonce: nonceRes.nonce, signature }) });
+    if (signInFlight) throw userError('A sign-in request is already waiting in your wallet app. Open your wallet and approve it.');
+    if (entry.appkit) {                                    // use the connection as it is NOW, and make sure it is up
+        const live = liveWalletSession();
+        if (live && live.provider) { provider = live.provider; entry.provider = provider; }
+        const up = await waitForRelay(4000);
+        if (!up) trace('Connection to your wallet is slow to come back (' + appKitDiagnostics() + ')');
+    }
+    if (!provider || typeof provider.request !== 'function') {
+        throw userError('Your wallet connection was lost while you were in your wallet app. Tap “Change wallet” and connect again.');
+    }
+    trace('Waiting for you to sign in your wallet app');
+    // The sign-in request goes to the wallet app, but on a phone the wallet is not in front: bring it there, and
+    // leave a button in case the phone blocks the automatic jump.
+    const isPhone = /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    setNotice('Step 2: open your wallet app and approve the sign-in request (it only proves you own this address and costs nothing).');
+    const noticeEl = $('chainWalletNotice');
+    if (noticeEl && isPhone) {
+        noticeEl.append(' ', h('button', { type: 'button', class: 'btn btn-sm', text: 'Open my wallet', onclick: () => {
+            const name = openChosenWalletApp();
+            trace(name ? `Opening ${name} for you` : 'No wallet app link saved: open your wallet app yourself and look for the pending request');
+        } }));
+    }
+    let openTimer = null;
+    if (isPhone) {
+        openTimer = setTimeout(() => {
+            const name = openChosenWalletApp();
+            trace(name ? `Opened ${name} so you can approve the request` : 'No wallet app link saved: open your wallet app yourself and look for the pending request');
+        }, 2500);                                          // give the request time to leave the page before the wallet takes the screen
+    }
+    const t1 = Date.now();
+    const waitTick = setInterval(() => trace(`Still waiting for the sign-in approval (${Math.round((Date.now() - t1) / 1000)}s; ${appKitDiagnostics()})`), 20000);
+    let signature;
+    signInFlight = true;
+    try {
+        const send = (pv) => pv.request({ method: 'personal_sign', params: [utf8ToHex(nonceRes.message_to_sign), address] });
+        try { signature = await send(provider); }
+        catch (err) {
+            if (!(err instanceof TypeError)) throw err;     // "reading 'request'": the connection object went stale. Rebuild it once.
+            trace('Wallet connection object was stale, reconnecting and trying once more');
+            nudgeAppKitConnection(); await waitForRelay(4000); await sleep(800);
+            const live = liveWalletSession();
+            if (!live || !live.provider) throw userError('Your wallet connection was lost. Tap “Change wallet” and connect again.');
+            signature = await send(live.provider);
+        }
+    } finally { signInFlight = false; clearTimeout(openTimer); clearInterval(waitTick); }
+    trace('Signed. Saving to your account');
+    stashSignature({ address: nonceRes.address || address, nonce: nonceRes.nonce, signature });
+    try {
+        await req(PFX + '/wallet/link/verify', { method: 'POST', body: JSON.stringify({ chain: 'BNB', address: nonceRes.address || address, nonce: nonceRes.nonce, signature }) });
+    } finally { clearStash(); }
+    trace('Saved: wallet verified');
     setNotice('BNB wallet connected and verified.');
 }
 
@@ -706,6 +974,45 @@ async function connectTonWallet() {
 // `reference_id` (for mining rewards, the mining session id) — NOT by the
 // ledger row's own `id`. Always send reference_id.
 
+// A BNB wallet link that was started but not finished. On a phone, approving in the wallet app can reload the
+// XERA page (it comes back on the home screen), which killed the in-progress link: the wallet connected but
+// was never verified/saved, so the old wallet kept showing. We remember the link and finish it on return.
+const LINK_PENDING_KEY = 'xera_bnb_link_pending';
+const LINK_PENDING_TTL_MS = 15 * 60 * 1000;
+function markLinkPending() { try { localStorage.setItem(LINK_PENDING_KEY, String(Date.now())); } catch (_e) { /* storage blocked */ } }
+function clearLinkPending() { try { localStorage.removeItem(LINK_PENDING_KEY); } catch (_e) { /* ignore */ } }
+function linkPendingFresh() {
+    try { const t = Number(localStorage.getItem(LINK_PENDING_KEY) || 0); return t > 0 && Date.now() - t < LINK_PENDING_TTL_MS; }
+    catch (_e) { return false; }
+}
+// A signature already collected from the wallet but not yet sent to the server. If the page reloads between
+// the two, we send it instead of asking the wallet to sign again (which is what made it "keep redirecting").
+const LINK_SIG_KEY = 'xera_bnb_link_sig';
+function stashSignature(o) { try { localStorage.setItem(LINK_SIG_KEY, JSON.stringify({ ...o, t: Date.now() })); } catch (_e) { /* ignore */ } }
+function readStash() { try { const o = JSON.parse(localStorage.getItem(LINK_SIG_KEY) || 'null'); return o && Date.now() - o.t < 4 * 60 * 1000 ? o : null; } catch (_e) { return null; } }
+function clearStash() { try { localStorage.removeItem(LINK_SIG_KEY); } catch (_e) { /* ignore */ } }
+// Step log for the wallet link. Kept in localStorage so it survives the page reload that happens when the wallet
+// app sends the user back, and shown under the wallet card so a failure shows exactly which step was the last.
+const TRACE_KEY = 'xera_link_trace';
+function renderTrace() {
+    const host = $('chainWalletNotice');
+    if (!host || !host.parentNode) return;
+    let el = $('chainLinkTrace');
+    let rows = [];
+    try { rows = JSON.parse(localStorage.getItem(TRACE_KEY) || '[]').filter((x) => Date.now() - x.t < 20 * 60 * 1000); } catch (_e) { rows = []; }
+    if (!rows.length) { if (el) el.remove(); return; }
+    if (!el) { el = h('pre', { id: 'chainLinkTrace', style: 'font-size:.68rem;opacity:.75;white-space:pre-wrap;margin:8px 0;word-break:break-word' }); host.parentNode.insertBefore(el, host.nextSibling); }
+    el.textContent = 'Wallet link steps (send me this if it fails):\n' + rows.map((x) => `${new Date(x.t).toLocaleTimeString()}  ${x.m}`).join('\n');
+}
+function trace(msg) {
+    try {
+        const a = JSON.parse(localStorage.getItem(TRACE_KEY) || '[]');
+        a.push({ t: Date.now(), m: String(msg).slice(0, 160) });
+        localStorage.setItem(TRACE_KEY, JSON.stringify(a.slice(-16)));
+    } catch (_e) { /* storage blocked */ }
+    renderTrace();
+}
+window.addEventListener('xera-link-trace', (e) => trace(e.detail));
 const PENDING_KEY = 'xera_pending_claim_txs'; // { [reference_id]: txHash } — survives a failed confirm call
 function pendingTxs() { try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '{}'); } catch (_e) { return {}; } }
 function rememberPendingTx(ref, hash) { const m = pendingTxs(); m[ref] = hash; try { localStorage.setItem(PENDING_KEY, JSON.stringify(m)); } catch (_e) { /* storage full/blocked */ } }
@@ -742,8 +1049,8 @@ async function readBnbBalance(address, provider) {
     } catch (_e) { return null; }
 }
 
-function lowBnbMessage(balance) {
-    return `You need a little BNB for the network fee. Your wallet has ${fmtBnb(balance)} BNB. Add a small amount of BNB to your linked wallet, then try again.`;
+function lowBnbMessage(balance, manual) {
+    return `You need a little BNB for the network fee. Your wallet has ${fmtBnb(balance)} BNB. Add a small amount of BNB to ${manual ? 'the wallet address you saved for withdrawals' : 'your linked wallet'}, then try again.`;
 }
 
 // Shows the wallet's BNB balance on the claim card and (user mode only) holds the button back when
@@ -753,7 +1060,7 @@ async function refreshGasNote() {
     if (!el) return;
     const w = state.wallets.BNB;
     state.gasLow = false;
-    if (CFG.relay || !w || !w.verified) { el.hidden = true; updateClaimPreview(); return; }
+    if (CFG.relay || !w || (!w.verified && !isManual(w))) { el.hidden = true; updateClaimPreview(); return; }
     await loadNetworkConfig();
     const bal = await readBnbBalance(w.address, null);
     if (bal === null) { el.hidden = true; updateClaimPreview(); return; }
@@ -761,8 +1068,8 @@ async function refreshGasNote() {
     el.hidden = false;
     el.className = `chain-gas-note ${state.gasLow ? 'warn' : 'ok'}`;
     el.textContent = state.gasLow
-        ? lowBnbMessage(bal)
-        : `Network fee: you pay a small BNB fee from your own wallet. Your wallet has ${fmtBnb(bal)} BNB.`;
+        ? lowBnbMessage(bal, isManual(w))
+        : `Network fee: you pay a small BNB fee from your own wallet${isManual(w) ? ' (the address you saved)' : ''}. Your wallet has ${fmtBnb(bal)} BNB.`;
     updateClaimPreview();
 }
 
@@ -824,7 +1131,7 @@ async function loadClaimables({ keepError = false } = {}) {
     try {
         const ov = await req(PFX + '/claim/overview');
         state.claimOverview = ov;
-        $('chainClaimableAmount').textContent = `${trimNum(ov.claimable)} XERA`;
+        $('chainClaimableAmount').textContent = `${trimNum(ov.claimable)} Pure XERA`;
         list.replaceChildren();
         if (!ov.claims.length) {
             list.append(h('p', { class: 'chain-empty', text: 'Nothing moved yet. Claims you start will appear here with their status.' }));
@@ -894,13 +1201,51 @@ async function getEthers() {
     return import('ethers');
 }
 
+// Plain-English text for each first-transfer requirement (codes come from the server, python/xera/readiness.py).
+const REQ_TEXT = {
+    kyc_not_verified: 'Identity verification (KYC) is not complete.',
+    fee_not_paid: 'The one-time first-transfer processing fee has not been paid.',
+};
+
+// Asks the server what is still missing BEFORE any wallet is touched or any balance reserved, so a user who
+// can't move XERA yet is told exactly why instead of hitting a wallet error. The server re-checks on signing.
+// Returns true when the user may continue. If the check itself can't be read, don't block: the server decides.
+async function checkTransferReady(errEl) {
+    let d;
+    try { d = await req('/api/xera/readiness'); } catch (_e) { return true; }
+    const missing = Array.isArray(d.missing) ? d.missing : [];
+    if (!missing.length) return true;
+    errEl.textContent = 'Before you can move Pure XERA to your wallet: ' + missing.map((c) => REQ_TEXT[c] || c).join(' ');
+    if (window.XeraReadiness) window.XeraReadiness.showRequirements(missing);
+    return false;
+}
+
+// The linked wallet is verified, but this visit has no live connection to it (page reloaded, or the
+// WalletConnect session expired, or this browser has no wallet extension). Open the wallet picker so the
+// user can reconnect it, and make sure it is the SAME wallet that is linked to the account.
+async function reconnectLinkedWallet(wallet) {
+    if (!appKitConfigured()) return null;
+    let picked;
+    try {
+        picked = await connectWithAppKit(state.network && state.network.chain_id);
+    } catch (err) {
+        if (err && err.cancelled) throw userError('Wallet connection was cancelled. Nothing was changed, and no XERA was reserved.');
+        throw err;
+    }
+    if (!picked || !picked.address) return null;
+    if (picked.address.toLowerCase() !== wallet.address.toLowerCase()) {
+        throw userError(`That wallet (${shorten(picked.address)}) is not the one linked to your account (${shorten(wallet.address)}). Connect the linked wallet, or use “Change wallet” above to link this one.`);
+    }
+    return { info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: picked.provider, appkit: true, chainId: picked.chainId };
+}
+
 // Settlement, in order:
 //   1. cheap local checks (chain supported, wallet connected & verified)
 //   2. wallet on the right network (checked BEFORE the backend reserves anything)
 //   3. backend reserves the amount (balance debited atomically) and signs it
 //   4. user confirms the transaction in their wallet
 //   5. backend independently verifies the transaction on-chain and only THEN marks it settled
-async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownRef }) {
+async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownRef, amountText }) {
     const chain = $('chainSelect').value;
     const errEl = $('chainClaimError');
     errEl.textContent = '';
@@ -915,8 +1260,24 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
     }
 
     const wallet = state.wallets.BNB;
-    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected before you can move XERA to it.'; return; }
-    if (!wallet.verified) { errEl.textContent = 'Your BNB address was added manually and hasn’t been verified. Connect the wallet and sign the ownership request first.'; return; }
+    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected before you can move Pure XERA to it.'; return; }
+    const manual = isManual(wallet);
+    if (!wallet.verified && !manual) { errEl.textContent = 'Your BNB address was added manually and hasn’t been verified. Connect the wallet and sign the ownership request first.'; return; }
+
+    // A typed address: explain the safety wait up front, then confirm the address and ask for the password
+    // BEFORE anything is reserved. (Resuming an already-signed claim needs neither: the password was checked when it was signed.)
+    let password = null;
+    if (manual && !(knownRef && signedClaims.has(knownRef))) {
+        const readyMs = manualReadyMs(wallet);
+        if (readyMs === null || readyMs > Date.now()) {
+            errEl.textContent = readyMs === null
+                ? 'Your saved address is still in its safety waiting period. Please try again later.'
+                : `For your safety, a newly added or changed address can receive XERA after a waiting period. Yours unlocks in ${waitText(readyMs - Date.now())}.`;
+            return;
+        }
+        password = await confirmManualWithdraw(wallet, amountText);
+        if (password === null) return;   // cancelled: nothing was changed
+    }
 
     if (inFlight.has(busyKey)) return;
     inFlight.add(busyKey);
@@ -924,9 +1285,18 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
     let referenceId = knownRef;
 
     try {
+        // 0. Requirements first (KYC / one-time fee): explain what is missing before anything else happens.
+        if (!CFG.relay && !(await checkTransferReady(errEl))) return;
+
         await loadNetworkConfig();
-        const providers = await activeProviders();
-        if (!providers.length) throw userError('No browser wallet detected. Open this page in a wallet-enabled browser to confirm the transaction.');
+        let providers = await activeProviders();
+        if (!providers.length) {
+            // No live wallet connection: reconnect the linked wallet through the picker instead of dead-ending.
+            if (button) button.textContent = 'Connect your wallet…';
+            const again = await reconnectLinkedWallet(wallet);
+            if (again) providers = [again];
+        }
+        if (!providers.length) throw userError('Your wallet is linked, but this browser can’t reach it right now. Tap “Change wallet” above to reconnect it, or open this page inside your wallet app’s browser (Trust Wallet, MetaMask, Binance…), then try again. Nothing was reserved.');
         let entry = providers.length === 1 ? providers[0] : null;
         if (!entry) {
             // Several wallets installed: prefer the one that already exposes the linked address.
@@ -938,6 +1308,15 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
             }
         }
         if (!entry) throw userError('Several wallets are installed. Use “Change wallet” above to pick the one linked to this account, then try again.');
+        if (manual) {
+            // The wallet that sends the transaction must be the saved address: it pays the gas, and
+            // being able to use it is the proof that the address is really yours.
+            let accts = [];
+            try { accts = await entry.provider.request({ method: 'eth_accounts' }); } catch (_e) { /* locked */ }
+            if (!accts.some((a) => a.toLowerCase() === wallet.address.toLowerCase())) {
+                throw userError(`Your wallet is connected as ${accts[0] ? shorten(accts[0]) : 'a different account'}, but the address saved for withdrawals is ${shorten(wallet.address)}. Open the wallet that owns the saved address, then try again. Nothing was reserved.`);
+            }
+        }
         state.provider = entry;
         attachProviderListeners(entry);
         state.providerChainId = await readChainId(entry.provider, entry.chainId);
@@ -956,11 +1335,11 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
                 payer = accts.find((a) => a.toLowerCase() === wallet.address.toLowerCase()) || accts[0] || payer;
             } catch (_e) { /* keep the linked address */ }
             const bal = await readBnbBalance(payer, entry.provider);
-            if (bal !== null && bal < MIN_BNB_FOR_GAS) throw userError(lowBnbMessage(bal));
+            if (bal !== null && bal < MIN_BNB_FOR_GAS) throw userError(lowBnbMessage(bal, manual));
         }
 
         if (button) button.textContent = 'Signing…';
-        const claim = await fetchClaim(chain);
+        const claim = await fetchClaim(chain, password);
         referenceId = claim.reference_id || knownRef;
         signedClaims.set(referenceId, { ...claim, reference_id: referenceId });
 
@@ -999,7 +1378,7 @@ async function settleViaRelayer({ busyKey, button, idleLabel, body }) {
     clearMessages();
     if ($('chainSelect').value !== 'BNB') { errEl.textContent = 'Automatic sending supports BNB Smart Chain only for now. Please choose BNB.'; return; }
     const wallet = state.wallets.BNB;
-    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected (or added) before you can move XERA to it.'; return; }
+    if (!wallet) { errEl.textContent = 'Your BNB wallet must be connected (or added) before you can move Pure XERA to it.'; return; }
     if (!wallet.verified) { errEl.textContent = 'Your BNB address was added manually and has not been verified. Connect the wallet and sign the ownership request first.'; return; }
     if (inFlight.has(busyKey)) return;
     inFlight.add(busyKey);
@@ -1029,8 +1408,8 @@ function settleAmount() {
     if (amountToCents(text) === null) { updateClaimPreview(); return; }
     if (CFG.relay) return settleViaRelayer({ busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet', body: { amount: text } });
     return settleWithWallet({
-        busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet',
-        fetchClaim: async (chain) => (await req(PFX + '/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text }) })).claim,
+        busyKey: 'amount', button: $('chainClaimSubmit'), idleLabel: 'Move to wallet', amountText: text,
+        fetchClaim: async (chain, password) => (await req(PFX + '/claim/sign-amount', { method: 'POST', body: JSON.stringify({ chain, amount: text, ...(password ? { password } : {}) }) })).claim,
     });
 }
 
@@ -1038,7 +1417,7 @@ function retryClaim(referenceId, button) {
     if (CFG.relay) return settleViaRelayer({ busyKey: referenceId, button, idleLabel: 'Try again', body: { reference_id: referenceId } });
     return settleWithWallet({
         busyKey: referenceId, button, idleLabel: 'Try again', knownRef: referenceId,
-        fetchClaim: async (chain) => (await req(PFX + '/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain }) })).claim,
+        fetchClaim: async (chain, password) => (await req(PFX + '/claim/retry', { method: 'POST', body: JSON.stringify({ reference_id: referenceId, chain, ...(password ? { password } : {}) }) })).claim,
     });
 }
 
@@ -1139,6 +1518,8 @@ async function openChainTab() {
     await loadNetworkConfig();
     renderNetworkBanner();
     await refreshWallets();
+    renderTrace();
+    resumePendingBnbLink();
     loadClaimables();
     loadVestingStatus();
     loadMigrationStatus();
@@ -1175,6 +1556,9 @@ function initChainPanel() {
         btn.addEventListener('click', () => { openChainTab(); });
     });
     if (CFG.autoOpen) openChainTab();
+    returnToWalletScreen();
+    // Back from the wallet app without a reload (tab was only in the background): finish the link too.
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && linkPendingFresh()) { nudgeAppKitConnection(); resumePendingBnbLink(); } });
 }
 
 if (document.readyState === 'loading') {

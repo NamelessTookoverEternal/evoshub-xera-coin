@@ -31,6 +31,32 @@ from xera.chain.bnb_verify import build_link_message, verify_bnb_signature
 from xera.chain.ton_verify import verify_ton_ownership
 from xera.chain.rpc import first_row
 
+def manual_cooldown_seconds() -> int:
+    """How long a newly added/changed manual address must wait before it can receive a withdrawal."""
+    try:
+        return max(0, int(os.getenv("XERA_MANUAL_WALLET_COOLDOWN_SECONDS", str(12 * 60 * 60))))
+    except ValueError:
+        return 12 * 60 * 60
+
+
+def manual_ready_at(row: dict):
+    """
+    When a manual address becomes usable for a withdrawal (a timezone-aware datetime), or None
+    if it cannot be worked out. Callers must treat None as "not ready yet" (fail closed).
+    """
+    import datetime
+    raw = row.get("linked_at") or row.get("created_at")
+    if not raw:
+        return None
+    try:
+        added = datetime.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if added.tzinfo is None:
+            added = added.replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+    return added + datetime.timedelta(seconds=manual_cooldown_seconds())
+
+
 _WALLET_CHANGE_COOLDOWN_SECONDS = int(os.getenv("XERA_WALLET_CHANGE_COOLDOWN_SECONDS", str(12 * 60 * 60)))  # 12h; set the env var to override (e.g. 21600 = 6h)
 
 # A TON nonce is issued BEFORE the wallet is connected, so the real address
@@ -136,7 +162,7 @@ def set_manual_wallet(user_id: int, chain: str, address: str) -> dict:
         }).execute()
     except Exception as e:
         msg = str(e)
-        for code in ("verified_wallet_exists", "manual_wallet_conflict", "invalid_chain"):
+        for code in ("verified_wallet_exists", "manual_wallet_conflict", "address_already_linked", "invalid_chain"):
             if code in msg:
                 raise WalletLinkError(code)
         raise
@@ -170,7 +196,7 @@ def _shape(row: dict) -> dict:
     method = row.get("connection_method") or "wallet"
     verified = row.get("status") == "VERIFIED" and method == "wallet"
     chain = row["chain"]
-    return {
+    shaped = {
         "chain": chain,
         "address": row["address"],
         "display_address": ton_display(row["address"]) if chain == "TON" else row["address"],
@@ -180,6 +206,10 @@ def _shape(row: dict) -> dict:
         "verified_at": row.get("verified_at"),
         "linked_at": row.get("linked_at"),
     }
+    if method == "manual" and row.get("status") == "PENDING":
+        ready = manual_ready_at(row)
+        shaped["withdraw_ready_at"] = ready.isoformat() if ready else None
+    return shaped
 
 
 def get_wallets(user_id: int) -> list[dict]:

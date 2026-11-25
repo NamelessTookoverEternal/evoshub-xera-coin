@@ -103,11 +103,13 @@ def test_retry_and_legacy_migration_are_gated_too(api):
 
 
 # ---- gate: 6, 14 ------------------------------------------------------------
-def test_verified_and_paid_still_need_a_verified_wallet(api):
-    _setup(api.fake, claimable=50, wallet="manual")
+def test_verified_and_paid_with_a_manual_address_still_need_the_password(api):
+    # A manually added address can now receive a withdrawal, but never without the account password.
+    _, state = _setup(api.fake, claimable=50, wallet="manual")
     _kyc(api.fake, 1); _fee(api.fake, 1)
     r = _sign(api, 1)
-    assert r.status_code == 400 and "hasn't been verified" in r.json()["detail"]
+    assert r.status_code == 400 and "password" in r.json()["detail"].lower()
+    assert state["reserved"] == []
 
 
 def test_ready_user_still_cannot_transfer_while_onchain_is_disabled(api):
