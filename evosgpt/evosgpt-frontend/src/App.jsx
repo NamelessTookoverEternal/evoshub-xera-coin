@@ -10,6 +10,8 @@ import { TOKEN_KEY, LOGOUT_EVENT, getToken, hubSession, verifyUpgrade } from "./
 import { IS_HUB_MOUNT, HUB_TOKEN_KEY } from "./config";
 
 const PENDING_REF_KEY = "evosgpt_pending_ref";
+const PROTECTED = { chat: "use EVOSGPT chat", dashboard: "open your dashboard", upgrade: "upgrade your plan" };
+const readHubToken = () => { try { return localStorage.getItem(HUB_TOKEN_KEY) || ""; } catch { return ""; } };
 
 // Paystack sends the customer back to ?upgrade=success&reference=EVOS-GPT-... — remember it,
 // then clean the address bar. The upgrade itself is confirmed with the backend below.
@@ -45,6 +47,9 @@ export default function App() {
   const userRef = useRef(null);
   const pendingRef = useRef("");
   const [pendingNotice, setPendingNotice] = useState("");
+  // Inside the Hub we re-check the Hub session every time EVOSGPT opens. Until that finishes, protected pages show
+  // "Signing you in..." instead of bouncing the person to the login page.
+  const [checking, setChecking] = useState(() => IS_HUB_MOUNT && !!readHubToken());
   useEffect(() => { userRef.current = user; }, [user]);
 
   useEffect(() => {
@@ -54,14 +59,20 @@ export default function App() {
       if (s) { restored = JSON.parse(s); setUser(restored); }
     } catch { localStorage.removeItem("evosgpt_user"); }
 
-    // Hub build: already signed in to the Hub? Use that session — no second login.
-    if (IS_HUB_MOUNT && !restored) {
-      let hubToken = "";
-      try { hubToken = localStorage.getItem(HUB_TOKEN_KEY) || ""; } catch { /* ignore */ }
+    // Hub build: already signed in to the Hub? Use that session, no second login. Always ask the Hub for a fresh
+    // session (even when a user was saved earlier): the saved copy can be a day old or belong to another account.
+    if (IS_HUB_MOUNT) {
+      const hubToken = readHubToken();
       if (hubToken) {
+        const giveUp = setTimeout(() => setChecking(false), 45000);   // a cold server can be slow; never hang forever
         hubSession(hubToken)
           .then(({ data }) => { if (data?.user) handleSetUser(data.user); })
-          .catch(() => { /* expired Hub session: they just sign in */ });
+          .catch((e) => {
+            // Expired Hub session: drop a saved user that only came from that Hub session, they sign in again.
+            const savedCopy = (() => { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } })();
+            if (restored && e?.response?.status === 401 && savedCopy === hubToken) handleSetUser(null);
+          })
+          .finally(() => { clearTimeout(giveUp); setChecking(false); });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,10 +132,23 @@ export default function App() {
 
   const handleLogout = () => { handleSetUser(null); setPage("home"); };
 
-  const PROTECTED = { chat: "use EVOSGPT chat", dashboard: "open your dashboard", upgrade: "upgrade your plan" };
+  // Once the Hub check is done, a protected page with nobody signed in goes to login (and returns here after).
+  useEffect(() => {
+    if (checking || userRef.current || !PROTECTED[page]) return;
+    pendingRef.current = page;
+    setPendingNotice(`Sign in to ${PROTECTED[page]}. You can go back and keep browsing as a guest.`);
+    setPage("login");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checking]);
+
   const go = (p) => {
     const signedIn = !!userRef.current;
     if (p === "login" && signedIn) p = pendingRef.current || "chat";
+    if (PROTECTED[p] && !signedIn && checking) {   // the Hub check is still running: wait for it, do not bounce
+      pendingRef.current = p;
+      setPage(p);
+      return;
+    }
     if (PROTECTED[p] && !signedIn) {
       pendingRef.current = p;
       setPendingNotice(`Sign in to ${PROTECTED[p]}. You can go back and keep browsing as a guest.`);
@@ -146,11 +170,16 @@ export default function App() {
     upgrade:   <Upgrade   setPage={go} user={user} setUser={handleSetUser} />,
   };
 
-  const showTabs = page === "home" || page === "dashboard" || page === "upgrade";
+  const waiting = checking && !!PROTECTED[page];
+  const showTabs = !waiting && (page === "home" || page === "dashboard" || page === "upgrade");
   return (
     <>
       <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
-      <div className={`app-root ${showTabs ? "has-tabs" : ""}`}>{pages[page] ?? pages.home}</div>
+      <div className={`app-root ${showTabs ? "has-tabs" : ""}`}>
+        {waiting
+          ? <div role="status" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.8 }}>Signing you in…</div>
+          : (pages[page] ?? pages.home)}
+      </div>
       {showTabs && <TabBar page={page} setPage={go} user={user} />}
     </>
   );

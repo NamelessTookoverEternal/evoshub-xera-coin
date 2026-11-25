@@ -693,6 +693,37 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: delete account, step 2 (wallets and balances of every product) ===== -->
+  <div class="modal-overlay" id="deleteReviewModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="drTitle">
+      <div class="modal-head">
+        <h2 id="drTitle">Check your wallets</h2>
+        <button class="icon-btn" id="drClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div id="drReview">
+        <p class="rd-fine" style="margin:0 0 10px">This is what happens to each of your accounts when the deletion finishes, <b><span data-da-days>7</span> days</b> from now.</p>
+        <div id="drProducts"></div>
+        <p class="rd-fine" id="drLossNote" style="margin:10px 0 0;color:#ff7b8a" hidden>Money still in a wallet above is <b>lost for good</b> when the account is deleted. Spend it, send it or withdraw it first if you want to keep it.</p>
+        <p id="drMsg" role="alert" style="min-height:18px;margin:8px 0 0;font-size:.85rem;color:#ff7b8a"></p>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button type="button" class="btn btn-ghost" id="drCancel" style="flex:1">Cancel</button>
+          <button type="button" class="btn" id="drProceed" style="flex:1;background:#d64545">Proceed to delete</button>
+        </div>
+      </div>
+      <div id="drFinal" hidden>
+        <p style="margin:0 0 8px;font-weight:700;color:#ff7b8a">Last warning</p>
+        <p class="rd-fine" style="margin:0 0 10px;line-height:1.5">You are about to lose <b id="drFinalAmounts" style="color:#ff7b8a"></b>. This cannot be recovered after the waiting period. Are you sure you want to continue?</p>
+        <p id="drFinalMsg" role="alert" style="min-height:18px;margin:0 0 6px;font-size:.85rem;color:#ff7b8a"></p>
+        <div style="display:flex;gap:10px">
+          <button type="button" class="btn btn-ghost" id="drBack" style="flex:1">Go back</button>
+          <button type="button" class="btn" id="drConfirmLoss" style="flex:1;background:#d64545">Yes, delete and lose it</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== MODAL: change name (paid, once) ===== -->
   <div class="modal-overlay" id="nameChangeModal" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="ncTitle">

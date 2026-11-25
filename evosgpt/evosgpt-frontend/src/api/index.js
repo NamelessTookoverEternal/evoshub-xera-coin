@@ -1,33 +1,47 @@
 import axios from "axios";
-import { API_BASE, HUB_TOKEN_KEY } from "../config";
+import { API_BASE, HUB_TOKEN_KEY, IS_HUB_MOUNT } from "../config";
 
 export const TOKEN_KEY = "evosgpt_token";
 export const LOGOUT_EVENT = "evosgpt:logout";
 
 const API = axios.create({ baseURL: API_BASE });
 
-export const getToken = () => {
-  try { return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(HUB_TOKEN_KEY) || ""; }
-  catch { return ""; }
-};
+const readKey = (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } };
+
+// Inside the Hub the LIVE Hub session comes first. Our own saved copy (evosgpt_token) is only a fallback:
+// it is written once when the person opens EVOSGPT and goes stale after the Hub token (24h) is replaced.
+export const getToken = () => (IS_HUB_MOUNT
+  ? readKey(HUB_TOKEN_KEY) || readKey(TOKEN_KEY)
+  : readKey(TOKEN_KEY) || readKey(HUB_TOKEN_KEY));
 
 // Every request carries the session token (the Hub backend checks it matches the user_id).
 // The standalone backend simply ignores the header.
 API.interceptors.request.use((cfg) => {
-  const t = getToken();
+  const t = cfg._token || getToken();
   if (t) cfg.headers.Authorization = `Bearer ${t}`;
   return cfg;
 });
 
-// A rejected/expired session sends the person back to login instead of failing silently.
+// A rejected/expired session: first retry ONCE with the other saved token (the Hub may have a newer one than the
+// one that was sent); only when that also fails is the person sent back to login.
 API.interceptors.response.use(
   (r) => r,
   (err) => {
     const s = err.response?.status;
     const detail = String(err.response?.data?.detail || "");
-    if ((s === 403 && /sign in again/i.test(detail)) || s === 401) {
-      try { window.dispatchEvent(new CustomEvent(LOGOUT_EVENT)); } catch { /* ignore */ }
+    const rejected = (s === 403 && /sign in again/i.test(detail)) || s === 401;
+    if (!rejected) return Promise.reject(err);
+    const cfg = err.config;
+    if (cfg && !cfg._retried) {
+      const sent = String(cfg.headers?.Authorization || "").replace(/^Bearer\s+/i, "");
+      const other = [readKey(HUB_TOKEN_KEY), readKey(TOKEN_KEY)].find((t) => t && t !== sent);
+      if (other) {
+        cfg._retried = true;
+        cfg._token = other;
+        return API.request(cfg);
+      }
     }
+    try { window.dispatchEvent(new CustomEvent(LOGOUT_EVENT)); } catch { /* ignore */ }
     return Promise.reject(err);
   }
 );
