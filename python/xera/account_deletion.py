@@ -16,6 +16,8 @@ How it works (all rules live in Postgres, migration 20261125_xera_account_deleti
 Routes (all under /api/xera/account-deletion):
   GET  /status   is a deletion scheduled? when? what would be lost? can I start one?
   POST /preview  step 1: check the password and blockers, return every product's wallet and balance (schedules nothing)
+                 A stuck EVOS Data order/withdrawal blocks only the FIRST press (409, code evosdata_in_progress, can_continue);
+                 the app then sends continue_busy=true on the second press and popup 2 opens.
   POST /request  step 2: schedule deletion (password required; balances must be acknowledged if any exist)
   POST /cancel   cancel a scheduled deletion
   POST /sweep    finish due requests (X-Cron-Key header; 404 if no key is configured)
@@ -27,6 +29,7 @@ import os
 from decimal import Decimal
 
 from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from main import supabase, limiter
@@ -125,10 +128,12 @@ class RequestDeletion(BaseModel):
     acknowledge_loss: bool = False        # the user saw the balances and accepted losing them (second warning)
     seen_xera: str | None = Field(default=None, max_length=40)   # balances shown in the popup; a change = review again
     seen_ghs: str | None = Field(default=None, max_length=40)
+    continue_busy: bool = False           # the user saw the "order/withdrawal in progress" notice and pressed Delete again
 
 
 class PreviewDeletion(BaseModel):
     password: str = Field(min_length=1, max_length=200)
+    continue_busy: bool = False           # second press: ignore a stuck EVOS Data order/withdrawal (nothing else)
 
 
 def _check_password(request: Request, user_id: int, password: str) -> None:
@@ -161,12 +166,29 @@ def _balances(user_id: int) -> dict:
     }
 
 
-def _blocker_for(user_id: int) -> str | None:
+def _blocker_rpc(user_id: int, skip_busy: bool = False):
+    """The first blocker that applies, or None. skip_busy ignores ONLY a stuck EVOS Data order/withdrawal."""
+    if skip_busy:
+        try:
+            return supabase.rpc("xera_deletion_blocker_v3", {"p_user_id": user_id, "p_skip_busy": True}).execute().data
+        except Exception:
+            pass                          # migration v3 not run yet: behave like before (the stuck order blocks)
+    return supabase.rpc("xera_deletion_blocker", {"p_user_id": user_id}).execute().data
+
+
+def _blocker_for(user_id: int, skip_busy: bool = False) -> str | None:
     try:
-        b = supabase.rpc("xera_deletion_blocker", {"p_user_id": user_id}).execute().data
+        b = _blocker_rpc(user_id, skip_busy)
     except Exception:
         return None
     return b if isinstance(b, str) else None
+
+
+def _evosdata_busy(user_id: int) -> bool:
+    try:
+        return bool(supabase.rpc("xera_deletion_evosdata_busy", {"p_user_id": user_id}).execute().data)
+    except Exception:
+        return False
 
 
 def _build_preview(user_id: int) -> dict:
@@ -205,7 +227,7 @@ def deletion_status(request: Request, authorization: str = Header(default="")):
     blocker = None
     if not pending:
         try:
-            blocker = supabase.rpc("xera_deletion_blocker", {"p_user_id": user_id}).execute().data
+            blocker = _blocker_rpc(user_id, True)        # a stuck order is handled by the two-press flow, not by a dead button
         except Exception:
             blocker = None
     return {
@@ -232,12 +254,31 @@ def preview_deletion(request: Request, data: PreviewDeletion, authorization: str
         raise HTTPException(status_code=403, detail=_BLOCKERS["deletion_disabled"][1])
     if _pending(user_id):
         raise HTTPException(status_code=409, detail="Your deletion is already scheduled.")
-    blocker = _blocker_for(user_id)
+    blocker = _blocker_for(user_id, data.continue_busy)
+    if blocker == "evosdata_in_progress":
+        # First press: tell them once. The app asks again with continue_busy=true if they press Delete again.
+        return JSONResponse(status_code=409, content={"detail": _BLOCKERS[blocker][1], "code": blocker, "can_continue": True})
     if blocker in _BLOCKERS:
         raise HTTPException(status_code=_BLOCKERS[blocker][0], detail=_BLOCKERS[blocker][1])
     out = _build_preview(user_id)
     out["grace_days"] = int(cfg.get("grace_days") or 7)
+    out["warnings"] = []
+    if data.continue_busy and _evosdata_busy(user_id):
+        out["warnings"].append("You have an EVOS Data order or withdrawal that is still in progress. It stays on record and will not stop "
+                               "your deletion, but once the account is deleted you can no longer follow it up.")
     return out
+
+
+def _schedule(user_id: int, skip_busy: bool) -> None:
+    if skip_busy:
+        try:
+            supabase.rpc("xera_request_account_deletion_v3", {"p_user_id": user_id, "p_skip_busy": True}).execute()
+            return
+        except Exception as e:
+            if "PGRST202" not in str(e) and "could not find" not in str(e).lower():
+                raise
+            # migration v3 not run yet: fall through to the old function (a stuck order will then block, with a clear message)
+    supabase.rpc("xera_request_account_deletion", {"p_user_id": user_id}).execute()
 
 
 @router.post("/request")
@@ -254,7 +295,7 @@ def request_deletion(request: Request, data: RequestDeletion, authorization: str
         if current["has_balance"] and not data.acknowledge_loss:
             raise HTTPException(status_code=409, detail="Please confirm that you understand your remaining balances will be lost.")
     try:
-        supabase.rpc("xera_request_account_deletion", {"p_user_id": user_id}).execute()
+        _schedule(user_id, data.continue_busy)
     except Exception as e:
         err = _rpc_error(str(e))
         if err:

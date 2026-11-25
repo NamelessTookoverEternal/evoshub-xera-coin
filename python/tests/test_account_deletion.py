@@ -167,10 +167,72 @@ def test_preview_hides_agent_wallet_for_customers_and_flags_no_balance(monkeypat
 
 
 def test_preview_is_refused_with_the_reason_when_blocked(monkeypatch):
-    _flow(monkeypatch, _prev(), blocker="evosdata_in_progress")
+    _flow(monkeypatch, _prev(), blocker="claim_in_progress")
     with pytest.raises(HTTPException) as e:
         ad.preview_deletion(_req(), ad.PreviewDeletion(password="right-pass"), "Bearer x")
-    assert e.value.status_code == 409 and "evos data" in e.value.detail.lower()
+    assert e.value.status_code == 409 and "claim" in e.value.detail.lower()
+
+
+# ---------- v3: a stuck EVOS Data order blocks the first press only ----------
+
+def _json(resp):
+    import json
+    return json.loads(resp.body)
+
+
+def test_stuck_order_first_press_shows_the_notice_and_says_it_can_continue(monkeypatch):
+    fake = _flow(monkeypatch, _prev(), blocker="evosdata_in_progress")
+    resp = ad.preview_deletion(_req(), ad.PreviewDeletion(password="right-pass"), "Bearer x")
+    body = _json(resp)
+    assert resp.status_code == 409 and body["code"] == "evosdata_in_progress" and body["can_continue"] is True
+    assert "in progress" in body["detail"].lower()
+    assert "xera_request_account_deletion" not in [c[0] for c in fake.calls]
+
+
+def test_stuck_order_second_press_opens_popup_2_with_a_warning(monkeypatch):
+    fake = _flow(monkeypatch, _prev(cust="20"), blocker="evosdata_in_progress")
+    fake.rpcs["xera_deletion_blocker_v3"] = lambda p: None if p["p_skip_busy"] else "evosdata_in_progress"
+    fake.rpcs["xera_deletion_evosdata_busy"] = True
+    out = ad.preview_deletion(_req(), ad.PreviewDeletion(password="right-pass", continue_busy=True), "Bearer x")
+    assert out["status"] == "ok" and out["has_balance"] is True
+    assert len(out["warnings"]) == 1 and "in progress" in out["warnings"][0].lower()
+    assert [p["name"] for p in out["products"]] == ["XERA", "EVOS Data", "EVOSGPT"]
+
+
+def test_second_press_does_not_skip_any_other_blocker(monkeypatch):
+    fake = _flow(monkeypatch, _prev(), blocker="evosdata_in_progress")
+    fake.rpcs["xera_deletion_blocker_v3"] = "kyc_in_review"            # a different blocker is still there
+    with pytest.raises(HTTPException) as e:
+        ad.preview_deletion(_req(), ad.PreviewDeletion(password="right-pass", continue_busy=True), "Bearer x")
+    assert e.value.status_code == 409 and "identity" in e.value.detail.lower()
+
+
+def test_second_press_without_migration_v3_still_blocks_safely(monkeypatch):
+    fake = _flow(monkeypatch, _prev(), blocker="evosdata_in_progress")  # v3 rpc missing in the fake -> raises -> old blocker
+    resp = ad.preview_deletion(_req(), ad.PreviewDeletion(password="right-pass", continue_busy=True), "Bearer x")
+    assert resp.status_code == 409
+
+
+def test_request_with_continue_busy_uses_the_v3_schedule_function(monkeypatch):
+    fake = _flow(monkeypatch, _prev())
+    fake.rpcs["xera_request_account_deletion_v3"] = [{"id": 1}]
+    ad.request_deletion(_req(), ad.RequestDeletion(password="right-pass", continue_busy=True, seen_xera="0", seen_ghs="0"), "Bearer x")
+    names = [c[0] for c in fake.calls]
+    assert "xera_request_account_deletion_v3" in names and "xera_request_account_deletion" not in names
+    assert [c for c in fake.calls if c[0] == "xera_request_account_deletion_v3"][0][1] == {"p_user_id": 7, "p_skip_busy": True}
+
+
+def test_request_without_continue_busy_keeps_using_the_old_function(monkeypatch):
+    fake = _flow(monkeypatch, _prev())
+    ad.request_deletion(_req(), ad.RequestDeletion(password="right-pass", seen_xera="0", seen_ghs="0"), "Bearer x")
+    assert "xera_request_account_deletion" in [c[0] for c in fake.calls]
+
+
+def test_status_keeps_the_delete_button_enabled_for_a_stuck_order(monkeypatch):
+    fake = _flow(monkeypatch, _prev(), blocker="evosdata_in_progress")
+    fake.rpcs["xera_deletion_blocker_v3"] = None                       # with the stuck order skipped, nothing blocks
+    out = ad.deletion_status(_req(), "Bearer x")
+    assert out["blocked_reason"] is None
 
 
 def test_request_needs_the_second_warning_when_money_is_at_stake(monkeypatch):

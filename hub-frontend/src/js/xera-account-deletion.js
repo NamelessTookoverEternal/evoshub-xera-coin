@@ -7,6 +7,7 @@
 // Flow: popup 1 (warnings + password) -> POST /preview (password and blockers checked, nothing scheduled)
 //       -> popup 2 (every product's wallet and balance; Cancel or Proceed to delete)
 //       -> if any balance would be lost, a last warning -> POST /request schedules the deletion.
+// A stuck EVOS Data order/withdrawal blocks only the first Delete press (notice shown); pressing Delete again goes on to popup 2.
 
 const API = window.XERA_API_BASE || (import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
   ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:8000' : 'https://api.evoshub.xyz');
@@ -28,6 +29,7 @@ async function req(path, opts = {}) {
   if (!r.ok) {
     const e = new Error(typeof d.detail === 'string' && d.detail ? d.detail : 'Please check the details and try again.');
     e.status = r.status;
+    e.canContinue = !!d.can_continue;      // a stuck EVOS Data order: pressing Delete again continues
     throw e;
   }
   return d;
@@ -37,12 +39,12 @@ export function initAccountDeletion() {
   const card = $('deleteAccountCard'), modal = $('deleteAccountModal');
   if (!card || !modal) return;
   const review = $('deleteReviewModal');
-  let busy = false, state = null, pw = '', pv = null;
+  let busy = false, state = null, pw = '', pv = null, stuckSeen = false;
 
   const setMsg = (t, ok) => { const e = $('daMsg'); e.textContent = t || ''; e.style.color = ok ? '#5ee0a0' : '#ff7b8a'; };
   const close = () => { modal.hidden = true; };
   const closeReview = () => { review.hidden = true; pw = ''; pv = null; };
-  const closeAll = () => { close(); closeReview(); $('daPassword').value = ''; };
+  const closeAll = () => { close(); closeReview(); $('daPassword').value = ''; stuckSeen = false; };
 
   function render(s) {
     state = s;
@@ -64,7 +66,7 @@ export function initAccountDeletion() {
 
   $('daOpen').addEventListener('click', () => {
     if (!state) return;
-    $('daPassword').value = ''; $('daConfirm').checked = false; setMsg('');
+    $('daPassword').value = ''; $('daConfirm').checked = false; setMsg(''); stuckSeen = false;
     $('daSubmit').disabled = false;
     modal.hidden = false;
     setTimeout(() => $('daPassword').focus(), 30);
@@ -83,18 +85,24 @@ export function initAccountDeletion() {
     busy = true; $('daSubmit').disabled = true; setMsg('');
     try {
       const p = $('daPassword').value;
-      const data = await req('/preview', { method: 'POST', body: JSON.stringify({ password: p }) });
+      const data = await req('/preview', { method: 'POST', body: JSON.stringify({ password: p, continue_busy: stuckSeen }) });
       pw = p; pv = data;
       close();
       showReview();
     } catch (err) {
-      setMsg(err.message);
+      if (err.canContinue) {        // an order/withdrawal is "in progress" (it can be stuck): tell them once, the next press goes on
+        stuckSeen = true;
+        setMsg(err.message + ' If it looks stuck, press Delete again to continue anyway.');
+      } else { stuckSeen = false; setMsg(err.message); }
     } finally { busy = false; $('daSubmit').disabled = false; }
   });
 
   function showReview() {
     const box = $('drProducts');
     box.textContent = '';
+    for (const w of (pv.warnings || [])) {
+      box.appendChild(el('div', 'border:1px solid rgba(255,90,110,.55);background:rgba(255,90,110,.08);border-radius:12px;padding:9px 12px;margin-bottom:8px;font-size:.84rem;line-height:1.45;color:#ff9aa7', w));
+    }
     for (const prod of pv.products) {
       const card = el('div', 'border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 12px;margin-bottom:8px');
       card.appendChild(el('div', 'font-weight:700;margin-bottom:4px', prod.name));
@@ -139,13 +147,13 @@ export function initAccountDeletion() {
     const msg = acknowledge ? $('drFinalMsg') : $('drMsg');
     try {
       const out = await req('/request', { method: 'POST', body: JSON.stringify({
-        password: pw, acknowledge_loss: !!acknowledge, seen_xera: pv.totals.xera, seen_ghs: pv.totals.ghs,
+        password: pw, acknowledge_loss: !!acknowledge, seen_xera: pv.totals.xera, seen_ghs: pv.totals.ghs, continue_busy: stuckSeen,
       }) });
       closeAll();
       render(out);
     } catch (err) {
       if (err.status === 412) {      // a balance changed while the popup was open: show the new numbers
-        try { pv = await req('/preview', { method: 'POST', body: JSON.stringify({ password: pw }) }); showReview(); $('drMsg').textContent = err.message; }
+        try { pv = await req('/preview', { method: 'POST', body: JSON.stringify({ password: pw, continue_busy: stuckSeen }) }); showReview(); $('drMsg').textContent = err.message; }
         catch (e2) { closeAll(); setMsg(e2.message); }
       } else { msg.textContent = err.message; }
     } finally { busy = false; $('drProceed').disabled = false; $('drConfirmLoss').disabled = false; }
