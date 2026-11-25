@@ -37,12 +37,22 @@
   .tf-seg{display:flex;gap:6px}
   .tf-seg button{flex:1;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(255,255,255,.12));background:transparent;color:inherit;font:inherit;font-size:.8rem;cursor:pointer}
   .tf-seg button[aria-pressed="true"]{background:var(--surface,rgba(255,255,255,.08));border-color:currentColor;font-weight:600}
-  .tf-hist-item{padding:10px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.08));font-size:.82rem;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .tf-hist-item{padding:12px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.08));font-size:.82rem;display:flex;flex-direction:column;gap:8px}
+  .tf-hist-top{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
   .tf-hist-main{min-width:0;display:flex;flex-direction:column;gap:2px}
-  .tf-hist-main b{letter-spacing:.04em;word-break:break-all}
-  .tf-hist-sub{color:var(--text-secondary,#9aa5b8);font-size:.74rem}
-  .tf-hist-amt{font-weight:700;white-space:nowrap;text-align:right}
+  .tf-hist-label{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary,#9aa5b8)}
+  .tf-hist-main b{letter-spacing:.04em;white-space:nowrap}
+  .tf-hist-name{font-size:.8rem}
+  .tf-hist-sub{color:var(--text-secondary,#9aa5b8);font-size:.72rem}
+  .tf-hist-amt{font-weight:700;white-space:nowrap;text-align:right;flex:0 0 auto}
   .tf-hist-amt small{display:block;font-weight:400;color:var(--text-secondary,#9aa5b8);font-size:.72rem}
+  .tf-hist-item .tf-mini{align-self:flex-start}
+  .xera-hero{position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--border-strong,rgba(255,255,255,.14));min-height:130px;display:flex;align-items:flex-end;background:#060810}
+  .xera-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .xera-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,8,16,.05) 0%,rgba(6,8,16,.82) 100%)}
+  .xera-hero-tx{position:relative;z-index:1;padding:12px 16px}
+  .xera-hero-tx b{display:block;font-family:var(--font-display,inherit);font-size:1.1rem;line-height:1.2}
+  .xera-hero-tx span{display:block;font-size:.78rem;color:var(--text-secondary,#c3cbda);margin-top:2px}
   .tf-in{color:#4ade80}.tf-out{color:#ff9b9b}
   .tf-mini{flex:0 0 auto;width:auto;padding:6px 12px;font-size:.78rem}
   .tf-err{color:#ff7b7b;font-size:.82rem;min-height:1.1em;margin:0}
@@ -53,7 +63,7 @@
 <main class="tf-wrap">
   <div class="tf-top"><a href="/xera">&larr; Back to XERA</a></div>
   <h1 style="font-size:1.25rem;margin:0">Send Pure XERA</h1>
-  <p class="tf-box" style="margin:0">Send Pure XERA from your in-app balance to another XERA user. It is instant and happens inside the app only: nothing is sent to a blockchain wallet.</p>
+  <p class="tf-box" style="margin:0">Send Pure XERA to another user. Instant, in-app only.</p>
 
   <div class="tf-tabs" role="tablist">
     <button type="button" class="tf-tab" id="tabSend" role="tab" aria-selected="true">Send</button>
@@ -65,7 +75,7 @@
   <section id="sendPanel" style="display:flex;flex-direction:column;gap:14px">
     <p class="tf-box" id="tfGuest" hidden>Sign in on the XERA app to send Pure XERA. <a href="/xera">Open XERA</a></p>
     <p class="tf-box" id="tfLocked" hidden role="alert"></p>
-    <p class="tf-box" id="tfClosed" hidden>Pure XERA transfers between users are not open yet. You can still see your XERA ID below, and the global ledger.</p>
+    <p class="tf-box" id="tfClosed" hidden>Transfers are not open yet. You can still see your XERA ID and the global ledger.</p>
     <div class="tf-box" id="tfReq" hidden>
       <b id="tfFeeNote">Your transfer steps are not complete.</b>
       <p style="margin:6px 0">Finish these to pay a much lower fee and get a higher daily limit:</p>
@@ -139,7 +149,7 @@
 
   <!-- ============ MY TRANSFERS ============ -->
   <section id="historyPanel" hidden style="display:flex;flex-direction:column;gap:10px">
-    <p class="tf-box" style="margin:0">Every Pure XERA transfer you sent or received, with the XERA ID of the other person. Only you can see this list.</p>
+    <p class="tf-box" style="margin:0">Your sent and received transfers. Only you can see this.</p>
     <p class="tf-box" id="histGuest" hidden>Sign in on the XERA app to see your transfers. <a href="/xera">Open XERA</a></p>
     <div class="tf-seg" id="histSeg" role="group" aria-label="Filter my transfers">
       <button type="button" data-dir="all" aria-pressed="true">All</button>
@@ -153,7 +163,10 @@
 
   <!-- ============ LEDGER ============ -->
   <section id="ledgerPanel" hidden style="display:flex;flex-direction:column;gap:10px">
-    <p class="tf-box" style="margin:0">Every Pure XERA transfer between users is listed here for everyone to see. IDs are partly hidden and no names are shown.</p>
+    <div class="xera-hero">
+      <img src="/assets/images/xera-backgrounds/xera-global-grid.jpg" alt="" width="1200" height="520" loading="lazy" decoding="async">
+      <div class="xera-hero-tx"><b>Global ledger</b><span>Transfers and on-chain claims. IDs are partly hidden.</span></div>
+    </div>
     <div id="ledgerList"></div>
     <p class="tf-err" id="ledgerErr"></p>
     <button type="button" class="btn btn-ghost" id="ledgerMore" hidden>Load more</button>

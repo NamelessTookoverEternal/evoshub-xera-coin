@@ -56,6 +56,7 @@ function selectTab(which) {
   });
   if (which === 'ledger' && !ledgerLoaded) loadLedger(true);
   if (which === 'history' && !historyLoaded) loadHistory(true);
+  syncHistoryTimer();
 }
 $('tabSend').addEventListener('click', () => selectTab('send'));
 $('tabHistory').addEventListener('click', () => selectTab('history'));
@@ -210,14 +211,17 @@ function ledgerRow(t) {
   const l1 = document.createElement('div');
   l1.className = 'tf-l1';
   const who = document.createElement('span');
-  who.textContent = `${t.sender} → ${t.recipient}`;
+  const onchain = t.kind === 'onchain';
+  who.textContent = onchain ? `${t.sender} claimed on-chain` : `${t.sender} → ${t.recipient}`;
   const amt = document.createElement('span');
-  amt.textContent = `${fmt(t.amount)} Pure XERA`;
+  amt.textContent = onchain ? `${fmt(t.amount)} XERA on-chain` : `${fmt(t.amount)} Pure XERA`;
   l1.append(who, amt);
   const l2 = document.createElement('div');
   l2.className = 'tf-l2';
   const when = new Date(t.created_at);
-  l2.textContent = `#${t.id} · ${isNaN(when) ? '' : when.toLocaleString()} · ${t.status}`;
+  l2.textContent = onchain
+    ? `${isNaN(when) ? '' : when.toLocaleString()} · On-chain claim`
+    : `#${t.id} · ${isNaN(when) ? '' : when.toLocaleString()} · ${t.status}`;
   row.append(l1, l2);
   return row;
 }
@@ -304,29 +308,29 @@ let historyDir = 'all';
 
 function historyRow(t) {
   const sent = t.direction === 'sent';
-  const row = document.createElement('div');
-  row.className = 'tf-hist-item';
-  const main = document.createElement('div'); main.className = 'tf-hist-main';
-  const top = document.createElement('span');
-  top.textContent = sent ? 'Sent to ' : 'Received from ';
-  const id = document.createElement('b'); id.textContent = t.counterparty_xera_id;
-  top.appendChild(id);
-  const sub = document.createElement('span'); sub.className = 'tf-hist-sub';
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const row = mk('div', 'tf-hist-item');
+  const top = mk('div', 'tf-hist-top');
+  const main = mk('div', 'tf-hist-main');
   const when = new Date(t.created_at);
-  sub.textContent = `${t.counterparty_name} · ${isNaN(when) ? '' : when.toLocaleString()} · #${t.id}`;
-  main.append(top, sub);
-  const amt = document.createElement('div'); amt.className = 'tf-hist-amt ' + (sent ? 'tf-out' : 'tf-in');
-  amt.textContent = `${sent ? '−' : '+'}${fmt(t.amount)}`;
-  if (sent && Number(t.fee_amount) > 0) { const f = document.createElement('small'); f.textContent = `fee ${fmt(t.fee_amount)}`; amt.appendChild(f); }
-  const again = document.createElement('button'); again.type = 'button'; again.className = 'btn btn-ghost tf-mini';
-  again.textContent = sent ? 'Send again' : 'Send back';
+  main.append(
+    mk('span', 'tf-hist-label', sent ? 'Sent to' : 'Received from'),
+    mk('b', '', t.counterparty_xera_id),
+    mk('span', 'tf-hist-name', t.counterparty_name || ''),
+    mk('span', 'tf-hist-sub', `${isNaN(when) ? '' : when.toLocaleString()} · #${t.id}`),
+  );
+  const amt = mk('div', 'tf-hist-amt ' + (sent ? 'tf-out' : 'tf-in'), `${sent ? '−' : '+'}${fmt(t.amount)}`);
+  if (sent && Number(t.fee_amount) > 0) amt.appendChild(mk('small', '', `+ ${fmt(t.fee_amount)} fee`));
+  top.append(main, amt);
+  const again = mk('button', 'btn btn-ghost tf-mini', sent ? 'Send again' : 'Send back');
+  again.type = 'button';
   again.addEventListener('click', () => {
     selectTab('send');
     if (me && me.enabled && !me.locked && $('step2').hidden) step(1);
     $('tfXid').value = t.counterparty_xera_id;
     $('tfAmount').focus();
   });
-  row.append(main, amt, again);
+  row.append(top, again);
   return row;
 }
 
@@ -361,5 +365,43 @@ $('histSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click
   $('histSeg').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
   loadHistory(true);
 }));
+
+// ---- auto-refresh: every 10 s, only while "My transfers" is open and this browser tab is visible ----
+const HISTORY_REFRESH_MS = 10000;
+let historyTimer = null;
+let historyBusy = false;
+
+async function refreshHistory() {
+  if (historyBusy || !historyLoaded || !signedIn()) return;
+  if (historyOffset > 100) return;                       // the server returns at most 100 rows per call
+  historyBusy = true;
+  try {
+    const want = Math.min(100, Math.max(PAGE, historyOffset));
+    const d = await req(`/history?direction=${historyDir}&limit=${want}&offset=0`);
+    const rows = d.transfers || [];
+    const list = $('histList');
+    const frag = document.createDocumentFragment();
+    if (!rows.length) {
+      const empty = document.createElement('p'); empty.className = 'tf-box';
+      empty.textContent = historyDir === 'sent' ? 'You have not sent any Pure XERA yet.' : historyDir === 'received' ? 'Nobody has sent you Pure XERA yet.' : 'No transfers yet.';
+      frag.appendChild(empty);
+    } else rows.forEach((t) => frag.appendChild(historyRow(t)));
+    list.replaceChildren(frag);                          // swap in one go, no flicker
+    historyOffset = rows.length;
+    $('histMore').hidden = rows.length < want;
+    $('histErr').textContent = '';
+  } catch (_e) { /* keep what is on screen; the next tick tries again */ }
+  finally { historyBusy = false; }
+}
+function historyOpen() { return !$('historyPanel').hidden && document.visibilityState === 'visible'; }
+function syncHistoryTimer() {
+  if (historyOpen()) {
+    if (!historyTimer) historyTimer = setInterval(() => { if (historyOpen()) refreshHistory(); }, HISTORY_REFRESH_MS);
+  } else if (historyTimer) { clearInterval(historyTimer); historyTimer = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  syncHistoryTimer();
+  if (historyOpen()) refreshHistory();                   // catch up as soon as the person comes back
+});
 
 loadMe();

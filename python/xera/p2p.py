@@ -282,9 +282,29 @@ def p2p_history(request: Request, authorization: str = Header(default=""),
 @router.get("/ledger")
 @limiter.limit("30/minute")
 def p2p_public_ledger(request: Request, limit: int = 50, offset: int = 0):
-    """Public. Masked IDs, amount and time only: no names, no user ids."""
+    """Public. Masked IDs, amount and time only: no names, no user ids, no wallet addresses.
+
+    Lists Pure XERA transfers (kind 'p2p') and confirmed mainnet on-chain claims (kind 'onchain').
+    If the combined view is not installed yet, it falls back to transfers only."""
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
+    try:
+        res = (
+            supabase.table("xera_public_activity")
+            .select("kind, ref, sender, recipient, amount, status, created_at")
+            .order("created_at", desc=True)
+            .order("ref", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        rows = [
+            {"id": r["ref"], "kind": r["kind"], "sender": r["sender"], "recipient": r.get("recipient"),
+             "amount": r["amount"], "status": r["status"], "created_at": r["created_at"]}
+            for r in (res.data or [])
+        ]
+        return {"status": "ok", "transfers": rows}
+    except Exception as e:
+        logger.warning("XERA public activity view unavailable, using transfers only: %s", e)
     res = (
         supabase.table("xera_p2p_public_ledger")
         .select("id, sender, recipient, amount, status, created_at")
@@ -292,4 +312,4 @@ def p2p_public_ledger(request: Request, limit: int = 50, offset: int = 0):
         .range(offset, offset + limit - 1)
         .execute()
     )
-    return {"status": "ok", "transfers": res.data or []}
+    return {"status": "ok", "transfers": [{**r, "kind": "p2p"} for r in (res.data or [])]}
