@@ -53,6 +53,19 @@ def _vaults() -> list[dict]:
         "count": int(p2p.get("transfers_with_fee") or 0),
         "count_label": "transfers with a fee",
     })
+    try:
+        nc = supabase.rpc("xera_name_change_fee_summary", {}).execute().data or {}
+        out.append({
+            "id": "name_change",
+            "label": "Name change vault",
+            "description": "Fees paid to correct a name.",
+            "balance": str(_num(nc.get("total_fees"))),
+            "last_30_days": str(_num(nc.get("fees_last_30d"))),
+            "count": int(nc.get("changes") or 0),
+            "count_label": "name changes",
+        })
+    except Exception as exc:   # migration not run yet: don't break the Vaults tab
+        logger.warning("name change vault unavailable: %s", exc)
     return out
 
 

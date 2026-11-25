@@ -209,7 +209,7 @@
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
               <span>Buy</span><span class="soon">SOON</span>
             </div>
-            <div class="chip">
+            <div class="chip" data-withdraw-chip>
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <span>Withdraw</span><span class="soon">SOON</span>
             </div>
@@ -364,7 +364,7 @@
           <div class="section-title">Actions</div>
           <div class="chip-row">
             <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Buy</span><span class="soon">SOON</span></div>
-            <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Withdraw</span><span class="soon">SOON</span></div>
+            <div class="chip" data-withdraw-chip><svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Withdraw</span><span class="soon">SOON</span></div>
             <a class="chip" href="/xera-transfer" style="text-decoration:none;color:inherit"><svg viewBox="0 0 24 24" fill="none"><path d="M7 10l-4 4 4 4M3 14h13M17 4l4 4-4 4M21 8H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Transfer</span></a>
           </div>
         </section>
@@ -473,10 +473,15 @@
         <section class="tab-panel" data-panel="profile">
           <div class="mini-card">
             <div class="mini-card-head"><span class="mini-card-title">Account</span></div>
-            <div class="profile-row"><span>Name</span><b id="profileName">—</b></div>
+            <div class="profile-row" style="align-items:center;gap:10px"><span>Name</span><b id="profileName">—</b><button type="button" class="btn btn-sm btn-ghost" id="nameChangeBtn" style="flex:0 0 auto;width:auto;margin-left:auto">Change</button></div>
             <div class="profile-row"><span>Username</span><b id="profileUsername">—</b></div>
             <div class="profile-row"><span>Email</span><b id="profileEmail">—</b></div>
             <div class="profile-row" data-xera-id-row style="display:none;align-items:center;gap:10px"><span>XERA ID</span><b data-xera-id style="margin-left:auto;letter-spacing:.05em">—</b><button type="button" class="btn btn-sm btn-ghost" data-xera-id-copy style="flex:0 0 auto;width:auto">Copy</button></div>
+          </div>
+
+          <div class="mini-card" id="socialsCard">
+            <div class="mini-card-head"><span class="mini-card-title">Follow EVOXERA Technology</span></div>
+            <div data-socials></div>
           </div>
 
           <div class="mini-card" id="referralCard">
@@ -505,6 +510,19 @@
             <a class="profile-link" href="/xera/whitepaper.html"><img src="/assets/images/xera-token-logo-32.png" alt="" width="40" height="40" loading="lazy"/><span>Whitepaper</span></a>
             <button type="button" class="profile-link" id="profileOpenStats"><img src="/assets/images/xeracoin-round.png" alt="" width="40" height="40" loading="lazy"/><span>XERA statistics</span></button>
             <a class="profile-link" href="/appevoxera"><img src="/assets/images/evoxera-mark.png" alt="" width="40" height="40" loading="lazy"/><span>Back to EVOS Hub</span></a>
+          </div>
+
+          <div class="mini-card" id="deleteAccountCard" hidden>
+            <div class="mini-card-head"><span class="mini-card-title">Delete account</span></div>
+            <div id="daStartBox">
+              <p class="rd-fine" style="margin-bottom:10px">Delete your account and personal details. You get <span data-da-days>7</span> days to change your mind.</p>
+              <button type="button" class="btn btn-ghost" id="daOpen" style="width:100%;color:#ff8a8a;border-color:rgba(255,107,107,.35)">Delete my account</button>
+            </div>
+            <div id="daPendingBox" hidden>
+              <p class="rd-fine" id="daPendingText" style="margin-bottom:10px"></p>
+              <button type="button" class="btn" id="daUndo" style="width:100%">Cancel deletion</button>
+            </div>
+            <p class="rd-fine" id="daBlocked" style="margin-top:10px;color:#ffb86b" hidden></p>
           </div>
 
           <button type="button" class="btn logout-btn" id="logoutProfile">Sign out</button>
@@ -648,6 +666,58 @@
     </div>
   </div>
 
+  <!-- ===== MODAL: delete account ===== -->
+  <div class="modal-overlay" id="deleteAccountModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="daTitle">
+      <div class="modal-head">
+        <h2 id="daTitle">Delete your account?</h2>
+        <button class="icon-btn" id="daClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form class="rd-form" id="daForm" novalidate>
+        <ul class="rd-fine" style="margin:0 0 4px 18px;padding:0;line-height:1.5">
+          <li>Your name, email, phone and ID details are erased, and nobody can sign in to this account again.</li>
+          <li>Your remaining in-app Pure XERA (<b><span id="daBalance">0</span></b>) is <b>lost</b>. Send or withdraw it first if you want to keep it.</li>
+          <li>XERA you already claimed to your own wallet stays yours.</li>
+          <li>It happens after <b><span data-da-days>7</span> days</b>. Until then you can still use the app and cancel here.</li>
+        </ul>
+        <label>Your password<input type="password" id="daPassword" autocomplete="current-password"/></label>
+        <label class="rd-check"><input type="checkbox" id="daConfirm"/><span>I understand this cannot be undone after the waiting period.</span></label>
+        <p id="daMsg" role="alert" style="min-height:18px;margin:0;font-size:.85rem"></p>
+        <div style="display:flex;gap:10px">
+          <button type="button" class="btn btn-ghost" id="daCancelBtn" style="flex:1">Keep my account</button>
+          <button type="submit" class="btn" id="daSubmit" style="flex:1;background:#d64545">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: change name (paid, once) ===== -->
+  <div class="modal-overlay" id="nameChangeModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="ncTitle">
+      <div class="modal-head">
+        <h2 id="ncTitle">Change your name</h2>
+        <button class="icon-btn" id="ncClose" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M5 5L19 19M19 5L5 19" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <p class="rd-fine" id="ncLoading">Loading…</p>
+      <p class="rd-fine" id="ncBlocked" hidden></p>
+      <form class="rd-form" id="ncForm" hidden novalidate>
+        <p class="rd-fine" style="margin-bottom:10px">Current name: <b id="ncCurrent">—</b></p>
+        <label>New name (exactly as on your government ID)<input id="ncInput" maxlength="60" autocomplete="name" placeholder="First and last name"/></label>
+        <p class="rd-fine" style="margin:10px 0">Fee: <b><span id="ncFee">100</span> Pure XERA</b>, taken from your spendable balance (<span id="ncBalance">0</span>). You can do this <b>once</b>, and your name locks when you start identity verification.</p>
+        <label class="rd-check"><input type="checkbox" id="ncConfirm"/><span>This is my real name, and I accept the fee.</span></label>
+        <p id="ncMsg" role="alert" style="min-height:18px;margin:8px 0 0;font-size:.85rem"></p>
+        <div style="display:flex;gap:10px;margin-top:10px">
+          <button type="button" class="btn btn-ghost" id="ncCancel" style="flex:1">Cancel</button>
+          <button type="submit" class="btn" id="ncSubmit" style="flex:1">Change name</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ===== MODAL: how mining works ===== -->
   <div class="modal-overlay" id="miningInfoModal" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="miningInfoTitle">
@@ -712,5 +782,6 @@
 <script src="../../js/xera-id.js" type="module"></script>
 <script src="../../js/install-fab.js" type="module"></script>
 <script src="/hub-back.js" defer></script>
+<script src="/socials.js" defer></script>
 </body>
 </html>

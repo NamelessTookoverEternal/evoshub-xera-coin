@@ -2,6 +2,7 @@
 Uses the existing EVOS ecosystem users table and password system.
 """
 
+import asyncio
 import re
 
 from fastapi import APIRouter, HTTPException, Request
@@ -72,7 +73,10 @@ async def xera_login(
             detail="Invalid username/email or password.",
         )
 
-    # Successful XERA login.
+    # Successful XERA login. Also finishes any account deletions whose 7 days are up (never raises).
+    from xera import account_deletion
+    await asyncio.to_thread(account_deletion.process_due_safely)
+
     return {
         "status": "ok",
 

@@ -10,6 +10,8 @@ import { safeNext, isExpired, notifyAuthChange } from './evos-session.js';
 import { mountGuestBanner, requireAuthFor } from './guest-access.js';
 import { maybeShowWelcome, startMiningWithOnboarding, resetLaunchSession, showAgreementView } from './xera-launch.js';
 import { initReadiness, resetReadiness } from './xera-readiness.js';
+import { initNameChange } from './xera-name-change.js';
+import { initAccountDeletion } from './xera-account-deletion.js';
 
 const token = () => localStorage.getItem('xera_evos_token') || '';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -74,6 +76,15 @@ let onchainEnabled = false;
 function applyOnchainGate() {
     const btn = $('openChainClaim');
     if (btn) { btn.hidden = !onchainEnabled; btn.style.display = onchainEnabled ? '' : 'none'; }
+    // Withdraw chips (= the on-chain claim): SOON while the master switch is off, a link to the claim screen once it is on.
+    document.querySelectorAll('[data-withdraw-chip]').forEach((chip) => {
+        const soon = chip.querySelector('.soon');
+        if (soon) soon.hidden = onchainEnabled;
+        chip.style.cursor = onchainEnabled ? 'pointer' : '';
+        chip.onclick = onchainEnabled ? () => { window.location.href = '/xera-wallet.html'; } : null;
+        chip.onkeydown = onchainEnabled ? (e) => { if (e.key === 'Enter') window.location.href = '/xera-wallet.html'; } : null;
+        if (onchainEnabled) { chip.setAttribute('role', 'link'); chip.tabIndex = 0; } else { chip.removeAttribute('role'); chip.removeAttribute('tabindex'); }
+    });
     window.__xeraOnchainEnabled = onchainEnabled;
 }
 async function loadOnchainGate() {
@@ -118,7 +129,7 @@ const TX_ICONS = {
 };
 const TX_LABELS = {
     MINING_REWARD: '⛏ Mining reward',
-    XERA_PURCHASE: 'XERA purchase',
+    XERA_PURCHASE: 'Pure XERA purchase',
     REFERRAL_REWARD: 'Referral reward',
     BONUS: 'Bonus',
     DAILY_CLAIM: '☀ Daily claim',
@@ -165,15 +176,15 @@ async function openStats() {
         ]);
 
         $('statTotalSupply').textContent = `${fmt(pub.initial_target)} XERA`;
-        $('statMinedSupply').textContent = `${fmt(pub.mining_distributed)} XERA`;
-        $('statRemainingSupply').textContent = `${fmt(pub.mining_allocation_remaining)} XERA`;
+        $('statMinedSupply').textContent = `${fmt(pub.mining_distributed)} Pure XERA`;
+        $('statRemainingSupply').textContent = `${fmt(pub.mining_allocation_remaining)} Pure XERA`;
         $('statTotalMiners').textContent = fmt(pub.active_miners);
 
         const yourMined = (txs.transactions || [])
             .filter((t) => t.type === 'MINING_REWARD' && t.direction === 'CREDIT')
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        $('statYourMined').textContent = `${fmt(yourMined)} XERA`;
-        $('statYourBalance').textContent = `${fmt(wallet.balance)} XERA`;
+        $('statYourMined').textContent = `${fmt(yourMined)} Pure XERA`;
+        $('statYourBalance').textContent = `${fmt(wallet.balance)} Pure XERA`;
     } catch (err) {
         $('statsError').textContent = 'Could not load statistics right now.';
     }
@@ -192,8 +203,8 @@ async function loadWalletTotals() {
         const earned = (txs.transactions || [])
             .filter((t) => t.direction === 'CREDIT')
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
-        $('totalEarned').textContent = `${fmt(earned)} XERA`;
-        $('walletRemainingSupply').textContent = `${fmt(pub.mining_allocation_remaining)} XERA`;
+        $('totalEarned').textContent = `${fmt(earned)} Pure XERA`;
+        $('walletRemainingSupply').textContent = `${fmt(pub.mining_allocation_remaining)} Pure XERA`;
         walletTotalsLoaded = true;
     } catch (err) {
         $('totalEarned').textContent = '—';
@@ -211,6 +222,8 @@ function renderProfile() {
     $('profileEmail').textContent = user.email || '—';
 }
 
+initNameChange(() => renderProfile());
+initAccountDeletion();
 $('logoutProfile').onclick = () => { doLogout(); };
 $('profileOpenStats').onclick = openStats;
 $('profileOpenAgreement').onclick = async (e) => {
@@ -416,7 +429,7 @@ function setDashMiningProgress(elapsedMs, earned) {
     const el = $('miningElapsedDash');
     const er = $('miningEarnedDash');
     if (el) el.textContent = elapsedMs == null ? '--:--:--' : clockFromMs(elapsedMs);
-    if (er) er.textContent = `${fmt(earned || 0)} XERA`;
+    if (er) er.textContent = `${fmt(earned || 0)} Pure XERA`;
 }
 
 function setMiningLock(on) {
@@ -464,7 +477,7 @@ function renderMining() {
     const ratePerHour = mining.estimated_reward / hours;
 
     $('miningMeta').hidden = false;
-    $('miningRate').textContent = `${fmt(ratePerHour)} XERA/hour`;
+    $('miningRate').textContent = `${fmt(ratePerHour)} Pure XERA/hour`;
     $('nextClaim').textContent = fmtDateTime(new Date(end));
 
     if (remain <= 0) {
@@ -477,9 +490,9 @@ function renderMining() {
         $('ringCaptionDash').textContent = 'Session complete';
         $('miningDotDash').className = 'mini-dot ready';
         setDashMiningProgress(total, mining.estimated_reward);
-        $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
-        $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} XERA</b>`;
-        [btn, btnDash].forEach((b) => { b.textContent = 'Claim XERA'; b.classList.add('ready'); b.disabled = false; });
+        $('rewardText').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} Pure XERA</b>`;
+        $('rewardTextDash').innerHTML = `<b>Claimable: ${fmt(mining.estimated_reward)} Pure XERA</b>`;
+        [btn, btnDash].forEach((b) => { b.textContent = 'Claim Pure XERA'; b.classList.add('ready'); b.disabled = false; });
         setMiningLock(true);
         $('ringCaptionDash').textContent = 'Session complete';
     } else {
@@ -498,8 +511,8 @@ function renderMining() {
         $('ringCaptionDash').textContent = 'Mining in progress';
         $('miningDotDash').className = 'mini-dot active';
         setDashMiningProgress(Math.min(Math.max(now - start, 0), total), Number(mining.estimated_reward || 0) * fraction);
-        $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
-        $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} XERA`;
+        $('rewardText').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} Pure XERA`;
+        $('rewardTextDash').textContent = `Estimated session reward: +${fmt(mining.estimated_reward)} Pure XERA`;
         [btn, btnDash].forEach((b) => { b.textContent = 'Mining active'; b.classList.remove('ready'); b.disabled = true; });
     }
 }
@@ -640,16 +653,16 @@ function renderHashrateState(state) {
     const warnAt = Number(state?.warning_threshold || 65000000);
     const closeAt = Number(state?.closure_threshold || 70000000);
 
-    $('hashrateAllocationText').textContent = `${fmt(reserved)} / ${fmt(cap)} XERA`;
+    $('hashrateAllocationText').textContent = `${fmt(reserved)} / ${fmt(cap)} Pure XERA`;
     $('hashrateAllocationBar').style.width = `${pct}%`;
-    $('hashrateRemaining').textContent = `${fmt(remaining)} XERA`;
+    $('hashrateRemaining').textContent = `${fmt(remaining)} Pure XERA`;
     $('hashrateWarning').textContent = state?.warning_active ? 'ACTIVE' : `${fmt(Math.max(warnAt - reserved, 0))} left`;
     $('hashrateClosure').textContent = state?.free_mining_closed ? 'CLOSED' : `${fmt(Math.max(closeAt - reserved, 0))} left`;
 
     if (state?.free_mining_closed) {
         $('hashrateStatusNote').textContent = 'Free mining is closed. Hashrate purchases are still checked against the remaining allocation; a purchase is rejected if its full 30-day entitlement will not fit.';
     } else if (state?.warning_active) {
-        $('hashrateStatusNote').textContent = `Final-phase warning: ${fmt(Math.max(closeAt - reserved, 0))} XERA remain before free mining closes.`;
+        $('hashrateStatusNote').textContent = `Final-phase warning: ${fmt(Math.max(closeAt - reserved, 0))} Pure XERA remain before free mining closes.`;
     } else {
         $('hashrateStatusNote').textContent = 'The reservation engine checks the complete 30-day entitlement before accepting a hashrate purchase.';
     }
@@ -690,9 +703,9 @@ function renderHashrateCards(tiers, state) {
             <h3>${esc(art.name)}</h3>
             <p class="desc">${esc(art.desc)}</p>
             <div class="hashrate-stats">
-              <div class="hashrate-stat"><span>Daily rate</span><b>${tier ? esc(fmt(daily)) + ' XERA' : '—'}</b></div>
+              <div class="hashrate-stat"><span>Daily rate</span><b>${tier ? esc(fmt(daily)) + ' Pure XERA' : '—'}</b></div>
               <div class="hashrate-stat"><span>Duration</span><b>${esc(days)} Days</b></div>
-              <div class="hashrate-stat"><span>Max reward</span><b>${tier ? esc(fmt(maxReward)) + ' XERA' : '—'}</b></div>
+              <div class="hashrate-stat"><span>Max reward</span><b>${tier ? esc(fmt(maxReward)) + ' Pure XERA' : '—'}</b></div>
             </div>
             <div class="hashrate-price">
               <div><small>Total price</small><strong>${esc(pp.main)}</strong>${pp.sub ? `<small class="hashrate-price-sub">${esc(pp.sub)}</small>` : ''}</div>
@@ -864,13 +877,13 @@ function renderHashrateSessions(sessions) {
           <div class="hashrate-session-head"><b>${name}</b><span class="hashrate-session-status">Active</span></div>
           <div class="hashrate-session-bar"><span style="width:${a.pct}%"></span></div>
           <div class="hashrate-session-meta">
-            <div><span>Daily</span><b>${esc(fmt(a.daily))} XERA</b></div>
-            <div><span>Claimed</span><b>${esc(fmt(a.rewarded))} XERA</b></div>
-            <div><span>Ready to claim</span><b>${esc(fmt(a.claimable))} XERA</b></div>
+            <div><span>Daily</span><b>${esc(fmt(a.daily))} Pure XERA</b></div>
+            <div><span>Claimed</span><b>${esc(fmt(a.rewarded))} Pure XERA</b></div>
+            <div><span>Ready to claim</span><b>${esc(fmt(a.claimable))} Pure XERA</b></div>
           </div>
           <div class="hashrate-session-actions">
             <span class="hashrate-session-ends">Ends ${esc(new Date(a.end).toLocaleDateString())}</span>
-            ${a.claimable > 0 ? `<button type="button" data-claim-hashrate="${esc(s.id)}">Claim ${esc(fmt(a.claimable))} XERA</button>` : ''}
+            ${a.claimable > 0 ? `<button type="button" data-claim-hashrate="${esc(s.id)}">Claim ${esc(fmt(a.claimable))} Pure XERA</button>` : ''}
           </div>
         </div>`;
     }).join('');
@@ -950,8 +963,8 @@ function renderReferral() {
 
     const r = referral.rewards || {};
     $('refBlurb').textContent = (r.enabled && r.referrer_reward > 0)
-        ? `Earn ${fmt(r.referrer_reward)} XERA when a friend you invite completes their first mining session` +
-          (r.referee_reward > 0 ? ` — they get ${fmt(r.referee_reward)} XERA too.` : '.')
+        ? `Earn ${fmt(r.referrer_reward)} Pure XERA when a friend you invite completes their first mining session` +
+          (r.referee_reward > 0 ? ` — they get ${fmt(r.referee_reward)} Pure XERA too.` : '.')
         : "Referral rewards aren't active yet. Friends who join through your link are still linked to you across the EVOS ecosystem.";
 
     const by = $('refInvitedBy');
