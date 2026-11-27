@@ -22,7 +22,7 @@ from xera.user_auth import verify_user_token, XeraTokenInvalid
 from xera.chain.wallet_link import (
     start_link, verify_and_link, get_linked_wallets, get_wallets, set_manual_wallet, remove_wallet, WalletLinkError,
 )
-from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_claim, retry_claim, ClaimError, ClaimRequirementsError
+from xera.chain.claims import sign_amount_claim, get_claim_overview, confirm_claim, retry_claim, cancel_claim, ClaimError, ClaimRequirementsError
 from xera.chain import migration as legacy_migration
 from xera.chain.migration import MigrationClaimError, MigrationRequirementsError
 from xera.readiness import requirements_response
@@ -80,6 +80,8 @@ _CLAIM_ERROR_HTTP = {
     "claim_signer_not_configured":      (503, "Claim signing is temporarily unavailable."),
     "global_mining_allocation_exceeded": (409, "The global mining allocation has been fully claimed."),
     "claim_not_retryable":              (409, "This claim isn't in a retryable state."),
+    "claim_not_cancellable":            (409, "This claim can't be cancelled yet. Try again once its signature has expired (about 15 minutes after it was issued)."),
+    "claim_already_paid_on_chain":      (409, "This claim was already paid out on-chain, so it can't be refunded. Use Confirm settlement instead."),
     "invalid_amount":                   (400, "Enter a valid amount."),
     "amount_too_precise":               (400, "Use at most 2 decimal places."),
     "amount_below_minimum":             (400, "That is below the minimum amount you can move on-chain."),
@@ -417,6 +419,24 @@ def claim_retry(request: Request, data: ClaimRetryRequest, authorization: str = 
         status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not retry claim."))
         raise HTTPException(status_code=status, detail=message.replace("{chain}", data.chain.upper()))
     return {"status": "ok", "claim": result}
+
+class ClaimCancelRequest(BaseModel):
+    reference_id: str = Field(..., min_length=1, max_length=128)
+
+
+@router.post("/claim/cancel")
+@limiter.limit("10/minute")
+def claim_cancel(request: Request, data: ClaimCancelRequest, authorization: str = Header(default="")):
+    """Cancel an unfinished claim: its XERA goes back to the in-app Pure XERA balance."""
+    user_id = _current_user_id(authorization)
+    money_lock.ensure_not_locked(user_id)
+    try:
+        result = cancel_claim(user_id, data.reference_id)
+    except ClaimError as e:
+        status, message = _CLAIM_ERROR_HTTP.get(str(e), (400, "Could not cancel this claim."))
+        raise HTTPException(status_code=status, detail=message)
+    return {"status": "ok", **result}
+
 
 @router.get("/onchain/status")
 @limiter.limit("30/minute")

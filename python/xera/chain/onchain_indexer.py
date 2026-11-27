@@ -284,3 +284,23 @@ def get_vesting_status(*, vesting_address: str, user_address: str) -> dict:
     except Exception:
         raise IndexerError("vesting_read_failed")
     return {"releasable_wei": str(releasable), "locked_remaining_wei": str(locked_remaining)}
+
+
+_CONSUMED_ABI = [{"inputs": [{"name": "", "type": "bytes32"}], "name": "consumed",
+                  "outputs": [{"name": "", "type": "bool"}], "stateMutability": "view", "type": "function"}]
+
+
+def is_reference_consumed(*, distributor_address: str, reference_id_bytes32: bytes) -> bool:
+    """True when the distributor contract has already paid out this reference. Used before refunding an
+    unfinished claim. Raises IndexerError when it cannot be read, so callers fail closed (no refund)."""
+    from xera.chain.config import bnb_chain_id
+    try:
+        w3 = Web3(Web3.HTTPProvider(_bnb_rpc_url()))
+        if int(w3.eth.chain_id) != bnb_chain_id():
+            raise IndexerError("rpc_chain_mismatch")
+        contract = w3.eth.contract(address=to_checksum_address(distributor_address), abi=_CONSUMED_ABI)
+        return bool(contract.functions.consumed(reference_id_bytes32).call())
+    except IndexerError:
+        raise
+    except Exception:
+        raise IndexerError("bnb_rpc_unreachable")

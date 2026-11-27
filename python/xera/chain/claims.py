@@ -22,11 +22,13 @@ from xera.chain.rpc import first_row
 from xera.chain.config import get_chain_config, require_onchain_enabled, bnb_chain_id, onchain_network, ChainConfigError
 from xera.chain import eip712_signer
 from xera.chain import ton_claim_signer
-from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, IndexerError
+from xera.chain.onchain_indexer import verify_bnb_claim_tx, verify_ton_claim_tx, is_reference_consumed, IndexerError
 from xera import readiness
 from xera.chain.wallet_link import manual_ready_at
 
 _CLAIM_SIGNATURE_TTL_SECONDS = 15 * 60
+# An unfinished claim is refunded to the in-app balance this long after it was signed.
+_CLAIM_AUTO_REFUND_SECONDS = 2 * 60 * 60
 _XERA_DECIMALS = 18
 
 
@@ -460,12 +462,76 @@ def sign_amount_claim(user_id: int, chain: str, amount_raw, allow_manual: bool =
         raise ClaimError("claim_signer_not_configured")
 
 
+def _refund_claim_row(row: dict) -> float:
+    """Gives the XERA of one unfinished claim back to the in-app balance. Only after the signature can no
+    longer be used AND the contract confirms the reference was never paid out. Returns the amount refunded."""
+    if row["status"] not in ("EXPIRED", "FAILED") or row.get("transaction_hash"):
+        raise ClaimError("claim_not_cancellable")
+    if row["chain"] != "BNB":
+        raise ClaimError("claim_not_cancellable")
+    deadline = datetime.datetime.fromisoformat(str(row["signature_deadline"]).replace("Z", "+00:00"))
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=datetime.timezone.utc)
+    if deadline >= datetime.datetime.now(datetime.timezone.utc):
+        raise ClaimError("claim_not_cancellable")
+    try:
+        consumed = is_reference_consumed(distributor_address=row["contract_address"],
+                                         reference_id_bytes32=_reference_id_to_bytes32(row["reference_id"]))
+    except IndexerError as e:
+        raise ClaimError(str(e))          # cannot tell: do not refund
+    if consumed:
+        raise ClaimError("claim_already_paid_on_chain")
+    res = supabase.rpc("xera_cancel_onchain_claim",
+                       {"p_reference_id": row["reference_id"], "p_user_id": row["user_id"]}).execute()
+    return float(res.data or 0)
+
+
+def cancel_claim(user_id: int, reference_id: str) -> dict:
+    """The user's Cancel button next to "Try again": refund an unfinished claim."""
+    res = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
+    if not res.data:
+        raise ClaimError("claim_not_found")
+    row = res.data[0]
+    if row["user_id"] != user_id:
+        raise ClaimError("not_your_claim")
+    if row["status"] == "CANCELLED":
+        return {"refunded": 0.0}
+    if row["status"] in ("SIGNED", "SUBMITTED"):
+        _sweep_expired_claims()
+        refreshed = supabase.table("xera_onchain_claims").select("*").eq("reference_id", reference_id).limit(1).execute()
+        if refreshed.data:
+            row = refreshed.data[0]
+    _require_same_network(row)
+    return {"refunded": _refund_claim_row(row)}
+
+
+def _auto_refund_stale_claims(user_id: int) -> None:
+    """Runs whenever the user opens the claim screen: unfinished claims older than 2 hours go back to the balance.
+    Best effort and per-claim: one failure (e.g. RPC down) never blocks the page or the other claims."""
+    try:
+        cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=_CLAIM_AUTO_REFUND_SECONDS - _CLAIM_SIGNATURE_TTL_SECONDS)
+        rows = (supabase.table("xera_onchain_claims").select("*")
+                .eq("user_id", user_id).in_("status", ["EXPIRED", "FAILED"])
+                .lt("signature_deadline", cutoff.isoformat()).limit(10).execute()).data or []
+    except Exception:
+        return
+    for row in rows:
+        try:
+            if (row.get("network") or "testnet") != onchain_network(row["chain"]):
+                continue
+            _refund_claim_row(row)
+        except Exception:
+            continue
+
+
 def get_claim_overview(user_id: int) -> dict:
     """What the claim screen needs: how much can be moved, and the user's recent claims."""
     # An abandoned SIGNED claim (wallet popup closed, tab left) must become EXPIRED
     # once its signature can no longer be executed, or it would sit "in progress"
     # forever and never be retryable. Nothing else schedules this sweep.
     _sweep_expired_claims()
+    _auto_refund_stale_claims(user_id)
     bal_res = supabase.rpc("xera_claimable_balance", {"p_user_id": user_id}).execute()
     bal = first_row(bal_res.data) or {}
 

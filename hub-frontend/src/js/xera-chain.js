@@ -176,9 +176,9 @@ function confirmManualWithdraw(wallet, amountText) {
             h('h3', { style: 'margin:0;font-size:1.05rem', text: 'Check the address before you withdraw' }),
             h('p', { style: 'margin:0;font-size:.85rem;line-height:1.45;color:#aeb8d0', text: `${amountText ? `${amountText} XERA will be` : 'XERA will be'} sent to this address. This address was typed in, not verified by your wallet. XERA sent to a wrong address cannot be recovered.` }),
             addressWithEnds(wallet.address),
-            h('p', { style: 'margin:0;font-size:.85rem;line-height:1.45;color:#aeb8d0', text: 'Compare the first 6 and last 6 characters (green) with the address in your wallet app.' }),
+            h('p', { style: 'margin:0;font-size:.85rem;line-height:1.45;color:#aeb8d0', text: 'Compare the first 6 and last 6 characters (green) with the address in your wallet app. You will then confirm in a wallet that has a little BNB for the network fee; it can be a different wallet, and the XERA still goes to the address above.' }),
             h('label', { for: 'mwdCheck', style: 'display:flex;gap:8px;align-items:flex-start;font-size:.85rem;line-height:1.4' }, check,
-                h('span', { text: 'I checked this address. It is my own wallet and it holds BNB for the network fee.' })),
+                h('span', { text: 'I checked this address. It is my own wallet.' })),
             pw, err,
             h('div', { style: 'display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap' }, cancel, go),
         );
@@ -283,17 +283,55 @@ async function activeProviders() {
     return discoverProviders();
 }
 
-function hexToInt(hex) { return parseInt(hex, 16); }
+// Wallets report the chain in different shapes: '0x38', 56, '56', 'eip155:56'. Reading '56' as hex gave 86, which is
+// what made the page call a correct BNB wallet an "unsupported network".
+function toChainNumber(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    if (typeof v !== 'string') return null;
+    const s = v.trim().toLowerCase().replace(/^eip155:/, '');
+    if (/^0x[0-9a-f]+$/.test(s)) return parseInt(s, 16);
+    if (/^\d+$/.test(s)) return parseInt(s, 10);
+    return null;
+}
+// On a phone the wallet app is not in front when we send it a request (approve a claim, switch network, add token),
+// so the user sees nothing happen. Run the request, and after a moment jump to the wallet app the user picked.
+// Only for WalletConnect connections; wallets with an in-page provider show their own prompt.
+const IS_PHONE = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
+async function withWalletRedirect(entry, fn, delayMs = 1500) {
+    if (!IS_PHONE || !entry || !entry.appkit) return fn();
+    nudgeAppKitConnection();
+    await waitForRelay(4000);
+    const timer = setTimeout(() => { openChosenWalletApp(); }, delayMs);     // lets the request leave the page first
+    try { return await fn(); } finally { clearTimeout(timer); }
+}
 
+function hexToInt(v) { return toChainNumber(v); }
+
+// For a WalletConnect/AppKit connection, AppKit's own live chain id is the source of truth.
 async function readChainId(provider, fallback = null) {
-    try { return hexToInt(await provider.request({ method: 'eth_chainId' })); } catch (_e) { return fallback; }
+    const live = liveWalletSession();
+    if (live && live.provider === provider && live.chainId != null) return live.chainId;
+    try {
+        const n = toChainNumber(await provider.request({ method: 'eth_chainId' }));
+        return n != null ? n : fallback;
+    } catch (_e) { return fallback; }
+}
+
+// The accounts a wallet connection is sharing with this page. A restored WalletConnect session can be alive but share
+// nothing (expired, or the wallet app was closed), so an empty answer gets one explicit request before we give up.
+async function readAccounts(provider) {
+    let accts = [];
+    try { accts = await provider.request({ method: 'eth_accounts' }); } catch (_e) { /* locked */ }
+    if (Array.isArray(accts) && accts.length) return accts;
+    try { accts = await provider.request({ method: 'eth_requestAccounts' }); } catch (_e) { accts = []; }
+    return Array.isArray(accts) ? accts : [];
 }
 
 function attachProviderListeners(entry) {
     const p = entry.provider;
     if (!p.on || entry.__listening) return;
     entry.__listening = true;
-    p.on('chainChanged', (hex) => { state.providerChainId = hexToInt(hex); renderNetworkBanner(); });
+    p.on('chainChanged', (v) => { const n = toChainNumber(v); if (n != null) state.providerChainId = n; renderNetworkBanner(); });
     // Switching accounts in the wallet means the connected address may no longer
     // be the linked one — just refresh the view; claims always go to the LINKED address.
     p.on('accountsChanged', () => { renderNetworkBanner(); });
@@ -318,7 +356,7 @@ function renderNetworkBanner() {
     el.append(h('span', { class: 'chain-network-expected', text: `Network: ${expected.name}` }));
 
     if (state.provider && walletId !== null) {
-        if (walletId === expected.chain_id) {
+        if (Number(walletId) === Number(expected.chain_id)) {
             el.className = 'chain-network ok';
             el.append(h('span', { class: 'chain-network-state', text: 'Your wallet is on the right network.' }));
         } else {
@@ -341,7 +379,7 @@ async function switchNetwork() {
     if (!state.provider || !net) return;
     const { provider } = state.provider;
     if (state.provider.appkit) {
-        await switchAppKitNetwork(net.chain_id);
+        await withWalletRedirect(state.provider, () => switchAppKitNetwork(net.chain_id));
         state.providerChainId = net.chain_id;
         renderNetworkBanner();
         return;
@@ -391,10 +429,10 @@ async function addXeraToWallet(btn, msgEl) {
     }
     btn.disabled = true;
     try {
-        const ok = await provider.request({
+        const ok = await withWalletRedirect(state.provider, () => provider.request({
             method: 'wallet_watchAsset',
             params: { type: 'ERC20', options: { address: addr, symbol: XERA_TOKEN_SYMBOL, decimals: XERA_TOKEN_DECIMALS, image: XERA_TOKEN_LOGO } },
-        });
+        }));
         say(ok ? 'XERA added to your wallet.' : 'Not added — you can tap again any time.');
     } catch (err) {
         if (err && err.code === 4001) say('Cancelled in your wallet.');
@@ -402,6 +440,29 @@ async function addXeraToWallet(btn, msgEl) {
     } finally {
         btn.disabled = false;
     }
+}
+
+// After a successful claim, ask the wallet to start tracking XERA so the balance shows up without a manual step.
+// Best effort: wallets that can't do it (or a declined prompt) just leave the "Add XERA to my wallet" button to use.
+async function autoAddXeraAfterClaim() {
+    try {
+        const net = state.network;
+        const addr = net && net.xera_token_address;
+        if (!addr) return;
+        let provider = state.provider && state.provider.provider;
+        if (!provider) {
+            const restored = await restoredAppKitProvider(net.chain_id, 3000);
+            provider = restored && restored.provider;
+        }
+        if (!provider || typeof provider.request !== 'function') return;
+        const chainId = await readChainId(provider, state.providerChainId);
+        if (chainId != null && Number(chainId) !== Number(net.chain_id)) return;
+        const ok = await withWalletRedirect(state.provider, () => provider.request({
+            method: 'wallet_watchAsset',
+            params: { type: 'ERC20', options: { address: addr, symbol: XERA_TOKEN_SYMBOL, decimals: XERA_TOKEN_DECIMALS, image: XERA_TOKEN_LOGO } },
+        }));
+        if (ok) setNotice('Moved on-chain. XERA has been added to your wallet.');
+    } catch (_e) { /* declined or unsupported: the manual button still works */ }
 }
 
 function xeraTokenRow() {
@@ -458,7 +519,7 @@ function manualForm(chain, w) {
         h('label', { class: 'chain-manual-label', for: `chainManualInput${chain}`, text: `Add ${chain} wallet address manually` }),
         input,
         h('button', { type: 'button', class: 'btn btn-sm chain-manual-submit', text: w && w.connection_method === 'manual' ? 'Update address' : 'Add wallet', onclick: submit }),
-        h('p', { class: 'chain-manual-hint', text: 'Public address only — never a seed phrase or private key. A new or changed address can receive XERA after a 12-hour safety wait, and each withdrawal asks for your password. XERA sent to a wrong address cannot be recovered.' }),
+        h('p', { class: 'chain-manual-hint', text: 'Public address only. A new address waits 12 hours, each withdrawal needs your password, and a wrong address can’t be recovered.' }),
     );
 }
 
@@ -468,8 +529,8 @@ function manualWaitNote(w) {
     const left = ms - Date.now();
     return h('p', { class: `chain-gas-note ${left > 0 ? 'warn' : 'ok'}`,
         text: left > 0
-            ? `Safety wait: you can withdraw to this address in ${waitText(left)}. A new or changed address always waits before it can receive XERA.`
-            : 'This address is ready to receive withdrawals.' });
+            ? `Safety wait: ready in ${waitText(left)}.`
+            : 'Ready for withdrawals.' });
 }
 
 function renderWalletCard(chain) {
@@ -513,7 +574,7 @@ function renderWalletCard(chain) {
     card.append(
         walletCardHeader(chain, 'Manual address · not verified', 'warn'),
         addressRow(w),
-        h('p', { class: 'chain-manual-hint', text: 'Saved to your account. You can withdraw XERA to this address. Each withdrawal asks for your password, and this wallet must hold a little BNB for the network fee. You can also verify it with your wallet.' }),
+        h('p', { class: 'chain-manual-hint', text: 'Saved. Withdrawals ask for your password. You confirm with any wallet that has a little BNB for the network fee; your XERA goes to this address.' }),
         manualWaitNote(w),
         h('div', { class: 'chain-actions' },
             connectBtn('Verify with wallet'),
@@ -1050,7 +1111,7 @@ async function readBnbBalance(address, provider) {
 }
 
 function lowBnbMessage(balance, manual) {
-    return `You need a little BNB for the network fee. Your wallet has ${fmtBnb(balance)} BNB. Add a small amount of BNB to ${manual ? 'the wallet address you saved for withdrawals' : 'your linked wallet'}, then try again.`;
+    return `You need a little BNB for the network fee. Your wallet has ${fmtBnb(balance)} BNB. Add a small amount of BNB to ${manual ? 'the wallet you use to confirm the withdrawal (it pays the network fee)' : 'your linked wallet'}, then try again.`;
 }
 
 // Shows the wallet's BNB balance on the claim card and (user mode only) holds the button back when
@@ -1062,6 +1123,14 @@ async function refreshGasNote() {
     state.gasLow = false;
     if (CFG.relay || !w || (!w.verified && !isManual(w))) { el.hidden = true; updateClaimPreview(); return; }
     await loadNetworkConfig();
+    if (isManual(w)) {
+        // The wallet that pays the fee is only known once it is connected at withdrawal time, so no balance gate here.
+        el.hidden = false;
+        el.className = 'chain-gas-note ok';
+        el.textContent = 'Network fee: you pay a small BNB fee from the wallet you use to confirm the withdrawal. Your XERA goes to the address you saved.';
+        updateClaimPreview();
+        return;
+    }
     const bal = await readBnbBalance(w.address, null);
     if (bal === null) { el.hidden = true; updateClaimPreview(); return; }
     state.gasLow = bal < MIN_BNB_FOR_GAS;
@@ -1159,6 +1228,10 @@ function renderClaimRow(c) {
         row.append(h('span', { class: 'chain-pill ok', text: `Settled on ${c.chain || 'chain'}` }));
         return row;
     }
+    if (status === 'CANCELLED') {
+        row.append(h('span', { class: 'chain-pill', text: 'Cancelled — refunded to your balance' }));
+        return row;
+    }
 
     const savedHash = pendingTxs()[ref];
     // A transaction we already sent can still be confirmed even if the signature window has since closed.
@@ -1180,8 +1253,27 @@ function renderClaimRow(c) {
     }
     // FAILED / EXPIRED: the funds are still held for this claim — re-sign the SAME claim.
     const btn = h('button', { type: 'button', class: 'btn btn-sm', text: 'Try again', onclick: () => retryClaim(ref, btn) });
-    row.append(btn);
+    const cancelBtn = h('button', { type: 'button', class: 'btn btn-sm btn-ghost', text: 'Cancel', onclick: () => cancelClaim(ref, cancelBtn) });
+    row.append(btn, ' ', cancelBtn);
     return row;
+}
+
+// Give an unfinished claim back to the in-app Pure XERA balance. The server only allows it once the old signature
+// has expired and the contract confirms nothing was paid out. (It also happens by itself 2 hours after signing.)
+async function cancelClaim(ref, btn) {
+    $('chainClaimError').textContent = '';
+    if (!window.confirm('Cancel this claim and return the XERA to your Pure XERA balance?')) return;
+    btn.disabled = true;
+    try {
+        const res = await req(PFX + '/claim/cancel', { method: 'POST', body: JSON.stringify({ reference_id: ref }) });
+        forgetPendingTx(ref);
+        signedClaims.delete(ref);
+        setNotice(res && res.refunded ? `Claim cancelled. ${res.refunded} XERA is back in your Pure XERA balance.` : 'Claim cancelled.');
+        await Promise.all([loadClaimables(), loadVestingStatus()]);
+    } catch (err) {
+        $('chainClaimError').textContent = userMessage(err, 'Could not cancel this claim. Please try again in a moment.');
+        btn.disabled = false;
+    }
 }
 
 async function confirmSaved(ref, hash) {
@@ -1223,7 +1315,7 @@ async function checkTransferReady(errEl) {
 // The linked wallet is verified, but this visit has no live connection to it (page reloaded, or the
 // WalletConnect session expired, or this browser has no wallet extension). Open the wallet picker so the
 // user can reconnect it, and make sure it is the SAME wallet that is linked to the account.
-async function reconnectLinkedWallet(wallet) {
+async function reconnectLinkedWallet(wallet, { any = false } = {}) {
     if (!appKitConfigured()) return null;
     let picked;
     try {
@@ -1233,10 +1325,11 @@ async function reconnectLinkedWallet(wallet) {
         throw err;
     }
     if (!picked || !picked.address) return null;
-    if (picked.address.toLowerCase() !== wallet.address.toLowerCase()) {
+    // any: a withdrawal to a typed address may be confirmed from any wallet (it only pays the network fee).
+    if (!any && picked.address.toLowerCase() !== wallet.address.toLowerCase()) {
         throw userError(`That wallet (${shorten(picked.address)}) is not the one linked to your account (${shorten(wallet.address)}). Connect the linked wallet, or use “Change wallet” above to link this one.`);
     }
-    return { info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: picked.provider, appkit: true, chainId: picked.chainId };
+    return { info: { uuid: 'appkit', name: 'WalletConnect', icon: '' }, provider: picked.provider, appkit: true, chainId: picked.chainId, address: picked.address };
 }
 
 // Settlement, in order:
@@ -1293,7 +1386,7 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
         if (!providers.length) {
             // No live wallet connection: reconnect the linked wallet through the picker instead of dead-ending.
             if (button) button.textContent = 'Connect your wallet…';
-            const again = await reconnectLinkedWallet(wallet);
+            const again = await reconnectLinkedWallet(wallet, { any: manual });
             if (again) providers = [again];
         }
         if (!providers.length) throw userError('Your wallet is linked, but this browser can’t reach it right now. Tap “Change wallet” above to reconnect it, or open this page inside your wallet app’s browser (Trust Wallet, MetaMask, Binance…), then try again. Nothing was reserved.');
@@ -1307,33 +1400,45 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
                 } catch (_e) { /* wallet locked */ }
             }
         }
+        if (!entry && manual) entry = providers[0];     // a typed address: any wallet can confirm and pay the fee
         if (!entry) throw userError('Several wallets are installed. Use “Change wallet” above to pick the one linked to this account, then try again.');
+
+        // A withdrawal to a typed address is confirmed from WHICHEVER wallet the user connects: that wallet only
+        // pays the network fee, the XERA always goes to the saved address (the contract sends it to the address in
+        // the server-signed claim, whoever submits it). We only need a connected account that can pay.
+        let payerAccount = null;
         if (manual) {
-            // The wallet that sends the transaction must be the saved address: it pays the gas, and
-            // being able to use it is the proof that the address is really yours.
-            let accts = [];
-            try { accts = await entry.provider.request({ method: 'eth_accounts' }); } catch (_e) { /* locked */ }
-            if (!accts.some((a) => a.toLowerCase() === wallet.address.toLowerCase())) {
-                throw userError(`Your wallet is connected as ${accts[0] ? shorten(accts[0]) : 'a different account'}, but the address saved for withdrawals is ${shorten(wallet.address)}. Open the wallet that owns the saved address, then try again. Nothing was reserved.`);
+            let accts = await readAccounts(entry.provider);
+            if (!accts.length && appKitConfigured()) {
+                // The connection exists but shares no account (expired session): reconnect through the picker.
+                if (button) button.textContent = 'Connect your wallet…';
+                const again = await reconnectLinkedWallet(wallet, { any: true });
+                if (again) { entry = again; accts = await readAccounts(entry.provider); if (!accts.length && again.address) accts = [again.address]; }
             }
+            if (!accts.length) {
+                throw userError('Your wallet is not sharing an account with this page yet. Open your wallet app, connect it to this site, then try again. Nothing was reserved.');
+            }
+            payerAccount = accts.find((a) => a.toLowerCase() === wallet.address.toLowerCase()) || accts[0];
         }
         state.provider = entry;
         attachProviderListeners(entry);
         state.providerChainId = await readChainId(entry.provider, entry.chainId);
         renderNetworkBanner();
 
-        if (state.network && state.providerChainId !== state.network.chain_id) {
+        if (state.network && Number(state.providerChainId) !== Number(state.network.chain_id)) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
         }
 
         // Check BEFORE the server signs: signing reserves the amount, and a claim that can't be
         // sent for lack of gas would just sit as "in progress". Uses the account that will pay.
         if (!CFG.relay) {
-            let payer = wallet.address;
-            try {
-                const accts = await entry.provider.request({ method: 'eth_accounts' });
-                payer = accts.find((a) => a.toLowerCase() === wallet.address.toLowerCase()) || accts[0] || payer;
-            } catch (_e) { /* keep the linked address */ }
+            let payer = payerAccount || wallet.address;
+            if (!payerAccount) {
+                try {
+                    const accts = await entry.provider.request({ method: 'eth_accounts' });
+                    payer = accts.find((a) => a.toLowerCase() === wallet.address.toLowerCase()) || accts[0] || payer;
+                } catch (_e) { /* keep the linked address */ }
+            }
             const bal = await readBnbBalance(payer, entry.provider);
             if (bal !== null && bal < MIN_BNB_FOR_GAS) throw userError(lowBnbMessage(bal, manual));
         }
@@ -1348,7 +1453,7 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
         const browserProvider = new BrowserProvider(entry.provider);
         const signer = await browserProvider.getSigner();
         const contract = new Contract(claim.contract_address, [DISTRIBUTOR_CLAIM_ABI], signer);
-        const tx = await contract.claim(claim.user, claim.amount_wei, claim.reference_id_hash, claim.deadline, claim.signature);
+        const tx = await withWalletRedirect(entry, () => contract.claim(claim.user, claim.amount_wei, claim.reference_id_hash, claim.deadline, claim.signature));
         rememberPendingTx(referenceId, tx.hash);   // so a failed confirm call can be retried without re-sending
 
         if (button) button.textContent = 'Waiting for network…';
@@ -1357,6 +1462,7 @@ async function settleWithWallet({ busyKey, button, idleLabel, fetchClaim, knownR
         forgetPendingTx(referenceId);
         signedClaims.delete(referenceId);
         setNotice(`Moved on-chain. Transaction ${shorten(tx.hash)}`);
+        await autoAddXeraAfterClaim();
         window.open(explorerTx('BNB', tx.hash), '_blank', 'noopener');
         const amt = $('chainClaimAmount'); if (amt) amt.value = '';
     } catch (err) {
@@ -1387,6 +1493,7 @@ async function settleViaRelayer({ busyKey, button, idleLabel, body }) {
         const res = await req(PFX + '/claim/relay', { method: 'POST', body: JSON.stringify({ chain: 'BNB', ...body }) });
         if (res.confirmed) {
             setNotice(`Moved on-chain. Transaction ${shorten(res.transaction_hash)}`);
+            await autoAddXeraAfterClaim();
             window.open(explorerTx('BNB', res.transaction_hash), '_blank', 'noopener');
             const amt = $('chainClaimAmount'); if (amt) amt.value = '';
         } else {
@@ -1482,7 +1589,7 @@ async function claimLegacyMigration() {
         const entry = providers[0];
         if (!entry) throw userError('No browser wallet detected. Open this page in a wallet-enabled browser to confirm the transaction.');
         state.providerChainId = await readChainId(entry.provider, entry.chainId);
-        if (state.network && state.providerChainId !== state.network.chain_id) {
+        if (state.network && Number(state.providerChainId) !== Number(state.network.chain_id)) {
             throw userError(`Wrong network. Please switch your wallet to ${state.network.name} before continuing.`);
         }
         const { claim } = await req(PFX + '/migration/claim/prepare', { method: 'POST', body: JSON.stringify({ chain: 'BNB' }) });
@@ -1491,7 +1598,7 @@ async function claimLegacyMigration() {
         const abi = 'function claim(uint256 leafIndex,address account,uint256 amount,bytes32[] proof)';
         const contract = new Contract(claim.contract_address, [abi], signer);
         const account = await signer.getAddress();
-        const tx = await contract.claim(claim.leaf_index, account, claim.amount_wei, claim.merkle_proof);
+        const tx = await withWalletRedirect(entry, () => contract.claim(claim.leaf_index, account, claim.amount_wei, claim.merkle_proof));
         await tx.wait();
         await req(PFX + '/migration/claim/confirm', { method: 'POST', body: JSON.stringify({ chain: 'BNB', transaction_hash: tx.hash }) });
         await loadMigrationStatus();
@@ -1558,7 +1665,7 @@ function initChainPanel() {
     if (CFG.autoOpen) openChainTab();
     returnToWalletScreen();
     // Back from the wallet app without a reload (tab was only in the background): finish the link too.
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && linkPendingFresh()) { nudgeAppKitConnection(); resumePendingBnbLink(); } });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') nudgeAppKitConnection(); if (document.visibilityState === 'visible' && linkPendingFresh()) { nudgeAppKitConnection(); resumePendingBnbLink(); } });
 }
 
 if (document.readyState === 'loading') {
